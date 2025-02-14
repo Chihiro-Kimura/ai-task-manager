@@ -6,27 +6,62 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import EditTaskForm from './EditTaskForm';
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { useSession } from 'next-auth/react';
 
 export default function TaskList() {
-  const { data: tasks, error, isLoading } = useSWR('/api/tasks', fetcher);
+  const { data: session } = useSession();
+  const {
+    data: tasks,
+    error,
+    isLoading,
+    mutate: mutateTasks,
+  } = useSWR(
+    session?.user?.id ? '/api/tasks' : null,
+    (url) =>
+      fetch(url, {
+        headers: {
+          'X-User-Id': session?.user?.id || '',
+        },
+      }).then((res) => res.json()),
+    {
+      revalidateOnFocus: false,
+      refreshInterval: 0,
+    }
+  );
   const { toast } = useToast();
   const [editingTask, setEditingTask] = useState(null);
 
   // タスク削除ハンドラー
   const handleDeleteTask = async (taskId: string) => {
+    if (!session?.user?.id) return;
     try {
-      const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
-      toast({
-        title: res.ok ? '🗑️ タスク削除' : '❌ エラー',
-        description: res.ok
-          ? 'タスクを削除しました'
-          : 'タスク削除に失敗しました',
-        variant: res.ok ? undefined : 'destructive',
+      console.log('Deleting task:', { taskId, userId: session.user.id }); // デバッグログを追加
+
+      const res = await fetch(`/api/tasks/${taskId}`, { 
+        method: 'DELETE',
+        headers: {
+          'X-User-Id': session.user.id
+        }
       });
-      if (res.ok) mutate('/api/tasks');
-    } catch {
+      
+      const data = await res.json(); // レスポンスデータを取得
+      console.log('Delete response:', data); // デバッグログを追加
+
+      if (res.ok) {
+        await mutateTasks();
+        toast({
+          title: '🗑️ タスク削除',
+          description: 'タスクを削除しました'
+        });
+      } else {
+        toast({
+          title: '❌ エラー',
+          description: data.error || 'タスク削除に失敗しました',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Delete error:', error); // エラーログを追加
       toast({
         title: '❌ エラー',
         description: '通信エラーが発生しました',

@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { mutate } from 'swr';
+import { useSession } from 'next-auth/react';
 
 export default function AddTaskForm() {
+  const { data: session } = useSession();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -16,6 +18,15 @@ export default function AddTaskForm() {
 
   // タスク追加ハンドラー
   const handleAddTask = async () => {
+    if (!session?.user?.id) {
+      toast({
+        title: '❌ エラー',
+        description: '認証情報が見つかりません',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (!title) {
       toast({
         title: '❌ エラー',
@@ -29,11 +40,13 @@ export default function AddTaskForm() {
     try {
       const res = await fetch('/api/tasks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Id': session.user.id
+        },
         body: JSON.stringify({
           title,
           description,
-          userId: 'guest', // 仮のユーザーID（実際は認証から取得）
         }),
       });
 
