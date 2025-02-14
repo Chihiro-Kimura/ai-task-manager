@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { mutate } from 'swr';
+import { useSession } from 'next-auth/react';
 
 interface EditTaskFormProps {
   taskId: string;
@@ -21,17 +22,30 @@ export default function EditTaskForm({
   currentDescription = '',
   onClose,
 }: EditTaskFormProps) {
+  const { data: session } = useSession();
   const [title, setTitle] = useState(currentTitle ?? '');
   const [description, setDescription] = useState(currentDescription ?? '');
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleUpdate = async () => {
+    if (!session?.user?.id) {
+      toast({
+        title: '❌ エラー',
+        description: '認証情報が見つかりません',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': session.user.id,
+        },
         body: JSON.stringify({ title, description }),
       });
       const data = await res.json();
