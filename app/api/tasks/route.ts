@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
+// 🟡 GET メソッド：タスク一覧取得
 export async function GET() {
   try {
     const { data: tasks, error } = await supabase
@@ -16,8 +17,46 @@ export async function GET() {
         { status: 500 }
       );
     }
-
     return NextResponse.json(tasks);
+  } catch (error: any) {
+    console.error('🚨 サーバーエラー:', error.message);
+    return NextResponse.json(
+      { error: 'サーバーエラー', details: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+// 🟢 POST メソッド：タスク追加
+export async function POST(req: Request) {
+  try {
+    const { title, description, userId } = await req.json();
+    if (!title) {
+      return NextResponse.json(
+        { error: 'タイトルは必須です' },
+        { status: 400 }
+      );
+    }
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'ユーザーIDは必須です' },
+        { status: 400 }
+      );
+    }
+
+    const { error } = await supabase
+      .from('tasks')
+      .insert([{ title, description, userId }]);
+
+    if (error) {
+      console.error('🚨 Supabase 挿入エラー:', error.message);
+      return NextResponse.json(
+        { error: `挿入エラー: ${error.message}` },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ message: '✅ タスクが追加されました' });
   } catch (error: any) {
     console.error('🚨 サーバーエラー:', error.message);
     return NextResponse.json(
