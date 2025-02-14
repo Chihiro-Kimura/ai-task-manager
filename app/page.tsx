@@ -18,13 +18,15 @@ export default function Home() {
   }
 
   return (
-    <div>
+    <div className="min-h-screen bg-black">
       <Header />
-      <main className="flex flex-col items-center justify-center min-h-screen p-6">
-        <h1 className="text-3xl font-bold mb-6">AIタスク管理アプリ</h1>
+      <main className="container mx-auto flex flex-col items-center justify-start px-4 py-8">
+        <h1 className="text-3xl font-bold mb-8 text-zinc-100">
+          AIタスク管理アプリ
+        </h1>
 
         {/* タスク追加フォーム */}
-        <div className="mb-8 w-full max-w-md">
+        <div className="mb-8 w-full max-w-md space-y-4">
           <AddTaskForm />
         </div>
 

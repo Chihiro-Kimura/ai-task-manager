@@ -7,9 +7,9 @@ export default function LogoutButton() {
     <Button
       onClick={() => signOut({ callbackUrl: '/auth/signin' })}
       variant="ghost"
-      className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+      className="text-zinc-400 hover:bg-zinc-800 hover:text-zinc-50"
     >
-      <LogOut size={18} />
+      <LogOut className="mr-2 h-4 w-4" />
       ログアウト
     </Button>
   );
