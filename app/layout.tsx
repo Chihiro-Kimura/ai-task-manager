@@ -1,5 +1,6 @@
 // src/app/layout.tsx
 import '@/styles/globals.css';
+import { Providers } from './providers';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata = {
@@ -15,9 +16,10 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className="bg-gray-100 text-gray-900">
-        {children}
-        {/* トースト通知を全体に設置 */}
-        <Toaster />
+        <Providers>
+          {children}
+          <Toaster />
+        </Providers>
       </body>
     </html>
   );
