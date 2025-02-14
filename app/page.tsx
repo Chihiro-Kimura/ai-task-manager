@@ -26,9 +26,9 @@ export default function Home() {
       const res = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description }),
+        body: JSON.stringify({ title, description, userId: '1' }),
       });
-      const data = await res.json();
+      const data = res.ok ? await res.json() : null;
       if (res.ok) {
         setMessage('✅ タスクが追加されました！');
         setTitle('');
@@ -36,7 +36,7 @@ export default function Home() {
         // 🌀 useSWRのキャッシュを更新して即時反映
         mutate('/api/tasks');
       } else {
-        setMessage(`❌ エラー: ${data.error || 'タスク追加に失敗しました'}`);
+        setMessage(`❌ エラー: ${data?.error ?? 'タスク追加に失敗しました'}`);
       }
     } catch (error) {
       console.error('APIリクエストエラー:', error);
