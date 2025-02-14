@@ -1,40 +1,25 @@
+// src/app/api/tasks/route.ts
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
-// Supabaseクライアント設定
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
-
-export async function POST(req: Request) {
+export async function GET() {
   try {
-    const { title, description, userId } = await req.json();
-    if (!title) {
+    const { data: tasks, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .order('createdAt', { ascending: false });
+
+    if (error) {
+      console.error('🚨 Supabase エラー:', error.message);
       return NextResponse.json(
-        { error: 'タイトルは必須です' },
-        { status: 400 }
+        { error: `DBエラー: ${error.message}` },
+        { status: 500 }
       );
     }
 
-    const { data, error } = await supabase
-      .from('tasks')
-      .insert([
-        {
-          title,
-          description,
-          userId: userId || 'guest',
-          updatedAt: new Date().toISOString(),
-        },
-      ]);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return NextResponse.json({ message: 'タスクが追加されました', data });
+    return NextResponse.json(tasks);
   } catch (error: any) {
-    console.error('🚨 タスク追加エラー:', error.message);
+    console.error('🚨 サーバーエラー:', error.message);
     return NextResponse.json(
       { error: 'サーバーエラー', details: error.message },
       { status: 500 }
