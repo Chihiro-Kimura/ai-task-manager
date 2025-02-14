@@ -1,50 +1,69 @@
+// src/components/AddTaskForm.tsx
 'use client';
 
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
 import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { mutate } from 'swr';
 
 export default function AddTaskForm() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
-  const handleSubmit = async () => {
+  // タスク追加ハンドラー
+  const handleAddTask = async () => {
     if (!title) {
-      setMessage('タイトルを入力してください');
+      toast({
+        title: '❌ エラー',
+        description: 'タイトルは必須です',
+        variant: 'destructive',
+      });
       return;
     }
-    setIsLoading(true);
-    setMessage('');
 
+    setIsLoading(true);
     try {
       const res = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description }),
+        body: JSON.stringify({
+          title,
+          description,
+          userId: 'guest', // 仮のユーザーID（実際は認証から取得）
+        }),
       });
-      const data = await res.json();
 
+      const data = await res.json();
       if (res.ok) {
-        setMessage('✅ タスクが追加されました！');
+        toast({ title: '✅ 成功', description: 'タスクが追加されました！' });
         setTitle('');
         setDescription('');
+        mutate('/api/tasks'); // 一覧を即時更新
       } else {
-        setMessage(`❌ エラー: ${data.error || 'タスク追加に失敗しました'}`);
+        toast({
+          title: '❌ エラー',
+          description: data.error || 'タスク追加に失敗しました',
+          variant: 'destructive',
+        });
       }
     } catch (error) {
-      console.error('APIリクエストエラー:', error);
-      setMessage('❌ エラー: ネットワークエラーが発生しました');
+      toast({
+        title: '❌ エラー',
+        description: 'ネットワークエラーが発生しました',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col gap-4 p-4 bg-white rounded-lg shadow-md">
-      <h2 className="text-xl font-bold">📝 タスク追加フォーム</h2>
+    <div className="p-4 bg-white rounded-lg shadow-md">
+      <h2 className="text-xl font-bold mb-4">📝 タスク追加</h2>
       <Input
         placeholder="タイトルを入力"
         value={title}
@@ -54,23 +73,15 @@ export default function AddTaskForm() {
         placeholder="詳細を入力"
         value={description}
         onChange={(e) => setDescription(e.target.value)}
+        className="mt-2"
       />
       <Button
-        onClick={handleSubmit}
+        onClick={handleAddTask}
         disabled={isLoading}
-        className="bg-green-500 text-white"
+        className="mt-4 w-full bg-green-500 text-white"
       >
         {isLoading ? '追加中...' : 'タスクを追加'}
       </Button>
-      {message && (
-        <p
-          className={`text-sm ${
-            message.includes('✅') ? 'text-green-500' : 'text-red-500'
-          }`}
-        >
-          {message}
-        </p>
-      )}
     </div>
   );
 }

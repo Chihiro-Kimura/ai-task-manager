@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
-// 🟡 GET メソッド：タスク一覧取得
+// 🟡 GETメソッド: タスク一覧取得
 export async function GET() {
   try {
     const { data: tasks, error } = await supabase
@@ -27,19 +27,13 @@ export async function GET() {
   }
 }
 
-// 🟢 POST メソッド：タスク追加
+// 🟢 POSTメソッド: タスク追加
 export async function POST(req: Request) {
   try {
     const { title, description, userId } = await req.json();
-    if (!title) {
+    if (!title || !userId) {
       return NextResponse.json(
-        { error: 'タイトルは必須です' },
-        { status: 400 }
-      );
-    }
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'ユーザーIDは必須です' },
+        { error: 'タイトルとユーザーIDは必須です' },
         { status: 400 }
       );
     }
