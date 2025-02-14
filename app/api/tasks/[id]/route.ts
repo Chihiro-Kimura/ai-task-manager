@@ -2,12 +2,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
-// ✅ Next.js App Router対応: params取得をasyncに修正
 export async function DELETE(
   request: NextRequest,
   context: { params: { id?: string } }
 ) {
-  // paramsを非同期で取得
   const { id } = await context.params;
 
   if (!id) {
@@ -17,7 +15,6 @@ export async function DELETE(
 
   console.log(`🗑️ 削除対象タスクID: ${id}`);
 
-  // Supabaseからタスクを削除
   const { error } = await supabase.from('tasks').delete().eq('id', id);
 
   if (error) {
@@ -30,4 +27,41 @@ export async function DELETE(
 
   console.log('✅ タスクが削除されました:', id);
   return NextResponse.json({ message: '✅ タスクが削除されました' });
+}
+
+export async function PATCH(
+  request: NextRequest,
+  context: { params: { id?: string } }
+) {
+  const { id } = await context.params;
+
+  if (!id) {
+    return NextResponse.json({ error: 'タスクIDは必須です' }, { status: 400 });
+  }
+
+  try {
+    const { title, description } = await request.json();
+
+    const { error } = await supabase
+      .from('tasks')
+      .update({ title, description, updatedAt: new Date() })
+      .eq('id', id);
+
+    if (error) {
+      console.error('🚨 Supabase 更新エラー:', error.message);
+      return NextResponse.json(
+        { error: `更新エラー: ${error.message}` },
+        { status: 500 }
+      );
+    }
+
+    console.log(`✅ タスク ${id} が更新されました`);
+    return NextResponse.json({ message: '✅ タスクが更新されました' });
+  } catch (error: any) {
+    console.error('🚨 サーバーエラー:', error.message);
+    return NextResponse.json(
+      { error: 'サーバーエラー', details: error.message },
+      { status: 500 }
+    );
+  }
 }
