@@ -7,8 +7,11 @@ import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { mutate } from 'swr';
+import { useSession } from 'next-auth/react';
+import { PlusCircle } from 'lucide-react';
 
 export default function AddTaskForm() {
+  const { data: session } = useSession();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -16,6 +19,15 @@ export default function AddTaskForm() {
 
   // タスク追加ハンドラー
   const handleAddTask = async () => {
+    if (!session?.user?.id) {
+      toast({
+        title: '❌ エラー',
+        description: '認証情報が見つかりません',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (!title) {
       toast({
         title: '❌ エラー',
@@ -29,11 +41,13 @@ export default function AddTaskForm() {
     try {
       const res = await fetch('/api/tasks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Id': session.user.id
+        },
         body: JSON.stringify({
           title,
           description,
-          userId: 'guest', // 仮のユーザーID（実際は認証から取得）
         }),
       });
 
@@ -62,24 +76,26 @@ export default function AddTaskForm() {
   };
 
   return (
-    <div className="p-4 bg-white rounded-lg shadow-md">
-      <h2 className="text-xl font-bold mb-4">📝 タスク追加</h2>
+    <div className="p-4 border border-zinc-800 bg-zinc-950 rounded-lg">
+      <h2 className="text-xl font-semibold mb-4 text-zinc-100">新規タスク</h2>
       <Input
         placeholder="タイトルを入力"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
+        className="bg-zinc-900 border-zinc-800 text-zinc-100"
       />
       <Textarea
         placeholder="詳細を入力"
         value={description}
         onChange={(e) => setDescription(e.target.value)}
-        className="mt-2"
+        className="mt-2 bg-zinc-900 border-zinc-800 text-zinc-100"
       />
       <Button
         onClick={handleAddTask}
         disabled={isLoading}
-        className="mt-4 w-full bg-green-500 text-white"
+        className="mt-4 w-full"
       >
+        <PlusCircle className="mr-2 h-4 w-4" />
         {isLoading ? '追加中...' : 'タスクを追加'}
       </Button>
     </div>
