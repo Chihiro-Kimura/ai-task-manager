@@ -1,4 +1,3 @@
-// src/components/EditTaskForm.tsx
 'use client';
 
 import { useState } from 'react';
@@ -8,11 +7,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { mutate } from 'swr';
 import { useSession } from 'next-auth/react';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
 
 interface EditTaskFormProps {
   taskId: string;
   currentTitle: string;
   currentDescription?: string;
+  currentPriority?: string;
   onClose: () => void;
 }
 
@@ -20,11 +27,13 @@ export default function EditTaskForm({
   taskId,
   currentTitle,
   currentDescription = '',
+  currentPriority = '',
   onClose,
 }: EditTaskFormProps) {
   const { data: session } = useSession();
-  const [title, setTitle] = useState(currentTitle ?? '');
-  const [description, setDescription] = useState(currentDescription ?? '');
+  const [title, setTitle] = useState(currentTitle);
+  const [description, setDescription] = useState(currentDescription);
+  const [priority, setPriority] = useState(currentPriority);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -38,17 +47,32 @@ export default function EditTaskForm({
       return;
     }
 
+    if (!priority) {
+      toast({
+        title: 'エラー',
+        description: '優先度を選択してください',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
+      // デバッグ用のログを追加
+      console.log('Updating task with data:', { title, description, priority });
+
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'X-User-Id': session.user.id,
         },
-        body: JSON.stringify({ title, description }),
+        body: JSON.stringify({ title, description, priority }),
       });
+
       const data = await res.json();
+      // デバッグ用のログを追加
+      console.log('Update response:', data);
 
       if (res.ok) {
         toast({
@@ -92,6 +116,48 @@ export default function EditTaskForm({
           placeholder="詳細"
           className="mb-4 bg-zinc-900/50 border-zinc-800 text-slate-100 placeholder:text-zinc-400"
         />
+        <div className="mb-4">
+          <div className="text-zinc-400 mb-2">優先度 : </div>
+          <Select value={priority} onValueChange={setPriority}>
+            <SelectTrigger className="w-full bg-zinc-950 border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700 transition-colors text-slate-100">
+              <SelectValue>
+                <span
+                  className={
+                    priority === '高'
+                      ? 'text-rose-500'
+                      : priority === '中'
+                      ? 'text-amber-500'
+                      : priority === '低'
+                      ? 'text-emerald-500'
+                      : 'text-slate-400'
+                  }
+                >
+                  {priority}
+                </span>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent className="bg-zinc-950 border-zinc-800">
+              <SelectItem
+                value="高"
+                className="text-rose-500 hover:text-rose-400 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-rose-400"
+              >
+                高
+              </SelectItem>
+              <SelectItem
+                value="中"
+                className="text-amber-500 hover:text-amber-400 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-amber-400"
+              >
+                中
+              </SelectItem>
+              <SelectItem
+                value="低"
+                className="text-emerald-500 hover:text-emerald-400 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-emerald-400"
+              >
+                低
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <div className="flex justify-end gap-2">
           <Button
             onClick={onClose}
