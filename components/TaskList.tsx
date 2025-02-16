@@ -102,19 +102,19 @@ export default function TaskList() {
             setSortBy(value as 'priority' | 'createdAt')
           }
         >
-          <SelectTrigger className="w-[200px] bg-zinc-950 border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700 transition-colors [&_span]:text-zinc-400">
+          <SelectTrigger className="w-[200px] bg-zinc-950 border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700 transition-colors [&_span]:text-slate-400">
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="bg-zinc-950 border-zinc-800">
             <SelectItem
               value="priority"
-              className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-zinc-100"
+              className="text-slate-400 hover:text-slate-100 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-slate-100"
             >
               優先度順
             </SelectItem>
             <SelectItem
               value="createdAt"
-              className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-zinc-100"
+              className="text-slate-400 hover:text-slate-100 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-slate-100"
             >
               追加順
             </SelectItem>
@@ -129,12 +129,25 @@ export default function TaskList() {
             className="p-4 border border-zinc-800 bg-zinc-900/50 rounded-lg flex justify-between items-center hover:bg-zinc-900 transition-colors"
           >
             <div className="space-y-1.5">
-              <strong className="text-zinc-100 font-semibold">{title}</strong>
-              <p className="text-sm text-zinc-400">
+              <strong className="text-slate-100 font-semibold">{title}</strong>
+              <p className="text-sm text-slate-400">
                 {description || '詳細なし'}
               </p>
-              <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full bg-zinc-950 border border-zinc-800 text-zinc-100">
-                優先度: {priority || '未設定'}
+              <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full bg-zinc-950 border border-zinc-800">
+                <span className="text-zinc-400">優先度 : </span>
+                <span
+                  className={`ml-1 ${
+                    priority === '高'
+                      ? 'text-rose-500 font-semibold'
+                      : priority === '中'
+                      ? 'text-amber-500 font-medium'
+                      : priority === '低'
+                      ? 'text-emerald-500'
+                      : 'text-zinc-400'
+                  }`}
+                >
+                  {priority || '未設定'}
+                </span>
               </span>
             </div>
 
@@ -143,7 +156,7 @@ export default function TaskList() {
                 onClick={() => setEditingTask({ id, title, description })}
                 variant="ghost"
                 size="sm"
-                className="hover:bg-blue-900/20 hover:text-blue-400 text-zinc-400"
+                className="hover:bg-slate-900/20 hover:text-slate-400 text-zinc-400"
               >
                 <Pencil className="h-4 w-4" />
               </Button>
