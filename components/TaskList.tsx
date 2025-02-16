@@ -1,7 +1,7 @@
 // src/components/TaskList.tsx
 'use client';
 
-import useSWR, { mutate } from 'swr';
+import useSWR from 'swr';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
@@ -9,16 +9,25 @@ import EditTaskForm from './EditTaskForm';
 import { useSession } from 'next-auth/react';
 import { ListTodo, Pencil, Trash2 } from 'lucide-react';
 import { CheckIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export default function TaskList() {
   const { data: session } = useSession();
+  const [sortBy, setSortBy] = useState<'priority' | 'createdAt'>('priority');
+
   const {
     data: tasks,
     error,
     isLoading,
     mutate: mutateTasks,
   } = useSWR(
-    session?.user?.id ? '/api/tasks' : null,
+    session?.user?.id ? `/api/tasks?sortBy=${sortBy}` : null,
     (url) =>
       fetch(url, {
         headers: {
@@ -82,32 +91,67 @@ export default function TaskList() {
         <ListTodo className="h-5 w-5" />
         タスク一覧
       </h2>
-      <ul className="space-y-2">
-        {tasks.map(({ id, title, description }) => (
+
+      <div className="mb-4">
+        <label className="text-sm font-medium text-zinc-400 mr-2">
+          並び順:
+        </label>
+        <Select
+          value={sortBy}
+          onValueChange={(value) =>
+            setSortBy(value as 'priority' | 'createdAt')
+          }
+        >
+          <SelectTrigger className="w-[200px] bg-zinc-950 border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700 transition-colors [&_span]:text-zinc-400">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-zinc-950 border-zinc-800">
+            <SelectItem
+              value="priority"
+              className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-zinc-100"
+            >
+              優先度順
+            </SelectItem>
+            <SelectItem
+              value="createdAt"
+              className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-zinc-100"
+            >
+              追加順
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <ul className="space-y-3">
+        {tasks.map(({ id, title, description, priority }) => (
           <li
             key={id}
-            className="p-3 border border-zinc-800 bg-zinc-900 rounded-md flex justify-between items-center"
+            className="p-4 border border-zinc-800 bg-zinc-900/50 rounded-lg flex justify-between items-center hover:bg-zinc-900 transition-colors"
           >
-            <div>
-              <strong className="text-zinc-100">{title}</strong>
+            <div className="space-y-1.5">
+              <strong className="text-zinc-100 font-semibold">{title}</strong>
               <p className="text-sm text-zinc-400">
                 {description || '詳細なし'}
               </p>
+              <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full bg-zinc-950 border border-zinc-800 text-zinc-100">
+                優先度: {priority || '未設定'}
+              </span>
             </div>
+
             <div className="flex gap-2">
               <Button
                 onClick={() => setEditingTask({ id, title, description })}
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="border-zinc-700"
+                className="hover:bg-blue-900/20 hover:text-blue-400 text-zinc-400"
               >
                 <Pencil className="h-4 w-4" />
               </Button>
               <Button
                 onClick={() => handleDeleteTask(id)}
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="border-zinc-700 hover:bg-red-900 hover:text-red-100"
+                className="hover:bg-red-900/20 hover:text-red-400 text-zinc-400"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
