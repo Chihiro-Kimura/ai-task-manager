@@ -41,10 +41,8 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const { title, description } = await request.json();
+    const { title, description, priority, status } = await request.json();
     const userId = request.headers.get('X-User-Id');
-
-    console.log('Update request:', { id, userId, title, description });
 
     // タスクの存在確認
     const { data: existingTask, error: checkError } = await supabase
@@ -54,52 +52,43 @@ export async function PATCH(
       .eq('id', id)
       .single();
 
-    console.log('Existing task:', existingTask);
-    console.log('Check error:', checkError);
-
     if (!existingTask) {
       return NextResponse.json(
-        { 
-          error: 'タスクが見つかりません',
-          details: { id, userId, checkError }
-        },
+        { error: 'タスクが見つかりません' },
         { status: 404 }
       );
     }
 
+    const updateData: any = {
+      updatedAt: new Date().toISOString(),
+    };
+
+    // 各フィールドが存在する場合のみ更新データに追加
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (priority !== undefined) updateData.priority = priority;
+    if (status !== undefined) updateData.status = status;
+
     const { error } = await supabase
       .from('tasks')
-      .update({ 
-        title, 
-        description, 
-        updatedAt: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('userId', userId)
       .eq('id', id);
 
     if (error) {
-      console.error('Update error:', error);
       return NextResponse.json(
         { error: `更新エラー: ${error.message}` },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: '✅ タスクが更新されました',
-      updatedTask: { ...existingTask, title, description }
+      updatedTask: { ...existingTask, ...updateData },
     });
   } catch (error: any) {
-    console.error('Server error:', error);
     return NextResponse.json(
-      { 
-        error: 'サーバーエラー', 
-        details: error.message,
-        requestInfo: { 
-          id: params.id, 
-          userId: request.headers.get('X-User-Id') 
-        }
-      },
+      { error: 'サーバーエラー', details: error.message },
       { status: 500 }
     );
   }
@@ -131,7 +120,7 @@ export async function DELETE(
       return NextResponse.json(
         {
           error: 'タスクが見つかりません',
-          details: { id, userId, checkError }
+          details: { id, userId, checkError },
         },
         { status: 404 }
       );
@@ -153,7 +142,7 @@ export async function DELETE(
 
     return NextResponse.json({
       message: '✅ タスクが削除されました',
-      deletedTask: existingTask
+      deletedTask: existingTask,
     });
   } catch (error: any) {
     console.error('Server error:', error);
@@ -161,7 +150,7 @@ export async function DELETE(
       {
         error: 'サーバーエラー',
         details: error.message,
-        requestInfo: { id, userId: request.headers.get('X-User-Id') }
+        requestInfo: { id, userId: request.headers.get('X-User-Id') },
       },
       { status: 500 }
     );
@@ -172,4 +161,5 @@ export async function DELETE(
 interface UpdateTaskRequest {
   title: string;
   description: string;
+  priority: string;
 }
