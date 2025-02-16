@@ -29,18 +29,14 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black">
       <Header />
-      <main className="container mx-auto flex flex-col items-center justify-start px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8 text-zinc-100">
-          AIタスク管理アプリ
-        </h1>
-
-        {/* タスク追加フォームとタスク一覧を同じ幅のコンテナで囲む */}
-        <div className="w-full max-w-md space-y-8">
-          {/* タスク追加フォーム */}
-          <AddTaskForm sortBy={sortBy} />
-
-          {/* タスク一覧 */}
-          <TaskList sortBy={sortBy} setSortBy={setSortBy} />
+      <main className="container mx-auto p-4 md:p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-1">
+            <AddTaskForm sortBy={sortBy} />
+          </div>
+          <div className="md:col-span-2">
+            <TaskList />
+          </div>
         </div>
       </main>
     </div>

@@ -41,8 +41,8 @@ export default function TaskList() {
       return res.json();
     },
     {
-      revalidateOnFocus: false,
-      refreshInterval: 0,
+      revalidateOnFocus: true,
+      refreshInterval: 1000,
     }
   );
 
@@ -140,17 +140,18 @@ export default function TaskList() {
         body: JSON.stringify({ status: newStatus }),
       });
 
-      if (!res.ok) {
+      if (res.ok) {
+        // 即時に再検証
+        await mutateTasks();
+
+        toast({
+          title: 'ステータス更新',
+          description: `タスクを${newStatus}に変更しました`,
+          icon: <CheckIcon className="h-4 w-4 text-zinc-100" />,
+        });
+      } else {
         throw new Error('ステータスの更新に失敗しました');
       }
-
-      await mutateTasks(); // データを再取得
-
-      toast({
-        title: 'ステータス更新',
-        description: `タスクを${newStatus}に変更しました`,
-        icon: <CheckIcon className="h-4 w-4 text-zinc-100" />,
-      });
     } catch (error) {
       console.error('Status update error:', error);
       toast({
@@ -190,13 +191,13 @@ export default function TaskList() {
   }
 
   return (
-    <div className="p-4 border border-zinc-800 bg-zinc-950 rounded-lg">
-      <h2 className="flex items-center gap-2 text-xl font-semibold mb-4 text-zinc-100">
+    <div className="p-4 border border-zinc-800 bg-zinc-950 rounded-lg min-h-[80vh] max-h-[85vh] flex flex-col">
+      <h2 className="flex items-center gap-2 text-xl font-semibold mb-2 text-zinc-100">
         <ListTodo className="h-5 w-5" />
         タスク一覧
       </h2>
 
-      <div className="flex gap-4 mb-4">
+      <div className="flex gap-4 mb-2">
         <div>
           <label className="text-sm font-medium text-zinc-400 mr-2">
             並び順 :
@@ -264,15 +265,15 @@ export default function TaskList() {
         </div>
       </div>
 
-      <ul className="space-y-3">
+      <ul className="space-y-2 overflow-y-auto flex-grow pr-2">
         {tasks.map(({ id, title, description, priority, status }) => (
           <li
             key={id}
-            className={`p-4 border border-zinc-800 bg-zinc-900/50 rounded-lg flex justify-between items-center hover:bg-zinc-900 transition-colors ${
+            className={`p-2 border border-zinc-800 bg-zinc-900/50 rounded-lg flex justify-between items-start hover:bg-zinc-900 transition-colors ${
               status === '完了' ? 'opacity-60' : ''
             }`}
           >
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <Button
                   onClick={() => handleToggleStatus(id, status)}
@@ -285,9 +286,9 @@ export default function TaskList() {
                   }`}
                 >
                   {status === '完了' ? (
-                    <CheckIcon className="h-5 w-5" />
+                    <CheckIcon className="h-4 w-4" />
                   ) : (
-                    <div className="h-5 w-5 border-2 border-current rounded-full" />
+                    <div className="h-4 w-4 border-2 border-current rounded-full" />
                   )}
                 </Button>
                 <strong
@@ -298,10 +299,10 @@ export default function TaskList() {
                   {title}
                 </strong>
               </div>
-              <p className="text-sm text-slate-400">
-                {description || '詳細なし'}
-              </p>
-              <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full bg-zinc-950 border border-zinc-800">
+              {description && (
+                <p className="text-xs text-slate-400 ml-8">{description}</p>
+              )}
+              <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-950 border border-zinc-800 ml-8">
                 <span className="text-zinc-400">優先度 : </span>
                 <span
                   className={`ml-1 ${
@@ -319,24 +320,24 @@ export default function TaskList() {
               </span>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-1 ml-2">
               <Button
                 onClick={() =>
                   setEditingTask({ id, title, description, priority })
                 }
                 variant="ghost"
                 size="sm"
-                className="hover:bg-blue-900/20 hover:text-blue-400 text-zinc-400"
+                className="hover:bg-blue-900/20 hover:text-blue-400 text-zinc-400 p-1.5"
               >
-                <Pencil className="h-4 w-4" />
+                <Pencil className="h-3.5 w-3.5" />
               </Button>
               <Button
                 onClick={() => handleDeleteTask(id)}
                 variant="ghost"
                 size="sm"
-                className="hover:bg-red-900/20 hover:text-red-400 text-zinc-400"
+                className="hover:bg-red-900/20 hover:text-red-400 text-zinc-400 p-1.5"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
           </li>
