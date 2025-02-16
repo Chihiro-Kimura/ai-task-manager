@@ -41,7 +41,8 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const { title, description, priority, status } = await request.json();
+    const { title, description, priority, status, dueDate } =
+      await request.json();
     const userId = request.headers.get('X-User-Id');
 
     // タスクの存在確認
@@ -68,6 +69,7 @@ export async function PATCH(
     if (description !== undefined) updateData.description = description;
     if (priority !== undefined) updateData.priority = priority;
     if (status !== undefined) updateData.status = status;
+    if (dueDate !== undefined) updateData.due_date = dueDate;
 
     const { error } = await supabase
       .from('tasks')
@@ -157,9 +159,11 @@ export async function DELETE(
   }
 }
 
-// リクエストボディの型定義を追加
+// リクエストボディの型定義を更新
 interface UpdateTaskRequest {
-  title: string;
-  description: string;
-  priority: string;
+  title?: string;
+  description?: string;
+  priority?: string;
+  status?: string;
+  dueDate?: string;
 }

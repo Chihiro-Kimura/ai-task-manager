@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { title, description, priority } = await request.json();
+    const { title, description, priority, dueDate } = await request.json();
     if (!title) {
       return NextResponse.json(
         { error: 'タイトルは必須です' },
@@ -64,6 +64,8 @@ export async function POST(request: NextRequest) {
           title,
           description,
           priority,
+          due_date: dueDate,
+          status: '未完了',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
