@@ -16,6 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
+import { ja } from 'date-fns/locale';
 
 type AddTaskFormProps = {
   sortBy: 'priority' | 'createdAt';
@@ -28,6 +37,7 @@ export default function AddTaskForm({ sortBy }: AddTaskFormProps) {
   const [priority, setPriority] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
 
   // タスク追加ハンドラー
   const handleAddTask = async () => {
@@ -74,12 +84,10 @@ export default function AddTaskForm({ sortBy }: AddTaskFormProps) {
           description,
           priority,
           status: '未完了',
+
+          dueDate: dueDate?.toISOString(),
         }),
       });
-
-      const data = await res.json();
-      // デバッグ用のログを追加
-      console.log('Response data:', data);
 
       if (res.ok) {
         toast({
@@ -89,12 +97,16 @@ export default function AddTaskForm({ sortBy }: AddTaskFormProps) {
         });
         setTitle('');
         setDescription('');
-        setPriority('');
-        mutate(`/api/tasks?sortBy=${sortBy}`);
+
+        setPriority('中');
+
+        // グローバルにSWRのキャッシュを更新
+        await mutate('/api/tasks');
+
       } else {
         toast({
           title: 'エラー',
-          description: data.error || 'タスク追加に失敗しました',
+          description: 'タスク追加に失敗しました',
           variant: 'destructive',
         });
       }
@@ -121,7 +133,7 @@ export default function AddTaskForm({ sortBy }: AddTaskFormProps) {
   }
 
   return (
-    <div className="p-4 border border-zinc-800 bg-zinc-950 rounded-lg">
+    <div className="p-4 border border-zinc-800 bg-zinc-950 rounded-lg relative">
       <h2 className="text-xl font-semibold mb-4 text-zinc-100">新規タスク</h2>
       <Input
         placeholder="タイトルを入力"
@@ -175,6 +187,38 @@ export default function AddTaskForm({ sortBy }: AddTaskFormProps) {
           </SelectItem>
         </SelectContent>
       </Select>
+      <div className="mt-4">
+        <label className="text-sm font-medium text-zinc-400 block mb-2">
+          締切日
+        </label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={`w-full justify-start text-left font-normal bg-zinc-950 border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700 ${
+                !dueDate && 'text-slate-400'
+              }`}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {dueDate
+                ? format(dueDate, 'yyyy年MM月dd日', { locale: ja })
+                : '締切日を選択'}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-auto p-0 bg-zinc-950 border border-zinc-800"
+            align="start"
+          >
+            <Calendar
+              mode="single"
+              selected={dueDate}
+              onSelect={setDueDate}
+              className="rounded-md border border-zinc-800 bg-zinc-950 text-zinc-400"
+              locale={ja}
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
       <Button
         onClick={handleAddTask}
         disabled={isLoading}
