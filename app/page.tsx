@@ -5,11 +5,9 @@ import { redirect } from 'next/navigation';
 import AddTaskForm from '@/components/AddTaskForm';
 import TaskList from '@/components/TaskList';
 import Header from '@/components/Header';
-import { useState } from 'react';
 
 export default function Home() {
   const { data: session, status } = useSession();
-  const [sortBy, setSortBy] = useState<'priority' | 'createdAt'>('priority');
 
   if (status === 'loading') {
     return (
@@ -32,7 +30,7 @@ export default function Home() {
       <main className="container mx-auto p-4 md:p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1">
-            <AddTaskForm sortBy={sortBy} />
+            <AddTaskForm />
           </div>
           <div className="md:col-span-2">
             <TaskList />

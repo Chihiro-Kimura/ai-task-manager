@@ -67,8 +67,21 @@ export default function TaskList() {
       });
     }
 
+    filteredData.sort((a, b) => {
+      if (sortBy === 'priority') {
+        const priorityOrder = { 高: 3, 中: 2, 低: 1 };
+        return (
+          (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0)
+        );
+      } else {
+        return (
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      }
+    });
+
     return filteredData;
-  }, [response, statusFilter, dueDateFilter]);
+  }, [response, statusFilter, dueDateFilter, sortBy]);
 
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState />;

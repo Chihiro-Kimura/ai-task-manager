@@ -14,12 +14,14 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
+import DueDatePicker from '@/components/DueDatePicker';
 
 interface EditTaskFormProps {
   taskId: string;
   currentTitle: string;
   currentDescription?: string;
   currentPriority?: string;
+  currentDueDate?: string;
   onClose: () => void;
 }
 
@@ -28,12 +30,16 @@ export default function EditTaskForm({
   currentTitle,
   currentDescription = '',
   currentPriority = '',
+  currentDueDate = '',
   onClose,
 }: EditTaskFormProps) {
   const { data: session } = useSession();
   const [title, setTitle] = useState(currentTitle);
   const [description, setDescription] = useState(currentDescription);
   const [priority, setPriority] = useState(currentPriority);
+  const [dueDate, setDueDate] = useState<Date | undefined>(
+    currentDueDate ? new Date(currentDueDate) : undefined
+  );
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -59,7 +65,12 @@ export default function EditTaskForm({
     setIsLoading(true);
     try {
       // デバッグ用のログを追加
-      console.log('Updating task with data:', { title, description, priority });
+      console.log('Updating task with data:', {
+        title,
+        description,
+        priority,
+        dueDate,
+      });
 
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
@@ -67,7 +78,12 @@ export default function EditTaskForm({
           'Content-Type': 'application/json',
           'X-User-Id': session.user.id,
         },
-        body: JSON.stringify({ title, description, priority }),
+        body: JSON.stringify({
+          title,
+          description,
+          priority,
+          dueDate: dueDate?.toISOString() ?? null,
+        }),
       });
 
       const data = await res.json();
@@ -158,6 +174,11 @@ export default function EditTaskForm({
             </SelectContent>
           </Select>
         </div>
+        <DueDatePicker
+          dueDate={dueDate}
+          setDueDate={setDueDate}
+          className="mb-4"
+        />
         <div className="flex justify-end gap-2">
           <Button
             onClick={onClose}

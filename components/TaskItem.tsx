@@ -8,6 +8,8 @@ import { Pencil, Trash2, CalendarIcon } from 'lucide-react';
 import { CheckIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import { format, isPast, isToday } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { useState } from 'react';
+import EditTaskForm from '@/components/EditTaskForm';
 
 interface TaskItemProps {
   task: {
@@ -24,6 +26,7 @@ interface TaskItemProps {
 export default function TaskItem({ task, onMutate }: TaskItemProps) {
   const { data: session } = useSession();
   const { toast } = useToast();
+  const [isEditing, setIsEditing] = useState(false);
 
   const handleToggleStatus = async () => {
     const newStatus = task.status === '完了' ? '未完了' : '完了';
@@ -86,82 +89,96 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
     }
   };
 
+  const handleEditClick = () => {
+    setIsEditing(true);
+  };
+
   return (
-    <li
-      className={`p-2 border border-zinc-800 bg-zinc-900/50 rounded-lg flex justify-between items-start hover:bg-zinc-900 transition-colors ${
-        task.status === '完了' ? 'opacity-60' : ''
-      }`}
-    >
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <Checkbox
-            checked={task.status === '完了'}
-            onCheckedChange={handleToggleStatus}
-            className="border-zinc-700 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-          />
-          <h3
-            className={`text-zinc-100 ${
-              task.status === '完了' ? 'line-through text-zinc-500' : ''
-            }`}
-          >
-            {task.title}
-          </h3>
-        </div>
-        {task.description && (
-          <p className="text-sm text-zinc-400 ml-8">{task.description}</p>
-        )}
-        <div className="flex items-center gap-2 ml-8">
-          <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-950 border border-zinc-800">
-            <span className="text-zinc-400">優先度 : </span>
-            <span
-              className={`ml-1 ${
-                task.priority === '高'
-                  ? 'text-rose-500 font-semibold'
-                  : task.priority === '中'
-                  ? 'text-amber-500 font-medium'
-                  : 'text-emerald-500'
-              }`}
-            >
-              {task.priority || '未設定'}
-            </span>
-          </span>
-          {task.due_date && (
-            <span
-              className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-950 border border-zinc-800 ${
-                isPast(new Date(task.due_date)) &&
-                !isToday(new Date(task.due_date))
-                  ? 'text-rose-500'
-                  : isToday(new Date(task.due_date))
-                  ? 'text-amber-500'
-                  : 'text-emerald-500'
-              }`}
-            >
-              <CalendarIcon className="mr-1 h-3 w-3" />
-              {format(new Date(task.due_date), 'M/d', { locale: ja })}
-            </span>
-          )}
-        </div>
-      </div>
-      <div className="flex gap-1">
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-8 w-8 border-zinc-800 bg-transparent hover:bg-blue-950 hover:text-blue-400 hover:border-blue-800"
-          onClick={() => {
-            /* 編集機能を実装 */
-          }}
+    <>
+      {isEditing ? (
+        <EditTaskForm
+          taskId={task.id}
+          currentTitle={task.title}
+          currentDescription={task.description}
+          currentPriority={task.priority}
+          onClose={() => setIsEditing(false)}
+        />
+      ) : (
+        <li
+          className={`p-2 border border-zinc-800 bg-zinc-900/50 rounded-lg flex justify-between items-start hover:bg-zinc-900 transition-colors ${
+            task.status === '完了' ? 'opacity-60' : ''
+          }`}
         >
-          <Pencil className="h-4 w-4 text-zinc-400" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-8 w-8 border-zinc-800 bg-transparent hover:bg-rose-950 hover:text-rose-400 hover:border-rose-800"
-          onClick={handleDelete}
-        >
-          <Trash2 className="h-4 w-4 text-zinc-400" />
-        </Button>
-      </div>
-    </li>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={task.status === '完了'}
+                onCheckedChange={handleToggleStatus}
+                className="border-zinc-700 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+              />
+              <h3
+                className={`text-zinc-100 ${
+                  task.status === '完了' ? 'line-through text-zinc-500' : ''
+                }`}
+              >
+                {task.title}
+              </h3>
+            </div>
+            {task.description && (
+              <p className="text-sm text-zinc-400 ml-8">{task.description}</p>
+            )}
+            <div className="flex items-center gap-2 ml-8">
+              <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-950 border border-zinc-800">
+                <span className="text-zinc-400">優先度 : </span>
+                <span
+                  className={`ml-1 ${
+                    task.priority === '高'
+                      ? 'text-rose-500 font-semibold'
+                      : task.priority === '中'
+                      ? 'text-amber-500 font-medium'
+                      : 'text-emerald-500'
+                  }`}
+                >
+                  {task.priority || '未設定'}
+                </span>
+              </span>
+              {task.due_date && (
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-950 border border-zinc-800 ${
+                    isPast(new Date(task.due_date)) &&
+                    !isToday(new Date(task.due_date))
+                      ? 'text-rose-500'
+                      : isToday(new Date(task.due_date))
+                      ? 'text-amber-500'
+                      : 'text-emerald-500'
+                  }`}
+                >
+                  <CalendarIcon className="mr-1 h-3 w-3" />
+                  {format(new Date(task.due_date), 'M/d', { locale: ja })}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 border-zinc-800 bg-transparent hover:bg-blue-950 hover:text-blue-400 hover:border-blue-800"
+              onClick={handleEditClick}
+            >
+              <Pencil className="h-4 w-4 text-zinc-400" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 border-zinc-800 bg-transparent hover:bg-rose-950 hover:text-rose-400 hover:border-rose-800"
+              onClick={handleDelete}
+            >
+              <Trash2 className="h-4 w-4 text-zinc-400" />
+            </Button>
+          </div>
+        </li>
+      )}
+    </>
   );
 }
