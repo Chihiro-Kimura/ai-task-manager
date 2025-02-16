@@ -33,7 +33,7 @@ export default function AddTaskForm({ sortBy }: AddTaskFormProps) {
   const handleAddTask = async () => {
     if (!session?.user?.id) {
       toast({
-        title: '❌ エラー',
+        title: 'エラー',
         description: '認証情報が見つかりません',
         variant: 'destructive',
       });
@@ -42,7 +42,7 @@ export default function AddTaskForm({ sortBy }: AddTaskFormProps) {
 
     if (!title) {
       toast({
-        title: '❌ エラー',
+        title: 'エラー',
         description: 'タイトルは必須です',
         variant: 'destructive',
       });
@@ -66,22 +66,25 @@ export default function AddTaskForm({ sortBy }: AddTaskFormProps) {
 
       const data = await res.json();
       if (res.ok) {
-        toast({ title: '✅ 成功', description: 'タスクが追加されました！' });
+        toast({
+          title: '追加成功',
+          description: 'タスクが追加されました！',
+          variant: 'default',
+        });
         setTitle('');
         setDescription('');
         setPriority('中');
-        // 現在のソート順を考慮してタスク一覧を更新
         mutate(`/api/tasks?sortBy=${sortBy}`);
       } else {
         toast({
-          title: '❌ エラー',
+          title: 'エラー',
           description: data.error || 'タスク追加に失敗しました',
           variant: 'destructive',
         });
       }
     } catch (error) {
       toast({
-        title: '❌ エラー',
+        title: 'エラー',
         description: 'ネットワークエラーが発生しました',
         variant: 'destructive',
       });
@@ -89,6 +92,17 @@ export default function AddTaskForm({ sortBy }: AddTaskFormProps) {
       setIsLoading(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-4 border border-zinc-800 bg-zinc-950 rounded-lg">
+        <div className="text-zinc-400 flex items-center gap-2 justify-center">
+          <div className="w-4 h-4 border-2 border-zinc-600 border-t-zinc-400 rounded-full animate-spin" />
+          <span>追加中...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 border border-zinc-800 bg-zinc-950 rounded-lg">
