@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from 'next-auth/react';
 import { Pencil, Trash2, CalendarIcon } from 'lucide-react';
@@ -93,15 +94,18 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
     >
       <div className="space-y-1">
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-5 px-2 text-xs hover:bg-zinc-800"
-            onClick={handleToggleStatus}
+          <Checkbox
+            checked={task.status === '完了'}
+            onCheckedChange={handleToggleStatus}
+            className="border-zinc-700 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+          />
+          <h3
+            className={`text-zinc-100 ${
+              task.status === '完了' ? 'line-through text-zinc-500' : ''
+            }`}
           >
-            {task.status}
-          </Button>
-          <h3 className="text-zinc-100">{task.title}</h3>
+            {task.title}
+          </h3>
         </div>
         {task.description && (
           <p className="text-sm text-zinc-400 ml-8">{task.description}</p>
@@ -140,22 +144,22 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
       </div>
       <div className="flex gap-1">
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon"
-          className="h-8 w-8 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+          className="h-8 w-8 border-zinc-800 bg-transparent hover:bg-blue-950 hover:text-blue-400 hover:border-blue-800"
           onClick={() => {
             /* 編集機能を実装 */
           }}
         >
-          <Pencil className="h-4 w-4" />
+          <Pencil className="h-4 w-4 text-zinc-400" />
         </Button>
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon"
-          className="h-8 w-8 text-zinc-400 hover:text-rose-400 hover:bg-zinc-800"
+          className="h-8 w-8 border-zinc-800 bg-transparent hover:bg-rose-950 hover:text-rose-400 hover:border-rose-800"
           onClick={handleDelete}
         >
-          <Trash2 className="h-4 w-4" />
+          <Trash2 className="h-4 w-4 text-zinc-400" />
         </Button>
       </div>
     </li>

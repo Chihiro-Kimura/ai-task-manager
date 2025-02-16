@@ -41,14 +41,13 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-
-    const { title, description, priority, status, dueDate } =
+    const { title, description, priority, status, dueDate }: UpdateTaskRequest =
       await request.json();
 
     const userId = request.headers.get('X-User-Id');
 
     // タスクの存在確認
-    const { data: existingTask, error: checkError } = await supabase
+    const { data: existingTask } = await supabase
       .from('tasks')
       .select('*')
       .eq('userId', userId)
@@ -74,7 +73,6 @@ export async function PATCH(
 
     if (dueDate !== undefined) updateData.due_date = dueDate;
 
-
     const { error } = await supabase
       .from('tasks')
       .update(updateData)
@@ -89,8 +87,15 @@ export async function PATCH(
     }
 
     return NextResponse.json({
-      message: '✅ タスクが更新されました',
-      updatedTask: { ...existingTask, ...updateData },
+      message:
+        status === 'completed'
+          ? '✅ タスクが完了しました'
+          : '✅ タスクが更新されました',
+      updatedTask: {
+        ...existingTask,
+        ...updateData,
+        statusDisplay: status === 'completed' ? '☑️' : '☐',
+      },
     });
   } catch (error: any) {
     return NextResponse.json(
@@ -156,7 +161,10 @@ export async function DELETE(
       {
         error: 'サーバーエラー',
         details: error.message,
-        requestInfo: { id, userId: request.headers.get('X-User-Id') },
+        requestInfo: {
+          id: params.id,
+          userId: request.headers.get('X-User-Id'),
+        },
       },
       { status: 500 }
     );
@@ -165,10 +173,9 @@ export async function DELETE(
 
 // リクエストボディの型定義を更新
 interface UpdateTaskRequest {
-
   title?: string;
   description?: string;
   priority?: string;
   status?: string;
   dueDate?: string;
-
+}

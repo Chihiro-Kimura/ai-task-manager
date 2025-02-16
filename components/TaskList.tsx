@@ -1,6 +1,5 @@
 'use client';
 
-
 import { useState, useMemo } from 'react';
 import useSWR from 'swr';
 
@@ -24,10 +23,8 @@ export default function TaskList() {
     'all' | 'overdue' | 'today' | 'upcoming'
   >('all');
 
-
   // データフェッチとフィルタリングを分離
   const {
-
     data: response,
     error,
     isLoading,
@@ -41,7 +38,6 @@ export default function TaskList() {
     return res.json();
   });
 
-
   const tasks = useMemo(() => {
     if (!response || !Array.isArray(response)) return [];
 
@@ -53,12 +49,10 @@ export default function TaskList() {
       );
     }
 
-
     if (dueDateFilter !== 'all') {
       filteredData = filteredData.filter((task) => {
         if (!task.due_date) return false;
         const dueDate = new Date(task.due_date);
-=======
 
         switch (dueDateFilter) {
           case 'overdue':
@@ -98,7 +92,6 @@ export default function TaskList() {
           タスク一覧
         </h2>
 
-
         <TaskFilters
           sortBy={sortBy}
           onSortByChange={setSortBy}
@@ -114,7 +107,6 @@ export default function TaskList() {
           <TaskItem key={task.id} task={task} onMutate={mutateTasks} />
         ))}
       </ul>
-
     </div>
   );
 }
