@@ -80,10 +80,32 @@ export default function TaskList() {
     }
   };
 
-  if (isLoading) return <p className="text-zinc-400">読み込み中...</p>;
-  if (error) return <p className="text-zinc-400">エラーが発生しました</p>;
-  if (!tasks?.length)
-    return <p className="text-zinc-400">タスクがありません</p>;
+  if (isLoading) {
+    return (
+      <div className="p-4 border border-zinc-800 bg-zinc-950 rounded-lg">
+        <div className="text-zinc-400 flex items-center gap-2 justify-center">
+          <div className="w-4 h-4 border-2 border-zinc-600 border-t-zinc-400 rounded-full animate-spin" />
+          <span>読み込み中...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 border border-zinc-800 bg-zinc-950 rounded-lg">
+        <p className="text-zinc-400 text-center">エラーが発生しました</p>
+      </div>
+    );
+  }
+
+  if (!tasks?.length) {
+    return (
+      <div className="p-4 border border-zinc-800 bg-zinc-950 rounded-lg">
+        <p className="text-zinc-400 text-center">タスクがありません</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 border border-zinc-800 bg-zinc-950 rounded-lg">
@@ -94,7 +116,7 @@ export default function TaskList() {
 
       <div className="mb-4">
         <label className="text-sm font-medium text-zinc-400 mr-2">
-          並び順:
+          並び順 :
         </label>
         <Select
           value={sortBy}
@@ -156,7 +178,7 @@ export default function TaskList() {
                 onClick={() => setEditingTask({ id, title, description })}
                 variant="ghost"
                 size="sm"
-                className="hover:bg-slate-900/20 hover:text-slate-400 text-zinc-400"
+                className="hover:bg-blue-900/20 hover:text-blue-400 text-zinc-400"
               >
                 <Pencil className="h-4 w-4" />
               </Button>
