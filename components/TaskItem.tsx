@@ -164,7 +164,7 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
               variant="outline"
               size="icon"
               className="h-8 w-8 border-zinc-800 bg-transparent hover:bg-blue-950 hover:text-blue-400 hover:border-blue-800"
-              onClick={handleEditClick}
+              onClick={() => setIsEditing(true)}
             >
               <Pencil className="h-4 w-4 text-zinc-400" />
             </Button>
