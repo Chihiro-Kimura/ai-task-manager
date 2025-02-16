@@ -1,10 +1,10 @@
 // src/components/TaskList.tsx
 'use client';
 
+import { useState, useMemo, useEffect } from 'react';
 import useSWR from 'swr';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
 import EditTaskForm from './EditTaskForm';
 import { useSession } from 'next-auth/react';
 import { ListTodo, Pencil, Trash2 } from 'lucide-react';
@@ -20,25 +20,72 @@ import {
 export default function TaskList() {
   const { data: session } = useSession();
   const [sortBy, setSortBy] = useState<'priority' | 'createdAt'>('priority');
+  const [statusFilter, setStatusFilter] = useState<'all' | '未完了' | '完了'>(
+    'all'
+  );
 
+  // データフェッチとフィルタリングを分離
   const {
-    data: tasks,
+    data: rawTasks,
     error,
     isLoading,
     mutate: mutateTasks,
   } = useSWR(
-    session?.user?.id ? `/api/tasks?sortBy=${sortBy}` : null,
-    (url) =>
-      fetch(url, {
+    session?.user?.id ? `/api/tasks` : null,
+    async (url) => {
+      const res = await fetch(url, {
         headers: {
           'X-User-Id': session?.user?.id || '',
         },
-      }).then((res) => res.json()),
+      });
+      return res.json();
+    },
     {
       revalidateOnFocus: false,
       refreshInterval: 0,
     }
   );
+
+  // フィルタリングとソートをメモ化
+  const tasks = useMemo(() => {
+    if (!rawTasks) return [];
+
+    let filteredData = [...rawTasks];
+
+    // ステータスフィルタリング
+    if (statusFilter !== 'all') {
+      filteredData = filteredData.filter(
+        (task) => task.status === statusFilter
+      );
+    }
+
+    // 優先度でソート
+    if (sortBy === 'priority') {
+      filteredData.sort((a, b) => {
+        const priorityOrder = { 高: 0, 中: 1, 低: 2 };
+        return (
+          (priorityOrder[a.priority] ?? 3) - (priorityOrder[b.priority] ?? 3)
+        );
+      });
+    } else {
+      // createdAtでソート
+      filteredData.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+    }
+
+    return filteredData;
+  }, [rawTasks, statusFilter, sortBy]);
+
+  // デバッグ用のログ
+  useEffect(() => {
+    if (rawTasks) {
+      console.log('Raw tasks:', rawTasks);
+      console.log('Filtered and sorted tasks:', tasks);
+    }
+  }, [rawTasks, tasks]);
+
   const { toast } = useToast();
   const [editingTask, setEditingTask] = useState(null);
 
@@ -80,6 +127,41 @@ export default function TaskList() {
     }
   };
 
+  // タスクの状態を切り替える関数
+  const handleToggleStatus = async (taskId: string, currentStatus: string) => {
+    const newStatus = currentStatus === '完了' ? '未完了' : '完了';
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': session?.user?.id || '',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!res.ok) {
+        throw new Error('ステータスの更新に失敗しました');
+      }
+
+      await mutateTasks(); // データを再取得
+
+      toast({
+        title: 'ステータス更新',
+        description: `タスクを${newStatus}に変更しました`,
+        icon: <CheckIcon className="h-4 w-4 text-zinc-100" />,
+      });
+    } catch (error) {
+      console.error('Status update error:', error);
+      toast({
+        title: 'エラー',
+        description: 'ステータスの更新に失敗しました',
+        variant: 'destructive',
+        icon: <ExclamationTriangleIcon className="h-4 w-4 text-red-400" />,
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="p-4 border border-zinc-800 bg-zinc-950 rounded-lg">
@@ -114,44 +196,108 @@ export default function TaskList() {
         タスク一覧
       </h2>
 
-      <div className="mb-4">
-        <label className="text-sm font-medium text-zinc-400 mr-2">
-          並び順 :
-        </label>
-        <Select
-          value={sortBy}
-          onValueChange={(value) =>
-            setSortBy(value as 'priority' | 'createdAt')
-          }
-        >
-          <SelectTrigger className="w-[200px] bg-zinc-950 border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700 transition-colors [&_span]:text-slate-400">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="bg-zinc-950 border-zinc-800">
-            <SelectItem
-              value="priority"
-              className="text-slate-400 hover:text-slate-100 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-slate-100"
-            >
-              優先度順
-            </SelectItem>
-            <SelectItem
-              value="createdAt"
-              className="text-slate-400 hover:text-slate-100 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-slate-100"
-            >
-              追加順
-            </SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="flex gap-4 mb-4">
+        <div>
+          <label className="text-sm font-medium text-zinc-400 mr-2">
+            並び順 :
+          </label>
+          <Select
+            value={sortBy}
+            onValueChange={(value) =>
+              setSortBy(value as 'priority' | 'createdAt')
+            }
+          >
+            <SelectTrigger className="w-[200px] bg-zinc-950 border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700 transition-colors [&_span]:text-slate-400">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-zinc-950 border-zinc-800">
+              <SelectItem
+                value="priority"
+                className="text-slate-400 hover:text-slate-100 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-slate-100"
+              >
+                優先度順
+              </SelectItem>
+              <SelectItem
+                value="createdAt"
+                className="text-slate-400 hover:text-slate-100 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-slate-100"
+              >
+                追加順
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-zinc-400 mr-2">
+            ステータス :
+          </label>
+          <Select
+            value={statusFilter}
+            onValueChange={(value) =>
+              setStatusFilter(value as 'all' | '未完了' | '完了')
+            }
+          >
+            <SelectTrigger className="w-[200px] bg-zinc-950 border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700 transition-colors [&_span]:text-slate-400">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-zinc-950 border-zinc-800">
+              <SelectItem
+                value="all"
+                className="text-slate-400 hover:text-slate-100 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-slate-100"
+              >
+                すべて
+              </SelectItem>
+              <SelectItem
+                value="未完了"
+                className="text-slate-400 hover:text-slate-100 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-slate-100"
+              >
+                未完了
+              </SelectItem>
+              <SelectItem
+                value="完了"
+                className="text-slate-400 hover:text-slate-100 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-slate-100"
+              >
+                完了
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <ul className="space-y-3">
-        {tasks.map(({ id, title, description, priority }) => (
+        {tasks.map(({ id, title, description, priority, status }) => (
           <li
             key={id}
-            className="p-4 border border-zinc-800 bg-zinc-900/50 rounded-lg flex justify-between items-center hover:bg-zinc-900 transition-colors"
+            className={`p-4 border border-zinc-800 bg-zinc-900/50 rounded-lg flex justify-between items-center hover:bg-zinc-900 transition-colors ${
+              status === '完了' ? 'opacity-60' : ''
+            }`}
           >
             <div className="space-y-1.5">
-              <strong className="text-slate-100 font-semibold">{title}</strong>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => handleToggleStatus(id, status)}
+                  variant="ghost"
+                  size="sm"
+                  className={`hover:bg-zinc-800 ${
+                    status === '完了'
+                      ? 'text-green-500 hover:text-green-400'
+                      : 'text-zinc-400 hover:text-zinc-300'
+                  }`}
+                >
+                  {status === '完了' ? (
+                    <CheckIcon className="h-5 w-5" />
+                  ) : (
+                    <div className="h-5 w-5 border-2 border-current rounded-full" />
+                  )}
+                </Button>
+                <strong
+                  className={`text-slate-100 font-semibold ${
+                    status === '完了' ? 'line-through' : ''
+                  }`}
+                >
+                  {title}
+                </strong>
+              </div>
               <p className="text-sm text-slate-400">
                 {description || '詳細なし'}
               </p>
@@ -175,7 +321,9 @@ export default function TaskList() {
 
             <div className="flex gap-2">
               <Button
-                onClick={() => setEditingTask({ id, title, description })}
+                onClick={() =>
+                  setEditingTask({ id, title, description, priority })
+                }
                 variant="ghost"
                 size="sm"
                 className="hover:bg-blue-900/20 hover:text-blue-400 text-zinc-400"
@@ -199,6 +347,7 @@ export default function TaskList() {
           taskId={editingTask.id}
           currentTitle={editingTask.title}
           currentDescription={editingTask.description}
+          currentPriority={editingTask.priority}
           onClose={() => setEditingTask(null)}
         />
       )}

@@ -25,7 +25,7 @@ export default function AddTaskForm({ sortBy }: AddTaskFormProps) {
   const { data: session } = useSession();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState('中');
+  const [priority, setPriority] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -49,8 +49,20 @@ export default function AddTaskForm({ sortBy }: AddTaskFormProps) {
       return;
     }
 
+    if (!priority) {
+      toast({
+        title: 'エラー',
+        description: '優先度を選択してください',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
+      // デバッグ用のログを追加
+      console.log('Sending task data:', { title, description, priority });
+
       const res = await fetch('/api/tasks', {
         method: 'POST',
         headers: {
@@ -61,10 +73,14 @@ export default function AddTaskForm({ sortBy }: AddTaskFormProps) {
           title,
           description,
           priority,
+          status: '未完了',
         }),
       });
 
       const data = await res.json();
+      // デバッグ用のログを追加
+      console.log('Response data:', data);
+
       if (res.ok) {
         toast({
           title: '追加成功',
@@ -73,7 +89,7 @@ export default function AddTaskForm({ sortBy }: AddTaskFormProps) {
         });
         setTitle('');
         setDescription('');
-        setPriority('中');
+        setPriority('');
         mutate(`/api/tasks?sortBy=${sortBy}`);
       } else {
         toast({
@@ -122,7 +138,7 @@ export default function AddTaskForm({ sortBy }: AddTaskFormProps) {
       <div className="text-zinc-400 mt-2 block">優先度 : </div>
       <Select value={priority} onValueChange={setPriority}>
         <SelectTrigger className="w-full bg-zinc-950 border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700 transition-colors text-slate-100">
-          <SelectValue>
+          <SelectValue placeholder="優先度を選択">
             <span
               className={
                 priority === '高'
@@ -134,7 +150,7 @@ export default function AddTaskForm({ sortBy }: AddTaskFormProps) {
                   : 'text-slate-400'
               }
             >
-              {priority}
+              {priority || '選択してください'}
             </span>
           </SelectValue>
         </SelectTrigger>
