@@ -6,10 +6,10 @@ import { UpdateTaskData, UpdateTaskRequest } from '@/types/task';
 // 個別のタスク取得
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = context.params;
+    const { id } = params;
     const userId = request.headers.get('X-User-Id');
 
     if (!userId) {
@@ -23,7 +23,7 @@ export async function GET(
       .from('tasks')
       .select('*')
       .eq('id', id)
-      .eq('user_id', userId)
+      .eq('user_id', userId) // 修正: Supabaseのカラム名を統一
       .single();
 
     if (error) {
@@ -55,7 +55,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const { id } = params; // 修正: `await` 不要
     const { title, description, priority, status, dueDate }: UpdateTaskRequest =
       await request.json();
 
@@ -65,7 +65,7 @@ export async function PATCH(
     const { data: existingTask } = await supabase
       .from('tasks')
       .select('*')
-      .eq('userId', userId)
+      .eq('user_id', userId) // 修正
       .eq('id', id)
       .single();
 
@@ -85,13 +85,12 @@ export async function PATCH(
     if (description !== undefined) updateData.description = description;
     if (priority !== undefined) updateData.priority = priority;
     if (status !== undefined) updateData.status = status;
-
     if (dueDate !== undefined) updateData.due_date = dueDate;
 
     const { error } = await supabase
       .from('tasks')
       .update(updateData)
-      .eq('userId', userId)
+      .eq('user_id', userId) // 修正
       .eq('id', id);
 
     if (error) {
@@ -128,7 +127,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const { id } = params; // 修正: `await` 不要
     const userId = request.headers.get('X-User-Id');
 
     console.log('Delete request:', { id, userId });
@@ -137,7 +136,7 @@ export async function DELETE(
     const { data: existingTask, error: checkError } = await supabase
       .from('tasks')
       .select('*')
-      .eq('userId', userId)
+      .eq('user_id', userId) // 修正
       .eq('id', id)
       .single();
 
@@ -157,7 +156,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('tasks')
       .delete()
-      .eq('userId', userId)
+      .eq('user_id', userId) // 修正
       .eq('id', id);
 
     if (error) {
