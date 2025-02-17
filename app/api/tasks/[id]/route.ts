@@ -5,10 +5,10 @@ import { UpdateTaskData, UpdateTaskRequest } from '@/types/task';
 // 個別のタスク取得
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await context.params;
+    const id = params.id;
     const userId = request.headers.get('X-User-Id');
 
     if (!userId) {
@@ -51,10 +51,10 @@ export async function GET(
 // タスクの更新
 export async function PATCH(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await context.params;
+    const id = params.id;
     const { title, description, priority, status, dueDate }: UpdateTaskRequest =
       await request.json();
 
@@ -121,14 +121,14 @@ export async function PATCH(
 // タスクの削除
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await context.params;
+  const { id } = params;
   const userId = request.headers.get('X-User-Id');
 
   console.log('API Route Debug:', {
     method: 'DELETE',
-    params: context.params,
+    params: params,
     headers: Object.fromEntries(request.headers),
   });
 
