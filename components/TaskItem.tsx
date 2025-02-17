@@ -4,12 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from 'next-auth/react';
-import { Pencil, Trash2, CalendarIcon } from 'lucide-react';
+import { Pencil, Trash2, CalendarIcon, Flag } from 'lucide-react';
 import { CheckIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import { format, isPast, isToday } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useState } from 'react';
 import EditTaskForm from '@/components/EditTaskForm';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 interface TaskItemProps {
   task: {
@@ -104,57 +106,62 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
           onClose={() => setIsEditing(false)}
         />
       ) : (
-        <li
-          className={`p-2 border border-zinc-800 bg-zinc-900/50 rounded-lg flex justify-between items-start hover:bg-zinc-900 transition-colors ${
-            task.status === '完了' ? 'opacity-60' : ''
-          }`}
-        >
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={task.status === '完了'}
-                onCheckedChange={handleToggleStatus}
-                className="border-zinc-700 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-              />
+        <div className="p-3 bg-zinc-800 rounded-lg">
+          <div className="flex items-start gap-3">
+            <Checkbox
+              checked={task.status === '完了'}
+              onCheckedChange={handleToggleStatus}
+              className={cn(
+                'h-4 w-4 border transition-colors',
+                task.status === '完了'
+                  ? 'border-blue-500 bg-blue-500/20 text-blue-500 hover:bg-blue-500/30 hover:border-blue-400'
+                  : 'border-zinc-600 bg-zinc-900/50 hover:border-zinc-500'
+              )}
+            />
+            <div className="flex-1 min-w-0">
               <h3
-                className={`text-zinc-100 ${
-                  task.status === '完了' ? 'line-through text-zinc-500' : ''
-                }`}
+                className={cn(
+                  'text-sm font-medium',
+                  task.status === '完了'
+                    ? 'text-zinc-400 line-through'
+                    : 'text-zinc-100'
+                )}
               >
                 {task.title}
               </h3>
-            </div>
-            {task.description && (
-              <p className="text-sm text-zinc-400 ml-8">{task.description}</p>
-            )}
-            <div className="flex items-center gap-2 ml-8">
-              <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-950 border border-zinc-800">
-                <span className="text-zinc-400">優先度 : </span>
-                <span
-                  className={`ml-1 ${
-                    task.priority === '高'
-                      ? 'text-rose-500 font-semibold'
-                      : task.priority === '中'
-                      ? 'text-amber-500 font-medium'
-                      : 'text-emerald-500'
-                  }`}
+              {task.description && (
+                <p
+                  className={cn(
+                    'mt-1 text-xs',
+                    task.status === '完了'
+                      ? 'text-zinc-500 line-through'
+                      : 'text-zinc-400'
+                  )}
                 >
-                  {task.priority || '未設定'}
-                </span>
-              </span>
+                  {task.description}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {task.priority && (
+                <Flag
+                  className={cn(
+                    'h-4 w-4',
+                    task.priority === 'high' && 'text-rose-500',
+                    task.priority === 'medium' && 'text-amber-500',
+                    task.priority === 'low' && 'text-emerald-500'
+                  )}
+                />
+              )}
+
               {task.due_date && (
                 <span
-                  className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-zinc-950 border border-zinc-800 ${
-                    isPast(new Date(task.due_date)) &&
-                    !isToday(new Date(task.due_date))
-                      ? 'text-rose-500'
-                      : isToday(new Date(task.due_date))
-                      ? 'text-amber-500'
-                      : 'text-emerald-500'
-                  }`}
+                  className={cn(
+                    'text-xs',
+                    task.status === '完了' ? 'text-zinc-500' : 'text-blue-400'
+                  )}
                 >
-                  <CalendarIcon className="mr-1 h-3 w-3" />
-                  {format(new Date(task.due_date), 'M/d', { locale: ja })}
+                  {format(new Date(task.due_date), 'MM/dd', { locale: ja })}
                 </span>
               )}
             </div>
@@ -177,7 +184,7 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
               <Trash2 className="h-4 w-4 text-zinc-400" />
             </Button>
           </div>
-        </li>
+        </div>
       )}
     </>
   );
