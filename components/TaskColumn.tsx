@@ -44,12 +44,23 @@ interface TaskColumnProps {
   mutateTasks: () => void;
 }
 
+interface Task {
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  due_date?: string | null;
+  category: string;
+}
+
 export default function TaskColumn({
   title,
   droppableId,
   tasks,
   mutateTasks,
 }: TaskColumnProps) {
+  const { data: session, status } = useSession();
+  const { toast } = useToast();
   const [sortBy, setSortBy] = useState<'priority' | 'createdAt' | 'dueDate'>(
     'priority'
   );
@@ -60,10 +71,18 @@ export default function TaskColumn({
     'all' | 'overdue' | 'today' | 'upcoming'
   >('all');
   const [isAddingTask, setIsAddingTask] = useState(false);
-  const { data: session } = useSession();
-  const { toast } = useToast();
 
-  // フィルターとソートを適用したタスクリストを生成
+  const isFiltering = useMemo(() => {
+    return statusFilter !== 'all' || dueDateFilter !== 'all';
+  }, [statusFilter, dueDateFilter]);
+
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (statusFilter !== 'all') count++;
+    if (dueDateFilter !== 'all') count++;
+    return count;
+  }, [statusFilter, dueDateFilter]);
+
   const filteredAndSortedTasks = useMemo(() => {
     let filtered = [...tasks];
 
@@ -145,75 +164,50 @@ export default function TaskColumn({
     });
   }, [tasks, sortBy, statusFilter, dueDateFilter]);
 
-  // フィルターが適用されているかどうかをチェック
-  const isFiltering = useMemo(() => {
-    return statusFilter !== 'all' || dueDateFilter !== 'all';
-  }, [statusFilter, dueDateFilter]);
+  if (status === 'loading') return <div>Loading...</div>;
+  if (status === 'unauthenticated')
+    return <div>Please sign in to add tasks</div>;
 
-  // アクティブなフィルターの数を計算
-  const activeFiltersCount = useMemo(() => {
-    let count = 0;
-    if (statusFilter !== 'all') count++;
-    if (dueDateFilter !== 'all') count++;
-    return count;
-  }, [statusFilter, dueDateFilter]);
-
-  const handleAddTask = async (taskData: {
-    title: string;
-    description: string;
-    priority: string;
-    due_date?: string;
-    status: string;
-    category: string;
-  }) => {
-    if (!session?.user?.id) {
-      toast({
-        title: 'エラー',
-        description: '必須項目を入力してください',
-        variant: 'destructive',
-      });
-      return;
-    }
-
+  const handleAddTask = async (task: Task) => {
     try {
-      // まずタスクを作成
-      const res = await fetch('/api/tasks', {
+      if (!session) {
+        throw new Error('セッションが見つかりません');
+      }
+
+      const taskData = {
+        ...task,
+        user_id: session.user.id,
+        status: task.status === 'all' ? '未完了' : task.status,
+        created_at: new Date().toISOString(),
+      };
+
+      const response = await fetch('/api/tasks', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-User-Id': session.user.id,
         },
-        body: JSON.stringify({
-          ...taskData,
-          status: '未完了',
-        }),
+        body: JSON.stringify(taskData),
       });
 
-      if (res.ok) {
-        const newTask = await res.json();
-
-        // 次にカテゴリーを更新
-        await fetch('/api/tasks/update-category', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-User-Id': session.user.id,
-          },
-          body: JSON.stringify({
-            taskId: newTask.id,
-            category: droppableId,
-          }),
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API Error Details:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          requestData: taskData,
         });
-
-        setIsAddingTask(false);
-        mutateTasks();
+        throw new Error(errorData.error || 'タスクの追加に失敗しました');
       }
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : '不明なエラー';
+
+      await mutateTasks();
+    } catch (error) {
+      console.error('Failed to add task:', error);
       toast({
         title: 'エラー',
-        description: errorMessage,
+        description:
+          error instanceof Error ? error.message : 'タスクの追加に失敗しました',
         variant: 'destructive',
       });
     }

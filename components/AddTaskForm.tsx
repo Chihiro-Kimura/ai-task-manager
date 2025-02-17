@@ -46,16 +46,20 @@ export default function AddTaskForm({
   const handleSubmit = async () => {
     if (!title || !priority) return;
 
-    await onSubmit({
-      title,
-      description,
-      priority,
-      due_date: dueDate?.toISOString(),
-      status,
-      category,
-    });
+    try {
+      await onSubmit({
+        title,
+        description,
+        priority,
+        due_date: dueDate?.toISOString(),
+        status,
+        category,
+      });
 
-    resetForm();
+      resetForm();
+    } catch (error) {
+      console.error('Failed to add task:', error);
+    }
   };
 
   const handleCancel = () => {

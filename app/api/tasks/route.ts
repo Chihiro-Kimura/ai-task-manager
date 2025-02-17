@@ -48,7 +48,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { title, description, priority, dueDate } = await request.json();
+    const {
+      title,
+      description,
+      priority,
+      due_date,
+      status,
+      category,
+      created_at,
+    } = await request.json();
 
     if (!title) {
       return NextResponse.json(
@@ -61,16 +69,15 @@ export async function POST(request: NextRequest) {
       .from('tasks')
       .insert([
         {
-          userId,
+          user_id: userId,
           title,
           description,
           priority,
-
-          due_date: dueDate,
-          status: '未完了',
-
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          due_date,
+          status: status || '未完了',
+          category,
+          created_at,
+          updated_at: new Date().toISOString(),
         },
       ])
       .select()
