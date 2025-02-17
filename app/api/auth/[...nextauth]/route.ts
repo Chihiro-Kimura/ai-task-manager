@@ -6,7 +6,7 @@ import { Session } from 'next-auth';
 import { User, Account, Profile } from 'next-auth';
 import type { AdapterUser } from 'next-auth/adapters';
 
-export const authOptions = {
+export const config = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -94,7 +94,7 @@ export const authOptions = {
       return token;
     },
   },
-};
+} as const;
 
-const handler = NextAuth(authOptions);
+const handler = NextAuth(config);
 export { handler as GET, handler as POST };
