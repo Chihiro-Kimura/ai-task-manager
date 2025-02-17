@@ -1,15 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { UpdateTaskData, UpdateTaskRequest } from '@/types/task';
 
+type RouteContext = {
+  params: { id: string };
+};
+
 // 個別のタスク取得
-export async function GET(
-  request: NextRequest,
-  context: { params: { id: string } }
-) {
+export async function GET(req: NextRequest, { params }: RouteContext) {
   try {
-    const { id } = context.params;
-    const userId = request.headers.get('X-User-Id');
+    const { id } = params;
+    const userId = req.headers.get('X-User-Id');
 
     if (!userId) {
       return NextResponse.json(
@@ -49,16 +51,13 @@ export async function GET(
 }
 
 // タスクの更新
-export async function PATCH(
-  request: NextRequest,
-  context: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, { params }: RouteContext) {
   try {
-    const { id } = context.params;
+    const { id } = params;
     const { title, description, priority, status, dueDate }: UpdateTaskRequest =
-      await request.json();
+      await req.json();
 
-    const userId = request.headers.get('X-User-Id');
+    const userId = req.headers.get('X-User-Id');
 
     // タスクの存在確認
     const { data: existingTask } = await supabase
@@ -121,13 +120,10 @@ export async function PATCH(
 }
 
 // タスクの削除
-export async function DELETE(
-  request: NextRequest,
-  context: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest, { params }: RouteContext) {
   try {
-    const { id } = context.params;
-    const userId = request.headers.get('X-User-Id');
+    const { id } = params;
+    const userId = req.headers.get('X-User-Id');
 
     console.log('Delete request:', { id, userId });
 
@@ -179,8 +175,8 @@ export async function DELETE(
         error: 'サーバーエラー',
         details: errorMessage,
         requestInfo: {
-          id: context.params.id,
-          userId: request.headers.get('X-User-Id'),
+          id: params.id,
+          userId: req.headers.get('X-User-Id'),
         },
       },
       { status: 500 }
