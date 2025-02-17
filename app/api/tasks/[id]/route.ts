@@ -8,17 +8,31 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
     const userId = request.headers.get('X-User-Id');
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'ユーザーIDは必須です' },
+        { status: 400 }
+      );
+    }
 
     const { data: task, error } = await supabase
       .from('tasks')
-      .select()
+      .select('*')
       .eq('id', id)
       .eq('user_id', userId)
       .single();
 
     if (error) {
+      return NextResponse.json(
+        { error: 'タスクの取得に失敗しました' },
+        { status: 500 }
+      );
+    }
+
+    if (!task) {
       return NextResponse.json(
         { error: 'タスクが見つかりません' },
         { status: 404 }
@@ -26,11 +40,9 @@ export async function GET(
     }
 
     return NextResponse.json(task);
-  } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : '不明なエラー';
+  } catch (error) {
     return NextResponse.json(
-      { error: 'サーバーエラー', details: errorMessage },
+      { error: 'サーバーエラーが発生しました' },
       { status: 500 }
     );
   }
