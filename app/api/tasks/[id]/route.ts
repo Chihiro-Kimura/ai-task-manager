@@ -1,17 +1,15 @@
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { UpdateTaskData, UpdateTaskRequest } from '@/types/task';
 
-type RouteContext = {
-  params: { id: string };
-};
-
 // 個別のタスク取得
-export async function GET(req: NextRequest, { params }: RouteContext) {
+export async function GET(
+  request: NextRequest,
+  context: { params: { id: string } }
+) {
   try {
-    const { id } = params;
-    const userId = req.headers.get('X-User-Id');
+    const { id } = await context.params;
+    const userId = request.headers.get('X-User-Id');
 
     if (!userId) {
       return NextResponse.json(
@@ -24,7 +22,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
       .from('tasks')
       .select('*')
       .eq('id', id)
-      .eq('user_id', userId) // 修正: Supabaseのカラム名を統一
+      .eq('user_id', userId)
       .single();
 
     if (error) {
@@ -51,19 +49,21 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 }
 
 // タスクの更新
-export async function PATCH(req: NextRequest, { params }: RouteContext) {
+export async function PATCH(
+  request: NextRequest,
+  context: { params: { id: string } }
+) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
     const { title, description, priority, status, dueDate }: UpdateTaskRequest =
-      await req.json();
+      await request.json();
 
-    const userId = req.headers.get('X-User-Id');
+    const userId = request.headers.get('X-User-Id');
 
-    // タスクの存在確認
     const { data: existingTask } = await supabase
       .from('tasks')
       .select('*')
-      .eq('user_id', userId) // 修正
+      .eq('user_id', userId)
       .eq('id', id)
       .single();
 
@@ -78,7 +78,6 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       updatedAt: new Date().toISOString(),
     };
 
-    // 各フィールドが存在する場合のみ更新データに追加
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
     if (priority !== undefined) updateData.priority = priority;
@@ -88,7 +87,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     const { error } = await supabase
       .from('tasks')
       .update(updateData)
-      .eq('user_id', userId) // 修正
+      .eq('user_id', userId)
       .eq('id', id);
 
     if (error) {
@@ -120,30 +119,51 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 }
 
 // タスクの削除
-export async function DELETE(req: NextRequest, { params }: RouteContext) {
+export async function DELETE(
+  request: NextRequest,
+  context: { params: { id: string } }
+) {
+  const { id } = await context.params;
+  const userId = request.headers.get('X-User-Id');
+
+  console.log('API Route Debug:', {
+    method: 'DELETE',
+    params: context.params,
+    headers: Object.fromEntries(request.headers),
+  });
+
   try {
-    const { id } = params;
-    const userId = req.headers.get('X-User-Id');
+    // デバッグ情報の出力
+    console.log('Delete Request Debug:', {
+      taskId: id,
+      userId: userId,
+      headers: Object.fromEntries(request.headers),
+    });
 
-    console.log('Delete request:', { id, userId });
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'ユーザーIDは必須です' },
+        { status: 400 }
+      );
+    }
 
-    // タスクの存在確認
+    // タスクの存在確認時のデバッグ
     const { data: existingTask, error: checkError } = await supabase
       .from('tasks')
       .select('*')
-      .eq('user_id', userId) // 修正
+      .eq('userId', userId)
       .eq('id', id)
       .single();
 
-    console.log('Existing task:', existingTask);
-    console.log('Check error:', checkError);
+    console.log('Task Check Debug:', {
+      existingTask,
+      checkError,
+      query: { userId: userId, id: id },
+    });
 
     if (!existingTask) {
       return NextResponse.json(
-        {
-          error: 'タスクが見つかりません',
-          details: { id, userId, checkError },
-        },
+        { error: 'タスクが見つかりません' },
         { status: 404 }
       );
     }
@@ -151,7 +171,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     const { error } = await supabase
       .from('tasks')
       .delete()
-      .eq('user_id', userId) // 修正
+      .eq('userId', userId)
       .eq('id', id);
 
     if (error) {
@@ -167,16 +187,16 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
       deletedTask: existingTask,
     });
   } catch (error: unknown) {
+    console.error('Delete Error:', error);
     const errorMessage =
       error instanceof Error ? error.message : '不明なエラー';
-    console.error('Server error:', error);
     return NextResponse.json(
       {
         error: 'サーバーエラー',
         details: errorMessage,
         requestInfo: {
-          id: params.id,
-          userId: req.headers.get('X-User-Id'),
+          id,
+          userId,
         },
       },
       { status: 500 }

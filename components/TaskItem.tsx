@@ -65,23 +65,39 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
 
   const handleDelete = async () => {
     try {
+      if (!session?.user?.id) {
+        console.error('Session Debug:', { session });
+        throw new Error('ユーザーIDが見つかりません');
+      }
+
+      console.log('Delete Request Client Debug:', {
+        taskId: task.id,
+        userId: session.user.id,
+      });
+
       const res = await fetch(`/api/tasks/${task.id}`, {
         method: 'DELETE',
         headers: {
-          'X-User-Id': session?.user?.id || '',
+          'X-User-Id': session.user.id,
         },
       });
 
-      if (res.ok) {
-        await onMutate();
-        toast({
-          title: 'タスク削除',
-          description: 'タスクを削除しました',
-          icon: <CheckIcon className="h-4 w-4 text-zinc-100" />,
-        });
-      } else {
-        throw new Error('タスクの削除に失敗しました');
+      const responseData = await res.json();
+      console.log('Delete Response Debug:', {
+        status: res.status,
+        data: responseData,
+      });
+
+      if (!res.ok) {
+        throw new Error(responseData.error || 'タスクの削除に失敗しました');
       }
+
+      await onMutate();
+      toast({
+        title: 'タスク削除',
+        description: 'タスクを削除しました',
+        icon: <CheckIcon className="h-4 w-4 text-zinc-100" />,
+      });
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : '不明なエラー';
