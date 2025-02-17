@@ -1,14 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { UpdateTaskData, UpdateTaskRequest } from '@/types/task';
 
 // 個別のタスク取得
 export async function GET(
-  request: NextRequest,
-  context: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = context.params;
+    const { id } = await params;
     const userId = request.headers.get('X-User-Id');
 
     if (!userId) {
@@ -50,11 +50,11 @@ export async function GET(
 
 // タスクの更新
 export async function PATCH(
-  request: NextRequest,
-  context: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = context.params;
+    const { id } = await params;
     const { title, description, priority, status, dueDate }: UpdateTaskRequest =
       await request.json();
 
@@ -120,11 +120,11 @@ export async function PATCH(
 
 // タスクの削除
 export async function DELETE(
-  request: NextRequest,
-  context: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = context.params;
+    const { id } = await params;
     const userId = request.headers.get('X-User-Id');
 
     console.log('Delete request:', { id, userId });
@@ -176,7 +176,7 @@ export async function DELETE(
         error: 'サーバーエラー',
         details: errorMessage,
         requestInfo: {
-          id: context.params.id,
+          id: (await params).id,
           userId: request.headers.get('X-User-Id'),
         },
       },
