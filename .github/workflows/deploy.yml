@@ -1,0 +1,25 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v3
+
+      - name: Node.jsのセットアップ
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Vercel CLIのインストール
+        run: npm install -g vercel
+
+      - name: Vercelにデプロイ
+        run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
