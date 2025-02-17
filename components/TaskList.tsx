@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import useSWR from 'swr';
-
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useSession } from 'next-auth/react';
 import { ListTodo } from 'lucide-react';
 import TaskFilters from '@/components/TaskFilters';
@@ -10,20 +10,12 @@ import TaskItem from '@/components/TaskItem';
 import LoadingState from '@/components/LoadingState';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
-import { isPast, isToday, isFuture } from 'date-fns';
 
 export default function TaskList() {
   const { data: session } = useSession();
   const [sortBy, setSortBy] = useState<'priority' | 'createdAt'>('priority');
-  const [statusFilter, setStatusFilter] = useState<'all' | '未完了' | '完了'>(
-    'all'
-  );
+  const [tasks, setTasks] = useState([]);
 
-  const [dueDateFilter, setDueDateFilter] = useState<
-    'all' | 'overdue' | 'today' | 'upcoming'
-  >('all');
-
-  // データフェッチとフィルタリングを分離
   const {
     data: response,
     error,
@@ -35,67 +27,39 @@ export default function TaskList() {
         'X-User-Id': session?.user?.id || '',
       },
     });
-    return res.json();
+    const data = await res.json();
+    setTasks(data); // 初期データをセット
+    return data;
   });
 
-  const tasks = useMemo(() => {
-    if (!response || !Array.isArray(response)) return [];
+  const handleDragEnd = async (result) => {
+    if (!result.destination) return;
 
-    let filteredData = [...response];
+    const reorderedTasks = Array.from(tasks);
+    const [movedTask] = reorderedTasks.splice(result.source.index, 1);
+    reorderedTasks.splice(result.destination.index, 0, movedTask);
 
-    if (statusFilter !== 'all') {
-      filteredData = filteredData.filter(
-        (task) => task.status === statusFilter
-      );
-    }
+    setTasks(reorderedTasks);
 
-    if (dueDateFilter !== 'all') {
-      filteredData = filteredData.filter((task) => {
-        if (!task.due_date) return false;
-        const dueDate = new Date(task.due_date);
-
-        switch (dueDateFilter) {
-          case 'overdue':
-            return isPast(dueDate) && !isToday(dueDate);
-          case 'today':
-            return isToday(dueDate);
-          case 'upcoming':
-            return isFuture(dueDate) && !isToday(dueDate);
-          default:
-            return true;
-        }
-      });
-    }
-
-    filteredData.sort((a, b) => {
-      if (sortBy === 'priority') {
-        const priorityOrder = { 高: 3, 中: 2, 低: 1 };
-        return (
-          (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0)
-        );
-      } else {
-        return (
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-      }
+    // サーバーへ並び順を更新（Supabase 側で `order` フィールドを作成する）
+    await fetch('/api/tasks/reorder', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-Id': session?.user?.id || '',
+      },
+      body: JSON.stringify(
+        reorderedTasks.map((task, index) => ({ id: task.id, order: index }))
+      ),
     });
 
-    return filteredData;
-  }, [response, statusFilter, dueDateFilter, sortBy]);
+    mutateTasks(); // UIを更新
+  };
 
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState />;
-  if (!tasks?.length) {
-    return (
-      <EmptyState
-        hasFilters={statusFilter !== 'all' || dueDateFilter !== 'all'}
-        onResetFilters={() => {
-          setStatusFilter('all');
-          setDueDateFilter('all');
-        }}
-      />
-    );
-  }
+  if (!tasks.length)
+    return <EmptyState hasFilters={false} onResetFilters={() => {}} />;
 
   return (
     <div className="p-4 border border-zinc-800 bg-zinc-950 rounded-lg min-h-[80vh] max-h-[85vh] flex flex-col">
@@ -104,22 +68,35 @@ export default function TaskList() {
           <ListTodo className="h-5 w-5" />
           タスク一覧
         </h2>
-
-        <TaskFilters
-          sortBy={sortBy}
-          onSortByChange={setSortBy}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          dueDateFilter={dueDateFilter}
-          onDueDateFilterChange={setDueDateFilter}
-        />
+        <TaskFilters sortBy={sortBy} onSortByChange={setSortBy} />
       </div>
 
-      <ul className="space-y-2 overflow-y-auto flex-grow pr-2">
-        {tasks.map((task) => (
-          <TaskItem key={task.id} task={task} onMutate={mutateTasks} />
-        ))}
-      </ul>
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <Droppable droppableId="taskList">
+          {(provided) => (
+            <ul
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              className="space-y-2 overflow-y-auto flex-grow pr-2"
+            >
+              {tasks.map((task, index) => (
+                <Draggable key={task.id} draggableId={task.id} index={index}>
+                  {(provided) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.draggableProps}
+                      {...provided.dragHandleProps}
+                    >
+                      <TaskItem task={task} onMutate={mutateTasks} />
+                    </div>
+                  )}
+                </Draggable>
+              ))}
+              {provided.placeholder}
+            </ul>
+          )}
+        </Droppable>
+      </DragDropContext>
     </div>
   );
 }

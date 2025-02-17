@@ -11,12 +11,13 @@ import {
 import Image from 'next/image';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
+import LoadingState from '@/components/LoadingState';
 
 export default function SignIn() {
   const { data: session, status } = useSession();
 
   if (status === 'loading') {
-    return <div>Loading...</div>;
+    return <LoadingState message="認証状態を確認中..." />;
   }
 
   if (session) {
