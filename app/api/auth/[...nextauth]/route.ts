@@ -1,6 +1,10 @@
 import NextAuth from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import { supabase } from '@/lib/supabase';
+import { JWT } from 'next-auth/jwt';
+import { Session } from 'next-auth';
+import { User, Account, Profile } from 'next-auth';
+import type { AdapterUser } from 'next-auth/adapters';
 
 export const authOptions = {
   providers: [
@@ -14,7 +18,13 @@ export const authOptions = {
     error: '/auth/error',
   },
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({
+      user,
+    }: {
+      user: User | AdapterUser;
+      account: Account | null;
+      profile?: Profile;
+    }) {
       if (!user.email) return false;
       try {
         const { data: existingUser, error: selectError } = await supabase
@@ -63,13 +73,21 @@ export const authOptions = {
         return false;
       }
     },
-    async session({ session, token }) {
-      if (session?.user) {
+    async session({ session, token }: { session: Session; token: JWT }) {
+      if (session?.user && token.sub) {
         session.user.id = token.sub;
       }
       return session;
     },
-    async jwt({ token, user, account }) {
+    async jwt({
+      token,
+      user,
+    }: {
+      token: JWT;
+      user: User | AdapterUser;
+      account: Account | null;
+      profile?: Profile;
+    }) {
       if (user) {
         token.sub = user.id;
       }
