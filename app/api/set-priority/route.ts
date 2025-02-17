@@ -13,31 +13,26 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || '');
 
 export async function POST(req: Request) {
   try {
-    console.log('🔍 APIリクエストを受信 - タスクの優先度判定');
-
-    // リクエストからタスクIDを取得
     const { taskId } = await req.json();
     if (!taskId) {
-      return errorResponse('❌ タスクIDが必要です', 400);
+      return errorResponse('タスクIDが必要です', 400);
     }
 
-    // タスクの内容を取得
     const task = await fetchTaskById(taskId);
     if (!task) {
-      return errorResponse('❌ 指定されたタスクが見つかりません', 404);
+      return errorResponse('指定されたタスクが見つかりません', 404);
     }
 
-    // AIで優先度を判定
     const priority = await getTaskPriority(task);
-
-    // 優先度をSupabaseに保存
     await updateTaskPriority(taskId, priority);
 
-    console.log(`✅ タスク ${taskId} の優先度: ${priority}`);
     return NextResponse.json({ taskId, priority });
-  } catch (error: any) {
-    console.error('🚨 APIエラー:', error.message);
-    return errorResponse('サーバーエラー', 500, error.message);
+  } catch (error: unknown) {
+    return errorResponse(
+      'サーバーエラー',
+      500,
+      error instanceof Error ? error.message : '不明なエラー'
+    );
   }
 }
 
@@ -49,7 +44,7 @@ async function fetchTaskById(taskId: string) {
     .eq('id', taskId)
     .single();
 
-  if (error) throw new Error(`Supabase エラー: ${error.message}`);
+  if (error) throw new Error(`データベースエラー: ${error.message}`);
   return task;
 }
 
@@ -70,9 +65,12 @@ async function getTaskPriority(task: { title: string; description?: string }) {
       : priority.includes('低')
       ? '低'
       : '中';
-  } catch (error: any) {
-    console.error('🚨 Gemini API エラー:', error.message);
-    return '中';
+  } catch (error) {
+    throw new Error(
+      `AI応答の取得に失敗しました: ${
+        error instanceof Error ? error.message : '不明なエラー'
+      }`
+    );
   }
 }
 
@@ -83,11 +81,10 @@ async function updateTaskPriority(taskId: string, priority: string) {
     .update({ priority })
     .eq('id', taskId);
 
-  if (error) throw new Error(`Supabase 更新エラー: ${error.message}`);
+  if (error) throw new Error(`データベース更新エラー: ${error.message}`);
 }
 
 // 🔹 エラーレスポンス用ヘルパー関数
 function errorResponse(message: string, status: number, details?: string) {
-  console.error(`❌ ${message}`, details || '');
   return NextResponse.json({ error: message, details }, { status });
 }

@@ -48,7 +48,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-
     const { title, description, priority, dueDate } = await request.json();
 
     if (!title) {
@@ -138,9 +137,12 @@ export async function PATCH(
     }
 
     return NextResponse.json({ message: '✅ タスクが更新されました' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
-      { error: 'サーバーエラー', details: error.message },
+      {
+        error: 'サーバーエラー',
+        details: error instanceof Error ? error.message : '不明なエラー',
+      },
       { status: 500 }
     );
   }
