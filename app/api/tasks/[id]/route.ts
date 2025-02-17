@@ -22,7 +22,7 @@ export async function GET(
       .from('tasks')
       .select('*')
       .eq('id', id)
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .single();
 
     if (error) {
@@ -63,7 +63,7 @@ export async function PATCH(
     const { data: existingTask } = await supabase
       .from('tasks')
       .select('*')
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .eq('id', id)
       .single();
 
@@ -87,7 +87,7 @@ export async function PATCH(
     const { error } = await supabase
       .from('tasks')
       .update(updateData)
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .eq('id', id);
 
     if (error) {
@@ -132,7 +132,7 @@ export async function DELETE(
     const { data: existingTask, error: checkError } = await supabase
       .from('tasks')
       .select('*')
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .eq('id', id)
       .single();
 
@@ -152,7 +152,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('tasks')
       .delete()
-      .eq('userid', userId)
+      .eq('userId', userId)
       .eq('id', id);
 
     if (error) {
