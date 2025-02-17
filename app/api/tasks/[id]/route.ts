@@ -40,7 +40,7 @@ export async function GET(
     }
 
     return NextResponse.json(task);
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'サーバーエラーが発生しました' },
       { status: 500 }
