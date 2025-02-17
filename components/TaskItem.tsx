@@ -4,14 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from 'next-auth/react';
-import { Pencil, Trash2, CalendarIcon, Flag } from 'lucide-react';
+import { Pencil, Trash2, Flag } from 'lucide-react';
 import { CheckIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
-import { format, isPast, isToday } from 'date-fns';
+import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useState } from 'react';
 import EditTaskForm from '@/components/EditTaskForm';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 
 interface TaskItemProps {
   task: {
@@ -52,10 +51,12 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
       } else {
         throw new Error('ステータスの更新に失敗しました');
       }
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : '不明なエラー';
       toast({
         title: 'エラー',
-        description: 'ステータスの更新に失敗しました',
+        description: errorMessage,
         variant: 'destructive',
         icon: <ExclamationTriangleIcon className="h-4 w-4 text-red-400" />,
       });
@@ -81,18 +82,16 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
       } else {
         throw new Error('タスクの削除に失敗しました');
       }
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : '不明なエラー';
       toast({
         title: 'エラー',
-        description: 'タスクの削除に失敗しました',
+        description: errorMessage,
         variant: 'destructive',
         icon: <ExclamationTriangleIcon className="h-4 w-4 text-red-400" />,
       });
     }
-  };
-
-  const handleEditClick = () => {
-    setIsEditing(true);
   };
 
   return (

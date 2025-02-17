@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-
+import Link from 'next/link';
 export default function AuthError() {
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
@@ -18,12 +18,12 @@ export default function AuthError() {
         <div className="text-sm text-gray-500">
           {error && `エラー: ${error}`}
         </div>
-        <a
+        <Link
           href="/"
           className="inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
         >
           ホームに戻る
-        </a>
+        </Link>
       </div>
     </div>
   );

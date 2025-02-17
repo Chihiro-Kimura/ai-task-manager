@@ -13,13 +13,9 @@ import {
   ArrowUpDown,
   Calendar,
   CheckCircle2,
-  Filter,
   SlidersHorizontal,
   X,
   Plus,
-  ArrowUp,
-  ArrowRight,
-  ArrowDown,
   CalendarIcon,
   Flag,
 } from 'lucide-react';
@@ -40,9 +36,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useSession } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { DayPicker } from 'react-day-picker';
 
 interface TaskColumnProps {
   title: string;
@@ -54,6 +50,7 @@ interface TaskColumnProps {
     status: string;
     priority: string;
     due_date: string | null;
+    created_at: string;
   }[];
   mutateTasks: () => void;
 }
@@ -124,7 +121,7 @@ export default function TaskColumn({
     return filtered.sort((a, b) => {
       if (sortBy === 'priority') {
         // 優先度の順序を定義（high → medium → low）
-        const priorityMap = {
+        const priorityMap: Record<string, number> = {
           high: 0,
           medium: 1,
           low: 2,
@@ -260,10 +257,10 @@ export default function TaskColumn({
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0 bg-zinc-900 border-zinc-700">
-            <Calendar
+            <DayPicker
               mode="single"
               selected={newTaskDueDate}
-              onSelect={setNewTaskDueDate}
+              onSelect={(date: Date | undefined) => setNewTaskDueDate(date)}
               locale={ja}
               className="bg-zinc-900"
             />
@@ -325,10 +322,12 @@ export default function TaskColumn({
         setIsAddingTask(false);
         mutateTasks();
       }
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : '不明なエラー';
       toast({
         title: 'エラー',
-        description: 'タスクの追加に失敗しました',
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -389,7 +388,12 @@ export default function TaskColumn({
                       sortBy !== 'priority' ? 'text-zinc-400' : 'text-blue-400'
                     }`}
                   />
-                  <Select value={sortBy} onValueChange={setSortBy}>
+                  <Select
+                    value={sortBy}
+                    onValueChange={(value: 'priority' | 'createdAt') =>
+                      setSortBy(value)
+                    }
+                  >
                     <SelectTrigger className="h-8 w-full bg-zinc-800 border-zinc-700">
                       <SelectValue placeholder="並び替え" />
                     </SelectTrigger>
@@ -405,7 +409,12 @@ export default function TaskColumn({
                       statusFilter === 'all' ? 'text-zinc-400' : 'text-blue-400'
                     }`}
                   />
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <Select
+                    value={statusFilter}
+                    onValueChange={(value: 'all' | '未完了' | '完了') =>
+                      setStatusFilter(value)
+                    }
+                  >
                     <SelectTrigger className="h-8 w-full bg-zinc-800 border-zinc-700">
                       <SelectValue placeholder="状態" />
                     </SelectTrigger>
@@ -426,7 +435,9 @@ export default function TaskColumn({
                   />
                   <Select
                     value={dueDateFilter}
-                    onValueChange={setDueDateFilter}
+                    onValueChange={(
+                      value: 'all' | 'overdue' | 'today' | 'upcoming'
+                    ) => setDueDateFilter(value)}
                   >
                     <SelectTrigger className="h-8 w-full bg-zinc-800 border-zinc-700">
                       <SelectValue placeholder="期限" />
@@ -456,7 +467,10 @@ export default function TaskColumn({
                 {...provided.dragHandleProps}
                 className="cursor-grab active:cursor-grabbing"
               >
-                <TaskItem task={task} onMutate={mutateTasks} />
+                <TaskItem
+                  task={task}
+                  onMutate={async () => await mutateTasks()}
+                />
               </div>
             )}
           </Draggable>

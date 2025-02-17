@@ -1,7 +1,7 @@
 // src/app/api/tasks/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-
+import { UpdateTaskData, UpdateTaskRequest } from '@/types/task';
 // 個別のタスク取得
 export async function GET(
   request: NextRequest,
@@ -26,9 +26,11 @@ export async function GET(
     }
 
     return NextResponse.json(task);
-  } catch (error) {
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof Error ? error.message : '不明なエラー';
     return NextResponse.json(
-      { error: 'サーバーエラーが発生しました' },
+      { error: 'サーバーエラー', details: errorMessage },
       { status: 500 }
     );
   }
@@ -61,7 +63,7 @@ export async function PATCH(
       );
     }
 
-    const updateData: any = {
+    const updateData: UpdateTaskData = {
       updatedAt: new Date().toISOString(),
     };
 
@@ -97,9 +99,11 @@ export async function PATCH(
         statusDisplay: status === 'completed' ? '☑️' : '☐',
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof Error ? error.message : '不明なエラー';
     return NextResponse.json(
-      { error: 'サーバーエラー', details: error.message },
+      { error: 'サーバーエラー', details: errorMessage },
       { status: 500 }
     );
   }
@@ -155,12 +159,14 @@ export async function DELETE(
       message: '✅ タスクが削除されました',
       deletedTask: existingTask,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof Error ? error.message : '不明なエラー';
     console.error('Server error:', error);
     return NextResponse.json(
       {
         error: 'サーバーエラー',
-        details: error.message,
+        details: errorMessage,
         requestInfo: {
           id: params.id,
           userId: request.headers.get('X-User-Id'),
@@ -169,13 +175,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-}
-
-// リクエストボディの型定義を更新
-interface UpdateTaskRequest {
-  title?: string;
-  description?: string;
-  priority?: string;
-  status?: string;
-  dueDate?: string;
 }

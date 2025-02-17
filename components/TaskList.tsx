@@ -2,17 +2,27 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import useSWR from 'swr';
-import { DragDropContext } from '@hello-pangea/dnd';
+import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { useSession } from 'next-auth/react';
 import { ListTodo } from 'lucide-react';
 import TaskColumn from '@/components/TaskColumn';
 import LoadingState from '@/components/LoadingState';
-import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
+
+interface Task {
+  id: string;
+  category: string;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  due_date: string | null;
+  created_at: string;
+}
 
 export default function TaskList() {
   const { data: session } = useSession();
-  const [tasks, setTasks] = useState([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
 
   const {
     data: response,
@@ -30,7 +40,7 @@ export default function TaskList() {
     if (response) setTasks(response);
   }, [response]);
 
-  const handleDragEnd = async (result) => {
+  const handleDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
 
     const sourceCategory = result.source.droppableId;

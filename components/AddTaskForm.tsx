@@ -1,4 +1,3 @@
-// src/components/AddTaskForm.tsx
 'use client';
 
 import { Input } from '@/components/ui/input';
@@ -16,15 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Calendar } from '@/components/ui/calendar';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
-import { ja } from 'date-fns/locale';
 import DueDatePicker from '@/components/DueDatePicker';
 
 export default function AddTaskForm() {
@@ -106,10 +96,12 @@ export default function AddTaskForm() {
           variant: 'destructive',
         });
       }
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : '不明なエラー';
       toast({
         title: 'エラー',
-        description: 'ネットワークエラーが発生しました',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
