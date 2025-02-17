@@ -3,16 +3,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { UpdateTaskData, UpdateTaskRequest } from '@/types/task';
 
-type RouteContext = {
-  params: {
-    id: string;
-  };
-};
-
 // 個別のタスク取得
-export async function GET(request: NextRequest, { params }: RouteContext) {
+export async function GET(
+  request: NextRequest,
+  context: { params: { id: string } }
+) {
   try {
-    const { id } = params;
+    const { id } = context.params;
     const userId = request.headers.get('X-User-Id');
 
     if (!userId) {
