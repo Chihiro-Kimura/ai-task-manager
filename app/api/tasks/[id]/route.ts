@@ -5,10 +5,10 @@ import { UpdateTaskData, UpdateTaskRequest } from '@/types/task';
 // 個別のタスク取得
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    const { id } = context.params;
     const userId = request.headers.get('X-User-Id');
 
     if (!userId) {
