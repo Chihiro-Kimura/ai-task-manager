@@ -7,14 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { mutate } from 'swr';
 import { useSession } from 'next-auth/react';
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from '@/components/ui/select';
 import DueDatePicker from '@/components/DueDatePicker';
+import PrioritySelect from '@/components/PrioritySelect';
 
 interface EditTaskFormProps {
   taskId: string;
@@ -105,10 +99,12 @@ export default function EditTaskForm({
           variant: 'destructive',
         });
       }
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : '不明なエラー';
       toast({
         title: 'エラー',
-        description: '通信エラーが発生しました',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -134,45 +130,7 @@ export default function EditTaskForm({
         />
         <div className="mb-4">
           <div className="text-zinc-400 mb-2">優先度 : </div>
-          <Select value={priority} onValueChange={setPriority}>
-            <SelectTrigger className="w-full bg-zinc-950 border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700 transition-colors text-slate-100">
-              <SelectValue>
-                <span
-                  className={
-                    priority === '高'
-                      ? 'text-rose-500'
-                      : priority === '中'
-                      ? 'text-amber-500'
-                      : priority === '低'
-                      ? 'text-emerald-500'
-                      : 'text-slate-400'
-                  }
-                >
-                  {priority}
-                </span>
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent className="bg-zinc-950 border-zinc-800">
-              <SelectItem
-                value="高"
-                className="text-rose-500 hover:text-rose-400 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-rose-400"
-              >
-                高
-              </SelectItem>
-              <SelectItem
-                value="中"
-                className="text-amber-500 hover:text-amber-400 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-amber-400"
-              >
-                中
-              </SelectItem>
-              <SelectItem
-                value="低"
-                className="text-emerald-500 hover:text-emerald-400 hover:bg-zinc-900 focus:bg-zinc-900 focus:text-emerald-400"
-              >
-                低
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <PrioritySelect value={priority} onValueChange={setPriority} />
         </div>
         <DueDatePicker
           dueDate={dueDate}

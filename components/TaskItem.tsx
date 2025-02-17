@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useSession } from 'next-auth/react';
 import { Pencil, Trash2, Flag } from 'lucide-react';
 import { CheckIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
-import { format } from 'date-fns';
+import { format, isBefore, isToday, isAfter, startOfDay } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useState } from 'react';
 import EditTaskForm from '@/components/EditTaskForm';
@@ -94,6 +94,19 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
     }
   };
 
+  const getDueDateColor = (dueDate: string | null) => {
+    if (!dueDate) return 'text-zinc-400';
+
+    const today = startOfDay(new Date());
+    const date = new Date(dueDate);
+
+    if (isBefore(date, today)) return 'text-rose-400'; // 期限切れ - 赤 (警告)
+    if (isToday(date)) return 'text-amber-400'; // 今日 - 黄 (注意)
+    if (isAfter(date, today)) return 'text-blue-400'; // 今後 - 青 (情報)
+
+    return 'text-zinc-400';
+  };
+
   return (
     <>
       {isEditing ? (
@@ -105,82 +118,86 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
           onClose={() => setIsEditing(false)}
         />
       ) : (
-        <div className="p-3 bg-zinc-800 rounded-lg">
-          <div className="flex items-start gap-3">
-            <Checkbox
-              checked={task.status === '完了'}
-              onCheckedChange={handleToggleStatus}
-              className={cn(
-                'h-4 w-4 border transition-colors',
-                task.status === '完了'
-                  ? 'border-blue-500 bg-blue-500/20 text-blue-500 hover:bg-blue-500/30 hover:border-blue-400'
-                  : 'border-zinc-600 bg-zinc-900/50 hover:border-zinc-500'
-              )}
-            />
-            <div className="flex-1 min-w-0">
-              <h3
+        <div className="group relative">
+          <div className="p-3 bg-zinc-800 rounded-lg">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                checked={task.status === '完了'}
+                onCheckedChange={handleToggleStatus}
                 className={cn(
-                  'text-sm font-medium',
+                  'h-4 w-4 border transition-colors',
                   task.status === '完了'
-                    ? 'text-zinc-400 line-through'
-                    : 'text-zinc-100'
+                    ? 'border-blue-500 bg-blue-500/20 text-blue-500 hover:bg-blue-500/30 hover:border-blue-400'
+                    : 'border-zinc-600 bg-zinc-900/50 hover:border-zinc-500'
                 )}
-              >
-                {task.title}
-              </h3>
-              {task.description && (
-                <p
+              />
+              <div className="flex-1 min-w-0">
+                <h3
                   className={cn(
-                    'mt-1 text-xs',
+                    'text-sm font-medium',
                     task.status === '完了'
-                      ? 'text-zinc-500 line-through'
-                      : 'text-zinc-400'
+                      ? 'text-zinc-400 line-through'
+                      : 'text-zinc-100'
                   )}
                 >
-                  {task.description}
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {task.priority && (
-                <Flag
-                  className={cn(
-                    'h-4 w-4',
-                    task.priority === 'high' && 'text-rose-500',
-                    task.priority === 'medium' && 'text-amber-500',
-                    task.priority === 'low' && 'text-emerald-500'
-                  )}
-                />
-              )}
-
-              {task.due_date && (
-                <span
-                  className={cn(
-                    'text-xs',
-                    task.status === '完了' ? 'text-zinc-500' : 'text-blue-400'
-                  )}
-                >
-                  {format(new Date(task.due_date), 'MM/dd', { locale: ja })}
-                </span>
-              )}
+                  {task.title}
+                </h3>
+                {task.description && (
+                  <p
+                    className={cn(
+                      'mt-1 text-xs',
+                      task.status === '完了'
+                        ? 'text-zinc-500 line-through'
+                        : 'text-zinc-400'
+                    )}
+                  >
+                    {task.description}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {task.priority && (
+                  <Flag
+                    className={cn(
+                      'h-4 w-4',
+                      task.priority === '高' && 'text-rose-500',
+                      task.priority === '中' && 'text-amber-500',
+                      task.priority === '低' && 'text-emerald-500'
+                    )}
+                  />
+                )}
+                {task.due_date && (
+                  <span
+                    className={cn(
+                      'text-xs',
+                      task.status === '完了'
+                        ? 'text-zinc-500'
+                        : getDueDateColor(task.due_date)
+                    )}
+                  >
+                    {format(new Date(task.due_date), 'MM/dd', { locale: ja })}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-          <div className="flex gap-1">
+
+          <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
             <Button
-              variant="outline"
+              variant="ghost"
               size="icon"
-              className="h-8 w-8 border-zinc-800 bg-transparent hover:bg-blue-950 hover:text-blue-400 hover:border-blue-800"
+              className="h-7 w-7 bg-zinc-900/80 hover:bg-blue-900/80 text-zinc-400 hover:text-blue-400"
               onClick={() => setIsEditing(true)}
             >
-              <Pencil className="h-4 w-4 text-zinc-400" />
+              <Pencil className="h-4 w-4" />
             </Button>
             <Button
-              variant="outline"
+              variant="ghost"
               size="icon"
-              className="h-8 w-8 border-zinc-800 bg-transparent hover:bg-rose-950 hover:text-rose-400 hover:border-rose-800"
+              className="h-7 w-7 bg-zinc-900/80 hover:bg-rose-900/80 text-zinc-400 hover:text-rose-400"
               onClick={handleDelete}
             >
-              <Trash2 className="h-4 w-4 text-zinc-400" />
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         </div>
