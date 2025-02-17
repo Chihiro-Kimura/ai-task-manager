@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { UpdateTaskData, UpdateTaskRequest } from '@/types/task';
-import { RouteParamsContext } from 'next/dist/server/web/types';
 
 // 個別のタスク取得
 export async function GET(
   request: NextRequest,
-  context: RouteParamsContext<{ id: string }>
+  context: { params: { id: string } }
 ) {
   try {
     const { id } = context.params;
@@ -52,7 +51,7 @@ export async function GET(
 // タスクの更新
 export async function PATCH(
   request: NextRequest,
-  context: RouteParamsContext<{ id: string }>
+  context: { params: { id: string } }
 ) {
   try {
     const { id } = context.params;
@@ -122,7 +121,7 @@ export async function PATCH(
 // タスクの削除
 export async function DELETE(
   request: NextRequest,
-  context: RouteParamsContext<{ id: string }>
+  context: { params: { id: string } }
 ) {
   try {
     const { id } = context.params;
@@ -153,7 +152,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('tasks')
       .delete()
-      .eq('user_id', userId)
+      .eq('userid', userId)
       .eq('id', id);
 
     if (error) {
