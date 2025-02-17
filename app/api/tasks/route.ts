@@ -1,9 +1,9 @@
 // src/app/api/tasks/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
-// タスク一覧の取得
-export async function GET(request: NextRequest) {
+// タスク一覧用のエンドポイント
+export async function GET(request: Request) {
   try {
     const userId = request.headers.get('X-User-Id');
     if (!userId) {
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 }
 
 // タスクの新規作成
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const userId = request.headers.get('X-User-Id');
     if (!userId) {
@@ -103,10 +103,10 @@ export async function POST(request: NextRequest) {
 
 // タスクの更新
 export async function PATCH(
-  request: NextRequest,
-  context: { params: { id?: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = context.params;
+  const { id } = await params;
   if (!id) {
     return NextResponse.json({ error: 'タスクIDは必須です' }, { status: 400 });
   }
@@ -157,10 +157,10 @@ export async function PATCH(
 
 // タスクの削除
 export async function DELETE(
-  request: NextRequest,
-  context: { params: { id?: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = context.params;
+  const { id } = await params;
   if (!id) {
     return NextResponse.json({ error: 'タスクIDは必須です' }, { status: 400 });
   }
