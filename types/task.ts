@@ -21,8 +21,9 @@ export interface UpdateTaskData {
 
 export interface CreateTaskData {
   title: string;
-  description?: string;
+  description: string;
   priority: string;
   status: string;
   category: string;
+  task_order?: number;
 }

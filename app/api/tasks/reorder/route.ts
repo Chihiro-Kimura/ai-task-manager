@@ -1,65 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+interface TaskUpdate {
+  id: string;
+  category: string;
+  task_order: number;
+}
+
 export async function POST(req: NextRequest) {
   console.log('=== Reorder API Start ===');
   try {
-    const { tasks, category } = await req.json();
+    const { tasks } = (await req.json()) as { tasks: TaskUpdate[] };
     const userId = req.headers.get('X-User-Id');
 
     console.log('Request received:', {
       tasksCount: tasks?.length,
-      category,
       userId: userId?.slice(0, 8),
       timestamp: new Date().toISOString(),
     });
 
-    if (!tasks || !Array.isArray(tasks) || !category) {
-      console.error('Invalid request:', { tasks, category, userId });
+    if (!tasks || !Array.isArray(tasks)) {
+      console.error('Invalid request:', { tasks, userId });
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
 
-    // トランザクション内でカテゴリー内の全タスクを取得して並び順を更新
+    // タスクをカテゴリーごとにグループ化
+    const tasksByCategory = tasks.reduce<Record<string, TaskUpdate[]>>(
+      (acc, task) => {
+        if (!acc[task.category]) {
+          acc[task.category] = [];
+        }
+        acc[task.category].push(task);
+        return acc;
+      },
+      {}
+    );
+
+    console.log('Tasks by category:', {
+      categories: Object.keys(tasksByCategory),
+      counts: Object.entries(tasksByCategory).map(([category, tasks]) => ({
+        category,
+        count: tasks.length,
+      })),
+    });
+
+    // トランザクション内で全てのタスクを更新
     await prisma.$transaction(
       async (tx) => {
         console.log('Transaction started');
-        const currentTasks = await tx.task.findMany({
-          where: {
-            userId: userId as string,
-            category: category,
-          },
-          orderBy: {
-            task_order: 'asc',
-          },
-        });
 
-        console.log('Tasks state:', {
-          found: currentTasks.length,
-          timestamp: new Date().toISOString(),
-        });
+        // 各カテゴリーのタスクを更新
+        for (const [category, categoryTasks] of Object.entries(
+          tasksByCategory
+        )) {
+          console.log(`Processing category: ${category}`);
 
-        // 新しい並び順のマッピングを作成
-        const taskOrderMap = new Map(
-          tasks.map((task, index) => [task.id, index])
-        );
-
-        // 更新が必要なタスクのみを更新
-        const updates = currentTasks
-          .filter((task) => taskOrderMap.has(task.id))
-          .map((task) =>
+          const updates = categoryTasks.map((task) =>
             tx.task.update({
               where: {
                 id: task.id,
                 userId: userId as string,
               },
               data: {
-                task_order: taskOrderMap.get(task.id),
+                category: task.category,
+                task_order: task.task_order,
               },
             })
           );
 
-        console.log('Updates to perform:', updates.length);
-        await Promise.all(updates);
+          console.log(`Updates for category ${category}:`, updates.length);
+          await Promise.all(updates);
+        }
 
         console.log('Transaction completed');
       },

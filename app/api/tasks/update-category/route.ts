@@ -6,19 +6,21 @@ export async function POST(req: NextRequest) {
     const { taskId, category } = await req.json();
     const userId = req.headers.get('X-User-Id');
 
-    if (!taskId || !category) {
-      return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
-    }
-
-    await prisma.task.update({
-      where: { id: taskId, userId: userId as string },
-      data: { category },
+    const updatedTask = await prisma.task.update({
+      where: {
+        id: taskId,
+        userId: userId as string,
+      },
+      data: {
+        category,
+      },
     });
 
-    return NextResponse.json({ message: 'Category updated' });
-  } catch {
+    return NextResponse.json(updatedTask);
+  } catch (error) {
+    console.error('Update category error:', error);
     return NextResponse.json(
-      { error: 'サーバーエラーが発生しました' },
+      { error: 'カテゴリーの更新に失敗しました' },
       { status: 500 }
     );
   }
