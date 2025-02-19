@@ -7,14 +7,14 @@ import { ListTodo } from 'lucide-react';
 import TaskColumn from '@/components/TaskColumn';
 import LoadingState from '@/components/LoadingState';
 import ErrorState from '@/components/ErrorState';
-import { Task } from '@prisma/client';
+import { TaskWithExtras } from '@/types/task';
 import useSWR from 'swr';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 export default function TaskList() {
   const { data: session } = useSession();
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<TaskWithExtras[]>([]);
 
   // useSWRを使用してタスクを取得
   const {
@@ -22,7 +22,7 @@ export default function TaskList() {
     error,
     isLoading,
     mutate: mutateTasks,
-  } = useSWR<Task[]>(
+  } = useSWR<TaskWithExtras[]>(
     session?.user?.id ? '/api/tasks' : null,
     async (url: string) => {
       if (!session?.user?.id) return [];
@@ -71,7 +71,7 @@ export default function TaskList() {
       return;
 
     const updatedTasks = [...tasks] as Array<
-      Task & {
+      TaskWithExtras & {
         status: string;
         due_date: Date | null;
         priority: string | null;

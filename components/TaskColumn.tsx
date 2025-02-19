@@ -3,7 +3,7 @@
 import { Droppable } from '@hello-pangea/dnd';
 import { Draggable } from '@hello-pangea/dnd';
 import TaskItem from '@/components/TaskItem';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   ArrowUpDown,
@@ -29,13 +29,13 @@ import { useSession } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
 import AddTaskForm from '@/components/AddTaskForm';
 import { KeyedMutator } from 'swr';
-import { Task } from '@prisma/client';
+import { TaskWithExtras } from '@/types/task';
 
 interface TaskColumnProps {
   droppableId: string;
   title: string;
-  tasks: Task[];
-  onTasksChange: KeyedMutator<Task[]>;
+  tasks: TaskWithExtras[];
+  onTasksChange: KeyedMutator<TaskWithExtras[]>;
 }
 
 interface CreateTaskData {
@@ -78,14 +78,7 @@ export default function TaskColumn({
   }, [statusFilter, dueDateFilter]);
 
   const filteredAndSortedTasks = useMemo(() => {
-    let filtered = [...tasks] as Array<
-      Task & {
-        status: string;
-        due_date: Date | null;
-        priority: string | null;
-        category: string;
-      }
-    >;
+    let filtered = [...tasks] as TaskWithExtras[];
 
     // ステータスフィルター
     if (statusFilter !== 'all') {
@@ -164,11 +157,6 @@ export default function TaskColumn({
       }
     });
   }, [tasks, sortBy, statusFilter, dueDateFilter]);
-
-  // セッション情報のデバッグログ
-  useEffect(() => {
-    console.log('Current session:', session);
-  }, [session]);
 
   if (status === 'loading') return <div>Loading...</div>;
   if (status === 'unauthenticated')

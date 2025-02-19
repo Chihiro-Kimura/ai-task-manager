@@ -1,13 +1,13 @@
-import type { Task as PrismaTask } from '@prisma/client';
+import type { Task } from '@prisma/client';
 
-export type Task = PrismaTask;
+export type TaskWithExtras = Task;
 
 export interface UpdateTaskRequest {
   title?: string;
   description?: string;
-  priority?: string;
+  priority?: string | null;
   status?: string;
-  dueDate?: string;
+  dueDate?: string | null;
 }
 
 export interface UpdateTaskData {

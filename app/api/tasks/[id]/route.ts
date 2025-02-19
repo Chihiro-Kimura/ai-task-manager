@@ -86,7 +86,8 @@ export async function PATCH(
         ...(description !== undefined && { description }),
         ...(priority !== undefined && { priority }),
         ...(status !== undefined && { status }),
-        ...(dueDate !== undefined && { due_date: new Date(dueDate) }),
+        ...(dueDate !== undefined &&
+          dueDate !== null && { due_date: new Date(dueDate) }),
       },
     });
 

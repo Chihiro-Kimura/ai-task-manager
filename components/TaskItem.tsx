@@ -11,15 +11,10 @@ import { ja } from 'date-fns/locale';
 import { useState } from 'react';
 import EditTaskForm from '@/components/EditTaskForm';
 import { cn } from '@/lib/utils';
-import { Task } from '@prisma/client';
+import { TaskWithExtras } from '@/types/task';
 
 interface TaskItemProps {
-  task: Task & {
-    status: string;
-    due_date: Date | null;
-    priority: string | null;
-    category: string;
-  };
+  task: TaskWithExtras;
   onMutate: () => Promise<void>;
 }
 

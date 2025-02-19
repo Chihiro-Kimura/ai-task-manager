@@ -1,28 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(req: NextRequest) {
-  const { tasks } = await req.json();
+  try {
+    const { tasks } = await req.json();
+    const userId = req.headers.get('X-User-Id');
 
-  if (!tasks || !Array.isArray(tasks)) {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
-  }
-
-  const updates = tasks.map((task, index) => ({
-    id: task.id,
-    task_order: index,
-  }));
-
-  for (const update of updates) {
-    const { error } = await supabase
-      .from('tasks')
-      .update({ task_order: update.task_order })
-      .eq('id', update.id);
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!tasks || !Array.isArray(tasks)) {
+      return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
-  }
 
-  return NextResponse.json({ message: 'Order updated' });
+    // バッチ更新を使用して効率化
+    await prisma.$transaction(
+      tasks.map((task, index) =>
+        prisma.task.update({
+          where: { id: task.id, userId: userId as string },
+          data: { task_order: index },
+        })
+      )
+    );
+
+    return NextResponse.json({ message: 'Order updated' });
+  } catch {
+    return NextResponse.json(
+      { error: 'サーバーエラーが発生しました' },
+      { status: 500 }
+    );
+  }
 }
