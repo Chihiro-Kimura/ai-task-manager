@@ -13,7 +13,7 @@ model Task {
   title       String
   description String?
   status      String    @default("未完了")
-  priority    String    @default("中")
+  priority    String?
   category    String    @default("box")
   due_date    DateTime?
   task_order  Int       @default(0)
