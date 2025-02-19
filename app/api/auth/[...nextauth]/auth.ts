@@ -1,6 +1,8 @@
 import NextAuth, { type NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
-import { supabase } from '@/lib/supabase';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -17,58 +19,41 @@ export const authOptions: NextAuthOptions = {
         console.log('🔍 Signing in user:', user.email);
 
         // Supabase でユーザーを検索
-        const { data: existingUser, error: fetchError } = await supabase
-          .from('users')
-          .select('id')
-          .eq('email', user.email)
-          .single();
-
-        if (fetchError && fetchError.code !== 'PGRST116') {
-          console.error('❌ Error fetching user:', fetchError);
-          return false;
-        }
+        const existingUser = await prisma.user.findUnique({
+          where: {
+            email: user.email,
+          },
+        });
 
         if (!existingUser) {
           console.log('🆕 Creating new user:', user.email);
-          const { data: newUser, error: upsertError } = await supabase
-            .from('users')
-            .upsert(
-              [
-                {
-                  email: user.email,
-                  name: user.name,
-                  image: user.image || null,
-                  updated_at: new Date().toISOString(),
-                },
-              ],
-              {
-                onConflict: 'email', // emailカラムでの競合を処理
-                ignoreDuplicates: false, // 更新を許可
-              }
-            )
-            .select('id')
-            .single();
-
-          if (upsertError) {
-            console.error('❌ Error creating user:', upsertError);
-            return false;
-          }
+          const newUser = await prisma.user.upsert({
+            where: {
+              email: user.email,
+            },
+            update: {
+              name: user.name,
+              image: user.image || null,
+            },
+            create: {
+              email: user.email,
+              name: user.name,
+              image: user.image || null,
+            },
+          });
 
           user.id = newUser.id;
         } else {
           // 既存ユーザーの情報を更新
-          const { error: updateError } = await supabase
-            .from('users')
-            .update({
+          await prisma.user.update({
+            where: {
+              id: existingUser.id,
+            },
+            data: {
               name: user.name,
               image: user.image || null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', existingUser.id);
-
-          if (updateError) {
-            console.error('❌ Error updating user:', updateError);
-          }
+            },
+          });
 
           user.id = existingUser.id;
         }
@@ -86,14 +71,14 @@ export const authOptions: NextAuthOptions = {
         if (session.user?.email) {
           console.log('🔍 Fetching user ID for session:', session.user.email);
 
-          const { data: userData, error } = await supabase
-            .from('users')
-            .select('id')
-            .eq('email', session.user.email)
-            .single();
+          const userData = await prisma.user.findUnique({
+            where: {
+              email: session.user.email,
+            },
+          });
 
-          if (error || !userData) {
-            console.error('❌ Session callback error - Supabase fetch:', error);
+          if (!userData) {
+            console.log('❌ User not found in session callback');
             return session;
           }
 
