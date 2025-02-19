@@ -78,7 +78,14 @@ export default function TaskColumn({
   }, [statusFilter, dueDateFilter]);
 
   const filteredAndSortedTasks = useMemo(() => {
-    let filtered = [...tasks] as Array<Task & { status: string }>;
+    let filtered = [...tasks] as Array<
+      Task & {
+        status: string;
+        due_date: Date | null;
+        priority: string | null;
+        category: string;
+      }
+    >;
 
     // ステータスフィルター
     if (statusFilter !== 'all') {
