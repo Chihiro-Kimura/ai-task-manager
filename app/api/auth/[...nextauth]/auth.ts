@@ -14,6 +14,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export const authOptions: NextAuthOptions = {
+  debug: process.env.NODE_ENV === 'development',
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
