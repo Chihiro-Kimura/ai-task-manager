@@ -124,12 +124,12 @@ export async function DELETE(
     const deletedTask = await prisma.task.delete({
       where: {
         id: taskId,
-        userId: userId,
+        userId: userId as string,
       },
     });
 
     console.log('✅ Task deleted:', taskId);
-    return NextResponse.json({ message: 'タスクが削除されました' });
+    return NextResponse.json(deletedTask);
   } catch (error) {
     console.error('❌ Server error:', error);
     return NextResponse.json(
