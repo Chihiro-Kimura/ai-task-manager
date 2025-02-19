@@ -58,8 +58,13 @@ export async function PATCH(
       );
     }
 
-    const { title, description, priority, status, dueDate }: UpdateTaskRequest =
-      await request.json();
+    const {
+      title,
+      description,
+      priority,
+      status,
+      due_date,
+    }: UpdateTaskRequest = await request.json();
 
     // タスクの存在確認
     const existingTask = await prisma.task.findUnique({
@@ -86,8 +91,8 @@ export async function PATCH(
         ...(description !== undefined && { description }),
         ...(priority !== undefined && { priority }),
         ...(status !== undefined && { status }),
-        ...(dueDate !== undefined &&
-          dueDate !== null && { due_date: new Date(dueDate) }),
+        ...(due_date !== undefined &&
+          due_date !== null && { due_date: new Date(due_date) }),
       },
     });
 

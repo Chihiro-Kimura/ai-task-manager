@@ -18,6 +18,7 @@ interface AddTaskFormProps {
     status: string;
     task_order: number;
     category: string;
+    due_date?: string | null;
   }) => Promise<void>;
   onCancel: () => void;
   category: string;
@@ -53,6 +54,7 @@ export default function AddTaskForm({
         status: 'pending',
         task_order: 0,
         category,
+        due_date: dueDate ? dueDate.toISOString() : null,
       });
 
       resetForm();

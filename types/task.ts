@@ -7,7 +7,7 @@ export interface UpdateTaskRequest {
   description?: string;
   priority?: string | null;
   status?: string;
-  dueDate?: string | null;
+  due_date?: string | null;
 }
 
 export interface UpdateTaskData {
@@ -26,4 +26,5 @@ export interface CreateTaskData {
   status: string;
   category: string;
   task_order?: number;
+  due_date?: string | null;
 }

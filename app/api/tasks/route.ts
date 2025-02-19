@@ -46,6 +46,9 @@ export async function POST(request: Request) {
         task_order: data.task_order || 0,
         userId: userId as string,
         ...(data.priority && { priority: data.priority }),
+        ...(data.due_date !== undefined && {
+          due_date: data.due_date ? new Date(data.due_date) : null,
+        }),
       },
     });
 
