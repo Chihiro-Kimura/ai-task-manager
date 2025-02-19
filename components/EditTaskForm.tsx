@@ -47,44 +47,30 @@ export default function EditTaskForm({
       return;
     }
 
-    if (!priority) {
-      toast({
-        title: 'エラー',
-        description: '優先度を選択してください',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     setIsLoading(true);
     try {
-      // デバッグ用のログを追加
-      console.log('Updating task with data:', {
+      const updateData = {
         title,
         description,
         priority,
-        dueDate,
-      });
+        due_date: dueDate?.toISOString(),
+      };
 
-      const res = await fetch(`/api/tasks/${taskId}`, {
+      console.log('Updating task with data:', updateData);
+
+      const response = await fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'X-User-Id': session.user.id,
         },
-        body: JSON.stringify({
-          title,
-          description,
-          priority,
-          dueDate: dueDate?.toISOString() ?? null,
-        }),
+        body: JSON.stringify(updateData),
       });
 
-      const data = await res.json();
-      // デバッグ用のログを追加
+      const data = await response.json();
       console.log('Update response:', data);
 
-      if (res.ok) {
+      if (response.ok) {
         toast({
           title: '更新成功',
           description: 'タスクが更新されました！',

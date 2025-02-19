@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
-import { UpdateTaskData, UpdateTaskRequest } from '@/types/task';
+import { prisma } from '@/lib/prisma';
+import { UpdateTaskRequest } from '@/types/task';
 
 // 個別のタスク取得
 export async function GET(
@@ -18,19 +18,12 @@ export async function GET(
       );
     }
 
-    const { data: task, error } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('id', id)
-      .eq('userId', userId)
-      .single();
-
-    if (error) {
-      return NextResponse.json(
-        { error: 'タスクの取得に失敗しました' },
-        { status: 500 }
-      );
-    }
+    const task = await prisma.task.findUnique({
+      where: {
+        id: id,
+        userId: userId,
+      },
+    });
 
     if (!task) {
       return NextResponse.json(
@@ -54,18 +47,27 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { id: taskId } = await params;
+    const userId = request.headers.get('X-User-Id');
+
+    if (!userId) {
+      console.error('❌ Missing User ID');
+      return NextResponse.json(
+        { error: 'ユーザーIDは必須です' },
+        { status: 400 }
+      );
+    }
+
     const { title, description, priority, status, dueDate }: UpdateTaskRequest =
       await request.json();
 
-    const userId = request.headers.get('X-User-Id');
-
-    const { data: existingTask } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('userId', userId)
-      .eq('id', id)
-      .single();
+    // タスクの存在確認
+    const existingTask = await prisma.task.findUnique({
+      where: {
+        id: taskId,
+        userId: userId,
+      },
+    });
 
     if (!existingTask) {
       return NextResponse.json(
@@ -74,45 +76,29 @@ export async function PATCH(
       );
     }
 
-    const updateData: UpdateTaskData = {
-      updatedAt: new Date().toISOString(),
-    };
-
-    if (title !== undefined) updateData.title = title;
-    if (description !== undefined) updateData.description = description;
-    if (priority !== undefined) updateData.priority = priority;
-    if (status !== undefined) updateData.status = status;
-    if (dueDate !== undefined) updateData.due_date = dueDate;
-
-    const { error } = await supabase
-      .from('tasks')
-      .update(updateData)
-      .eq('userId', userId)
-      .eq('id', id);
-
-    if (error) {
-      return NextResponse.json(
-        { error: `更新エラー: ${error.message}` },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      message:
-        status === 'completed'
-          ? '✅ タスクが完了しました'
-          : '✅ タスクが更新されました',
-      updatedTask: {
-        ...existingTask,
-        ...updateData,
-        statusDisplay: status === 'completed' ? '☑️' : '☐',
+    const updatedTask = await prisma.task.update({
+      where: {
+        id: taskId,
+        userId: userId,
+      },
+      data: {
+        ...(title !== undefined && { title }),
+        ...(description !== undefined && { description }),
+        ...(priority !== undefined && { priority }),
+        ...(status !== undefined && { status }),
+        ...(dueDate !== undefined && { due_date: new Date(dueDate) }),
       },
     });
-  } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : '不明なエラー';
+
+    console.log('✅ Task updated:', taskId);
+    return NextResponse.json({
+      message: 'タスクが更新されました',
+      task: updatedTask,
+    });
+  } catch (error) {
+    console.error('❌ Server error:', error);
     return NextResponse.json(
-      { error: 'サーバーエラー', details: errorMessage },
+      { error: 'サーバーエラーが発生しました' },
       { status: 500 }
     );
   }
@@ -124,62 +110,30 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { id: taskId } = await params;
     const userId = request.headers.get('X-User-Id');
 
-    console.log('Delete request:', { id, userId });
-
-    const { data: existingTask, error: checkError } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('userId', userId)
-      .eq('id', id)
-      .single();
-
-    console.log('Existing task:', existingTask);
-    console.log('Check error:', checkError);
-
-    if (!existingTask) {
+    if (!userId) {
+      console.error('❌ Missing User ID');
       return NextResponse.json(
-        {
-          error: 'タスクが見つかりません',
-          details: { id, userId, checkError },
-        },
-        { status: 404 }
+        { error: 'ユーザーIDは必須です' },
+        { status: 400 }
       );
     }
 
-    const { error } = await supabase
-      .from('tasks')
-      .delete()
-      .eq('userId', userId)
-      .eq('id', id);
-
-    if (error) {
-      console.error('Delete error:', error);
-      return NextResponse.json(
-        { error: `削除エラー: ${error.message}` },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      message: '✅ タスクが削除されました',
-      deletedTask: existingTask,
-    });
-  } catch (error: unknown) {
-    console.error('Server error:', error);
-    const errorMessage =
-      error instanceof Error ? error.message : '不明なエラー';
-    return NextResponse.json(
-      {
-        error: 'サーバーエラー',
-        details: errorMessage,
-        requestInfo: {
-          id: (await params).id,
-          userId: request.headers.get('X-User-Id'),
-        },
+    const deletedTask = await prisma.task.delete({
+      where: {
+        id: taskId,
+        userId: userId,
       },
+    });
+
+    console.log('✅ Task deleted:', taskId);
+    return NextResponse.json({ message: 'タスクが削除されました' });
+  } catch (error) {
+    console.error('❌ Server error:', error);
+    return NextResponse.json(
+      { error: 'サーバーエラーが発生しました' },
       { status: 500 }
     );
   }

@@ -1,44 +1,57 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import useSWR from 'swr';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { useSession } from 'next-auth/react';
 import { ListTodo } from 'lucide-react';
 import TaskColumn from '@/components/TaskColumn';
 import LoadingState from '@/components/LoadingState';
 import ErrorState from '@/components/ErrorState';
+import { Task } from '@/types/task';
+import useSWR from 'swr';
 
-interface Task {
-  id: string;
-  category: string;
-  title: string;
-  description: string;
-  status: string;
-  priority: string;
-  due_date: string | null;
-  created_at: string;
-}
+const isDevelopment = process.env.NODE_ENV === 'development';
 
 export default function TaskList() {
   const { data: session } = useSession();
   const [tasks, setTasks] = useState<Task[]>([]);
 
+  // useSWRを使用してタスクを取得
   const {
-    data: response,
+    data: fetchedTasks,
     error,
     isLoading,
     mutate: mutateTasks,
-  } = useSWR(session?.user?.id ? `/api/tasks` : null, async (url) => {
-    const res = await fetch(url, {
-      headers: { 'X-User-Id': session?.user?.id || '' },
+  } = useSWR<Task[]>(session?.user?.id ? '/api/tasks' : null, async (url) => {
+    if (!session?.user?.id) return [];
+
+    if (isDevelopment) {
+      console.log('🔍 Fetching tasks for user:', session.user.id);
+    }
+
+    const response = await fetch(url, {
+      headers: {
+        'X-User-Id': session.user.id,
+      },
     });
-    return res.json();
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch tasks');
+    }
+
+    const data = await response.json();
+    if (isDevelopment) {
+      console.log('✅ Tasks fetched:', data.length);
+    }
+    return data;
   });
 
+  // fetchedTasksが更新されたらstateを更新
   useEffect(() => {
-    if (response) setTasks(response);
-  }, [response]);
+    if (fetchedTasks) {
+      setTasks(fetchedTasks);
+    }
+  }, [fetchedTasks]);
 
   const handleDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
@@ -79,23 +92,24 @@ export default function TaskList() {
 
     setTasks(updatedTasks);
 
-    await mutateTasks(
-      async () => {
-        await fetch('/api/tasks/update-category', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-User-Id': session?.user?.id || '',
-          },
-          body: JSON.stringify({
-            taskId: movedTask.id,
-            category: destinationCategory,
-          }),
-        });
-        return updatedTasks;
-      },
-      { optimisticData: updatedTasks, rollbackOnError: true }
-    );
+    try {
+      await fetch('/api/tasks/update-category', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': session?.user?.id || '',
+        },
+        body: JSON.stringify({
+          taskId: movedTask.id,
+          category: destinationCategory,
+        }),
+      });
+
+      // カテゴリー更新後にデータを再検証
+      await mutateTasks();
+    } catch (error) {
+      console.error('Failed to update category:', error);
+    }
   };
 
   const categories = useMemo(
@@ -126,21 +140,21 @@ export default function TaskList() {
             droppableId="box"
             title="ボックス"
             tasks={categories.box}
-            mutateTasks={mutateTasks}
+            onTasksChange={mutateTasks}
           />
           <TaskColumn
             key="now"
             droppableId="now"
             title="今やる"
             tasks={categories.now}
-            mutateTasks={mutateTasks}
+            onTasksChange={mutateTasks}
           />
           <TaskColumn
             key="next"
             droppableId="next"
             title="次やる"
             tasks={categories.next}
-            mutateTasks={mutateTasks}
+            onTasksChange={mutateTasks}
           />
         </div>
       </DragDropContext>

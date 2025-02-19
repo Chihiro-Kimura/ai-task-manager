@@ -8,25 +8,24 @@ import { X, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import DueDatePicker from '@/components/DueDatePicker';
 import PrioritySelect from '@/components/PrioritySelect';
+import { toast } from '@/hooks/use-toast';
 
 interface AddTaskFormProps {
   onSubmit: (task: {
     title: string;
     description: string;
     priority: string;
-    due_date?: string;
     status: string;
+    task_order: number;
     category: string;
   }) => Promise<void>;
   onCancel: () => void;
-  status: string;
   category: string;
 }
 
 export default function AddTaskForm({
   onSubmit,
   onCancel,
-  status,
   category,
 }: AddTaskFormProps) {
   const [title, setTitle] = useState('');
@@ -44,21 +43,27 @@ export default function AddTaskForm({
   };
 
   const handleSubmit = async () => {
-    if (!title || !priority) return;
+    if (!title) return;
 
     try {
       await onSubmit({
         title,
         description,
         priority,
-        due_date: dueDate?.toISOString(),
-        status,
+        status: 'pending',
+        task_order: 0,
         category,
       });
 
       resetForm();
+      setIsEditing(false);
     } catch (error) {
       console.error('Failed to add task:', error);
+      toast({
+        title: 'エラー',
+        description: 'タスクの追加に失敗しました',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -116,12 +121,10 @@ export default function AddTaskForm({
               size="sm"
               variant="ghost"
               onClick={handleSubmit}
-              disabled={!title || !priority}
+              disabled={!title}
               className={cn(
                 'h-7 w-7 p-0',
-                !title || !priority
-                  ? 'text-zinc-600'
-                  : 'text-zinc-400 hover:text-zinc-100'
+                !title ? 'text-zinc-600' : 'text-zinc-400 hover:text-zinc-100'
               )}
             >
               <Plus className="h-4 w-4" />

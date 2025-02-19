@@ -14,72 +14,102 @@ export const authOptions: NextAuthOptions = {
       if (!user.email) return false;
 
       try {
-        // Supabaseでユーザーを検索または作成
+        console.log('🔍 Signing in user:', user.email);
+
+        // Supabase でユーザーを検索
         const { data: existingUser, error: fetchError } = await supabase
           .from('users')
-          .select()
+          .select('id')
           .eq('email', user.email)
           .single();
 
         if (fetchError && fetchError.code !== 'PGRST116') {
-          console.error('Error fetching user:', fetchError);
+          console.error('❌ Error fetching user:', fetchError);
           return false;
         }
 
         if (!existingUser) {
-          // 新規ユーザーを作成
-          const { data: newUser, error: insertError } = await supabase
+          console.log('🆕 Creating new user:', user.email);
+          const { data: newUser, error: upsertError } = await supabase
             .from('users')
-            .insert([
+            .upsert(
+              [
+                {
+                  email: user.email,
+                  name: user.name,
+                  image: user.image || null,
+                  updated_at: new Date().toISOString(),
+                },
+              ],
               {
-                email: user.email,
-                name: user.name,
-                image: user.image,
-              },
-            ])
-            .select()
+                onConflict: 'email', // emailカラムでの競合を処理
+                ignoreDuplicates: false, // 更新を許可
+              }
+            )
+            .select('id')
             .single();
 
-          if (insertError) {
-            console.error('Error creating user:', insertError);
+          if (upsertError) {
+            console.error('❌ Error creating user:', upsertError);
             return false;
           }
 
           user.id = newUser.id;
         } else {
+          // 既存ユーザーの情報を更新
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({
+              name: user.name,
+              image: user.image || null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingUser.id);
+
+          if (updateError) {
+            console.error('❌ Error updating user:', updateError);
+          }
+
           user.id = existingUser.id;
         }
 
+        console.log('✅ User ID set in signIn:', user.id);
         return true;
       } catch (error) {
-        console.error('SignIn error:', error);
+        console.error('❌ SignIn error:', error);
         return false;
       }
     },
+
     async session({ session }) {
       try {
         if (session.user?.email) {
-          // Supabaseからユーザー情報を取得
+          console.log('🔍 Fetching user ID for session:', session.user.email);
+
           const { data: userData, error } = await supabase
             .from('users')
             .select('id')
             .eq('email', session.user.email)
             .single();
 
-          if (error) throw error;
+          if (error || !userData) {
+            console.error('❌ Session callback error - Supabase fetch:', error);
+            return session;
+          }
 
-          // セッションにユーザーIDを追加
+          console.log('✅ User ID set in session:', userData.id);
+
           return {
             ...session,
             user: {
               ...session.user,
-              id: userData.id,
+              id: userData.id, // ✅ `session.user.id` をセット
             },
           };
         }
         return session;
       } catch (error) {
-        console.error('Session callback error:', error);
+        console.error('❌ Session callback error:', error);
         return session;
       }
     },

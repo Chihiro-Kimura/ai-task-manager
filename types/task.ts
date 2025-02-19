@@ -1,24 +1,6 @@
-export interface Task {
-  id: string;
-  title: string;
-  description: string;
-  status: string;
-  priority: string;
-  due_date: string | null;
-  user_id: string;
-  created_at: string;
-  updated_at: string;
-  category: string;
-}
+import { Task } from '@prisma/client';
 
-export interface UpdateTaskData {
-  updatedAt: string;
-  title?: string;
-  description?: string;
-  priority?: string;
-  status?: string;
-  due_date?: string;
-}
+export type { Task };
 
 export interface UpdateTaskRequest {
   title?: string;
@@ -26,4 +8,21 @@ export interface UpdateTaskRequest {
   priority?: string;
   status?: string;
   dueDate?: string;
+}
+
+export interface UpdateTaskData {
+  title?: string;
+  description?: string;
+  priority?: string;
+  status?: string;
+  due_date?: string | null;
+  updated_at: string;
+}
+
+export interface CreateTaskData {
+  title: string;
+  description?: string;
+  priority: string;
+  status: string;
+  category: string;
 }

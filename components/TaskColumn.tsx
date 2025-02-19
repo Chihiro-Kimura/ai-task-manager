@@ -3,7 +3,7 @@
 import { Droppable } from '@hello-pangea/dnd';
 import { Draggable } from '@hello-pangea/dnd';
 import TaskItem from '@/components/TaskItem';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   ArrowUpDown,
@@ -29,35 +29,39 @@ import { useSession } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
 import AddTaskForm from '@/components/AddTaskForm';
 
-interface TaskColumnProps {
-  title: string;
-  droppableId: string;
-  tasks: {
-    id: string;
-    title: string;
-    description: string;
-    status: string;
-    priority: string;
-    due_date: string | null;
-    created_at: string;
-  }[];
-  mutateTasks: () => void;
-}
-
 interface Task {
+  id: string;
   title: string;
   description: string;
   status: string;
   priority: string;
-  due_date?: string | null;
+  due_date: string | null;
+  category: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface TaskColumnProps {
+  droppableId: string;
+  title: string;
+  tasks: Task[];
+  onTasksChange: () => Promise<void>;
+}
+
+interface CreateTaskData {
+  title: string;
+  description: string;
+  priority: string;
+  status: string;
+  task_order: number;
   category: string;
 }
 
 export default function TaskColumn({
-  title,
   droppableId,
+  title,
   tasks,
-  mutateTasks,
+  onTasksChange,
 }: TaskColumnProps) {
   const { data: session, status } = useSession();
   const { toast } = useToast();
@@ -164,44 +168,45 @@ export default function TaskColumn({
     });
   }, [tasks, sortBy, statusFilter, dueDateFilter]);
 
+  // セッション情報のデバッグログ
+  useEffect(() => {
+    console.log('Current session:', session);
+  }, [session]);
+
   if (status === 'loading') return <div>Loading...</div>;
   if (status === 'unauthenticated')
     return <div>Please sign in to add tasks</div>;
 
-  const handleAddTask = async (task: Task) => {
+  const handleAddTask = async (taskData: CreateTaskData) => {
+    if (!session?.user?.id) {
+      toast({
+        title: 'エラー',
+        description: 'ログインが必要です',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
-      if (!session) {
-        throw new Error('セッションが見つかりません');
-      }
-
-      const taskData = {
-        ...task,
-        user_id: session.user.id,
-        status: task.status === 'all' ? '未完了' : task.status,
-        created_at: new Date().toISOString(),
-      };
-
       const response = await fetch('/api/tasks', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-User-Id': session.user.id,
         },
-        body: JSON.stringify(taskData),
+        body: JSON.stringify({
+          ...taskData,
+          category: droppableId,
+        }),
       });
 
+      const data = await response.json();
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('API Error Details:', {
-          status: response.status,
-          statusText: response.statusText,
-          errorData,
-          requestData: taskData,
-        });
-        throw new Error(errorData.error || 'タスクの追加に失敗しました');
+        throw new Error(data.error || 'タスクの追加に失敗しました');
       }
 
-      await mutateTasks();
+      await onTasksChange();
+      setIsAddingTask(false);
     } catch (error) {
       console.error('Failed to add task:', error);
       toast({
@@ -360,7 +365,6 @@ export default function TaskColumn({
               <AddTaskForm
                 onSubmit={handleAddTask}
                 onCancel={handleCancelAdd}
-                status={statusFilter}
                 category={droppableId}
               />
             )}
@@ -375,7 +379,7 @@ export default function TaskColumn({
                   >
                     <TaskItem
                       task={task}
-                      onMutate={async () => await mutateTasks()}
+                      onMutate={async () => await onTasksChange()}
                     />
                   </div>
                 )}
