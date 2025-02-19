@@ -78,56 +78,72 @@ export default function TaskList() {
     // 楽観的更新
     setTasks(updatedTasks);
 
-    try {
-      // カテゴリー変更の場合
-      if (sourceCategory !== destinationCategory) {
-        const categoryResponse = await fetch('/api/tasks/update-category', {
+    const maxRetries = 3;
+    let retryCount = 0;
+
+    while (retryCount < maxRetries) {
+      try {
+        // カテゴリー変更の場合
+        if (sourceCategory !== destinationCategory) {
+          const categoryResponse = await fetch('/api/tasks/update-category', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-User-Id': session?.user?.id || '',
+            },
+            body: JSON.stringify({
+              taskId: movedTask.id,
+              category: destinationCategory,
+            }),
+          });
+
+          if (!categoryResponse.ok) {
+            throw new Error('カテゴリーの更新に失敗しました');
+          }
+        }
+
+        // 並び順の更新
+        const tasksInCategory = updatedTasks
+          .filter((task) => task.category === destinationCategory)
+          .map((task) => ({ id: task.id }));
+
+        const reorderResponse = await fetch('/api/tasks/reorder', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'X-User-Id': session?.user?.id || '',
           },
           body: JSON.stringify({
-            taskId: movedTask.id,
+            tasks: tasksInCategory,
             category: destinationCategory,
           }),
         });
 
-        if (!categoryResponse.ok) {
-          throw new Error('カテゴリーの更新に失敗しました');
+        if (!reorderResponse.ok) {
+          const errorData = await reorderResponse.json();
+          throw new Error(errorData.error || '並び順の更新に失敗しました');
         }
+
+        // 成功したらループを抜ける
+        break;
+      } catch (error) {
+        retryCount++;
+        console.error(`Failed to update task (attempt ${retryCount}):`, error);
+
+        if (retryCount === maxRetries) {
+          // 最大リトライ回数に達した場合
+          setTasks(tasks); // 元の状態に戻す
+          alert('タスクの更新に失敗しました。もう一度お試しください。');
+          return;
+        }
+
+        // リトライ前に少し待機
+        await new Promise((resolve) => setTimeout(resolve, 1000 * retryCount));
       }
-
-      // 並び順の更新
-      const tasksInCategory = updatedTasks
-        .filter((task) => task.category === destinationCategory)
-        .map((task) => ({ id: task.id }));
-
-      const reorderResponse = await fetch('/api/tasks/reorder', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': session?.user?.id || '',
-        },
-        body: JSON.stringify({
-          tasks: tasksInCategory,
-          category: destinationCategory,
-        }),
-      });
-
-      if (!reorderResponse.ok) {
-        throw new Error('並び順の更新に失敗しました');
-      }
-
-      // データを再検証
-      await mutateTasks();
-    } catch (error) {
-      console.error('Failed to update task:', error);
-      // エラー時は元の状態に戻す
-      setTasks(tasks);
-      // オプション: エラーメッセージを表示
-      alert('タスクの更新に失敗しました。もう一度お試しください。');
     }
+
+    // データを再検証
+    await mutateTasks();
   };
 
   const categories = useMemo(
