@@ -5,10 +5,8 @@ import { prisma } from '@/lib/prisma';
 export async function GET(request: Request) {
   try {
     const userId = request.headers.get('X-User-Id');
-    console.log('GET /api/tasks - User ID:', userId);
 
     if (!userId) {
-      console.error('❌ Missing User ID');
       return NextResponse.json(
         { error: 'ユーザーIDは必須です' },
         { status: 400 }
@@ -24,10 +22,8 @@ export async function GET(request: Request) {
       },
     });
 
-    console.log('✅ Tasks found:', tasks.length);
     return NextResponse.json(tasks);
-  } catch (error) {
-    console.error('❌ Server error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'サーバーエラーが発生しました' },
       { status: 500 }
@@ -54,8 +50,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(task);
-  } catch (error) {
-    console.error('❌ Server error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'サーバーエラーが発生しました' },
       { status: 500 }
@@ -79,14 +74,6 @@ export async function PATCH(
       await request.json();
     const userId = request.headers.get('X-User-Id');
 
-    console.log('📝 Update data:', {
-      title,
-      description,
-      due_date,
-      priority,
-      status,
-    });
-
     // タスクの存在確認
     const existingTask = await prisma.task.findUnique({
       where: {
@@ -96,7 +83,6 @@ export async function PATCH(
     });
 
     if (!existingTask) {
-      console.error('❌ Task not found');
       return NextResponse.json(
         { error: 'タスクが見つかりません' },
         { status: 404 }
@@ -120,10 +106,8 @@ export async function PATCH(
       },
     });
 
-    console.log('✅ Updated task:', updatedTask);
     return NextResponse.json(updatedTask);
-  } catch (error) {
-    console.error('❌ Server error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'サーバーエラーが発生しました' },
       { status: 500 }
@@ -145,8 +129,6 @@ export async function DELETE(
   try {
     const userId = request.headers.get('X-User-Id');
 
-    console.log('🔍 Deleting task:', id, 'for user:', userId);
-
     const deletedTask = await prisma.task.delete({
       where: {
         id: id,
@@ -155,8 +137,7 @@ export async function DELETE(
     });
 
     return NextResponse.json(deletedTask);
-  } catch (error) {
-    console.error('❌ Server error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'サーバーエラーが発生しました' },
       { status: 500 }

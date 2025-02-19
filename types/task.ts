@@ -1,6 +1,6 @@
-import { Task } from '@prisma/client';
+import type { Task as PrismaTask } from '@prisma/client';
 
-export type { Task };
+export type Task = PrismaTask;
 
 export interface UpdateTaskRequest {
   title?: string;

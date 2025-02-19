@@ -7,7 +7,7 @@ import { ListTodo } from 'lucide-react';
 import TaskColumn from '@/components/TaskColumn';
 import LoadingState from '@/components/LoadingState';
 import ErrorState from '@/components/ErrorState';
-import { Task } from '@/types/task';
+import { Task } from '@prisma/client';
 import useSWR from 'swr';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
