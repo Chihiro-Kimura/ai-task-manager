@@ -29,7 +29,7 @@ import { useSession } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
 import AddTaskForm from '@/components/AddTaskForm';
 import { KeyedMutator } from 'swr';
-import { Task } from '@prisma/client'; // Prismaの型を使用
+import { Task } from '@prisma/client';
 
 interface TaskColumnProps {
   droppableId: string;
