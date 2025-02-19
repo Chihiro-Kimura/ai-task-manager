@@ -81,7 +81,7 @@ export default function TaskList() {
     try {
       // カテゴリー変更の場合
       if (sourceCategory !== destinationCategory) {
-        await fetch('/api/tasks/update-category', {
+        const categoryResponse = await fetch('/api/tasks/update-category', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -92,6 +92,10 @@ export default function TaskList() {
             category: destinationCategory,
           }),
         });
+
+        if (!categoryResponse.ok) {
+          throw new Error('カテゴリーの更新に失敗しました');
+        }
       }
 
       // 並び順の更新
@@ -99,7 +103,7 @@ export default function TaskList() {
         .filter((task) => task.category === destinationCategory)
         .map((task) => ({ id: task.id }));
 
-      await fetch('/api/tasks/reorder', {
+      const reorderResponse = await fetch('/api/tasks/reorder', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -111,12 +115,18 @@ export default function TaskList() {
         }),
       });
 
+      if (!reorderResponse.ok) {
+        throw new Error('並び順の更新に失敗しました');
+      }
+
       // データを再検証
       await mutateTasks();
     } catch (error) {
       console.error('Failed to update task:', error);
       // エラー時は元の状態に戻す
       setTasks(tasks);
+      // オプション: エラーメッセージを表示
+      alert('タスクの更新に失敗しました。もう一度お試しください。');
     }
   };
 

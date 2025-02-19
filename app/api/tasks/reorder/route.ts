@@ -7,28 +7,51 @@ export async function POST(req: NextRequest) {
     const userId = req.headers.get('X-User-Id');
 
     if (!tasks || !Array.isArray(tasks) || !category) {
+      console.error('Invalid request:', { tasks, category, userId });
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
 
-    // 特定のカテゴリー内でのみ並び順を更新
-    await prisma.$transaction(
-      tasks.map((task, index) =>
-        prisma.task.update({
-          where: {
-            id: task.id,
-            userId: userId as string,
-            category: category,
-          },
-          data: { task_order: index },
-        })
-      )
-    );
+    // トランザクション内でカテゴリー内の全タスクを取得して並び順を更新
+    await prisma.$transaction(async (tx) => {
+      // 現在のカテゴリー内のタスクを取得
+      const currentTasks = await tx.task.findMany({
+        where: {
+          userId: userId as string,
+          category: category,
+        },
+        orderBy: {
+          task_order: 'asc',
+        },
+      });
 
-    return NextResponse.json({ message: 'Order updated' });
+      // 新しい並び順のマッピングを作成
+      const taskOrderMap = new Map(
+        tasks.map((task, index) => [task.id, index])
+      );
+
+      // 更新が必要なタスクのみを更新
+      const updates = currentTasks
+        .filter((task) => taskOrderMap.has(task.id))
+        .map((task) =>
+          tx.task.update({
+            where: {
+              id: task.id,
+              userId: userId as string,
+            },
+            data: {
+              task_order: taskOrderMap.get(task.id),
+            },
+          })
+        );
+
+      await Promise.all(updates);
+    });
+
+    return NextResponse.json({ message: 'Order updated successfully' });
   } catch (error) {
     console.error('Reorder error:', error);
     return NextResponse.json(
-      { error: 'サーバーエラーが発生しました' },
+      { error: 'タスクの並び順の更新に失敗しました' },
       { status: 500 }
     );
   }
