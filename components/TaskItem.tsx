@@ -14,7 +14,12 @@ import { cn } from '@/lib/utils';
 import { Task } from '@prisma/client';
 
 interface TaskItemProps {
-  task: Task;
+  task: Task & {
+    status: string;
+    due_date: Date | null;
+    priority: string | null;
+    category: string;
+  };
   onMutate: () => Promise<void>;
 }
 
