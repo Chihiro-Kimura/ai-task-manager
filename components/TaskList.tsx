@@ -70,55 +70,53 @@ export default function TaskList() {
     )
       return;
 
-    const updatedTasks = [...tasks] as Array<
-      TaskWithExtras & {
-        status: string;
-        due_date: Date | null;
-        priority: string | null;
-        category: string;
-      }
-    >;
-
-    // カテゴリー内での正しいインデックスを計算
-    const sourceTaskIndex =
-      updatedTasks.findIndex((task) => task.category === sourceCategory) +
-      sourceIndex;
-
-    const [movedTask] = updatedTasks.splice(sourceTaskIndex, 1);
+    const updatedTasks = [...tasks];
+    const [movedTask] = updatedTasks.splice(result.source.index, 1);
     movedTask.category = destinationCategory;
+    updatedTasks.splice(result.destination.index, 0, movedTask);
 
-    // 移動先カテゴリーでの正しい位置を計算
-    const destinationTaskIndex =
-      destinationCategory === sourceCategory
-        ? destinationIndex
-        : updatedTasks.filter((task) => task.category === destinationCategory)
-            .length;
-
-    const insertIndex =
-      updatedTasks.findIndex((task) => task.category === destinationCategory) +
-      destinationTaskIndex;
-
-    updatedTasks.splice(insertIndex, 0, movedTask);
-
+    // 楽観的更新
     setTasks(updatedTasks);
 
     try {
-      await fetch('/api/tasks/update-category', {
+      // カテゴリー変更の場合
+      if (sourceCategory !== destinationCategory) {
+        await fetch('/api/tasks/update-category', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': session?.user?.id || '',
+          },
+          body: JSON.stringify({
+            taskId: movedTask.id,
+            category: destinationCategory,
+          }),
+        });
+      }
+
+      // 並び順の更新
+      const tasksInCategory = updatedTasks
+        .filter((task) => task.category === destinationCategory)
+        .map((task) => ({ id: task.id }));
+
+      await fetch('/api/tasks/reorder', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-User-Id': session?.user?.id || '',
         },
         body: JSON.stringify({
-          taskId: movedTask.id,
+          tasks: tasksInCategory,
           category: destinationCategory,
         }),
       });
 
-      // カテゴリー更新後にデータを再検証
+      // データを再検証
       await mutateTasks();
     } catch (error) {
-      console.error('Failed to update category:', error);
+      console.error('Failed to update task:', error);
+      // エラー時は元の状態に戻す
+      setTasks(tasks);
     }
   };
 
