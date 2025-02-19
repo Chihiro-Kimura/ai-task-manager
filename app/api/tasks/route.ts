@@ -39,31 +39,20 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const userId = request.headers.get('X-User-Id');
-    console.log('POST /api/tasks - User ID:', userId);
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'ユーザーIDは必須です' },
-        { status: 400 }
-      );
-    }
-
     const data = await request.json();
-    console.log('Task data:', data);
 
     const task = await prisma.task.create({
       data: {
         title: data.title,
         description: data.description || '',
-        priority: data.priority,
         status: data.status || '未完了',
         category: data.category,
         task_order: data.task_order || 0,
         userId: userId as string,
+        ...(data.priority && { priority: data.priority }),
       },
     });
 
-    console.log('✅ Task created:', task);
     return NextResponse.json(task);
   } catch (error) {
     console.error('❌ Server error:', error);
