@@ -70,7 +70,14 @@ export default function TaskList() {
     )
       return;
 
-    const updatedTasks = [...tasks];
+    const updatedTasks = [...tasks] as Array<
+      Task & {
+        status: string;
+        due_date: Date | null;
+        priority: string | null;
+        category: string;
+      }
+    >;
 
     // カテゴリー内での正しいインデックスを計算
     const sourceTaskIndex =
