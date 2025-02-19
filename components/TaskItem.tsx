@@ -12,6 +12,7 @@ import { useState } from 'react';
 import EditTaskForm from '@/components/EditTaskForm';
 import { cn } from '@/lib/utils';
 import { TaskWithExtras } from '@/types/task';
+import { useTaskStore } from '@/store/taskStore';
 
 interface TaskItemProps {
   task: TaskWithExtras;
@@ -22,6 +23,7 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
   const { data: session } = useSession();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
+  const { setIsEditModalOpen } = useTaskStore();
 
   const handleToggleStatus = async () => {
     const newStatus = task.status === '完了' ? '未完了' : '完了';
@@ -81,6 +83,16 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
     }
   };
 
+  const handleEdit = () => {
+    setIsEditing(true);
+    setIsEditModalOpen(true);
+  };
+
+  const handleCloseEdit = () => {
+    setIsEditing(false);
+    setIsEditModalOpen(false);
+  };
+
   const getDueDateColor = (dueDate: Date | null) => {
     if (!dueDate) return 'text-zinc-400';
 
@@ -101,7 +113,8 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
           currentTitle={task.title}
           currentDescription={task.description}
           currentPriority={task.priority}
-          onClose={() => setIsEditing(false)}
+          currentDueDate={task.due_date}
+          onClose={handleCloseEdit}
         />
       ) : (
         <div className="group relative">
@@ -173,7 +186,7 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
               variant="ghost"
               size="icon"
               className="h-7 w-7 bg-zinc-900/80 hover:bg-blue-900/80 text-zinc-400 hover:text-blue-400"
-              onClick={() => setIsEditing(true)}
+              onClick={handleEdit}
             >
               <Pencil className="h-4 w-4" />
             </Button>

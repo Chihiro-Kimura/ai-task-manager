@@ -17,6 +17,8 @@ interface TaskState {
   getFilteredAndSortedTasks: (
     category: 'box' | 'now' | 'next'
   ) => TaskWithExtras[];
+  isEditModalOpen: boolean;
+  setIsEditModalOpen: (isOpen: boolean) => void;
 }
 
 export const useTaskStore = create<TaskState>((set, get) => ({
@@ -79,4 +81,6 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         return sortedTasks;
     }
   },
+  isEditModalOpen: false,
+  setIsEditModalOpen: (isOpen) => set({ isEditModalOpen: isOpen }),
 }));

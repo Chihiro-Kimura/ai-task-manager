@@ -20,70 +20,18 @@ interface TaskColumnProps {
   ) => void;
   sortMode: string;
   onReset: () => void;
+  onAddTask: (task: {
+    title: string;
+    description: string;
+    priority: string;
+    status: string;
+    task_order: number;
+    category: string;
+  }) => Promise<void>;
 }
 
 type StatusFilter = 'all' | '未完了' | '完了';
 type DueDateFilter = 'all' | 'overdue' | 'today' | 'upcoming';
-
-const useAddTask = ({
-  session,
-  droppableId,
-  onTasksChange,
-  setIsAddingTask,
-  toast,
-}: {
-  session: { user?: { id?: string } } | null;
-  droppableId: string;
-  onTasksChange: () => Promise<void>;
-  setIsAddingTask: (value: boolean) => void;
-  toast: ReturnType<typeof useToast>['toast'];
-}) => {
-  return useCallback(
-    async (taskData: Omit<CreateTaskData, 'task_order'>) => {
-      if (!session?.user?.id) {
-        toast({
-          title: 'エラー',
-          description: 'ログインが必要です',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      try {
-        const response = await fetch('/api/tasks', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-User-Id': session.user.id,
-          },
-          body: JSON.stringify({
-            ...taskData,
-            category: droppableId,
-          }),
-        });
-
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || 'タスクの追加に失敗しました');
-        }
-
-        await onTasksChange();
-        setIsAddingTask(false);
-      } catch (error) {
-        console.error('Failed to add task:', error);
-        toast({
-          title: 'エラー',
-          description:
-            error instanceof Error
-              ? error.message
-              : 'タスクの追加に失敗しました',
-          variant: 'destructive',
-        });
-      }
-    },
-    [session?.user?.id, droppableId, onTasksChange, setIsAddingTask, toast]
-  );
-};
 
 export default function TaskColumn({
   droppableId,
@@ -94,8 +42,9 @@ export default function TaskColumn({
   onSortByChange,
   sortMode,
   onReset,
+  onAddTask,
 }: TaskColumnProps) {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const { toast } = useToast();
 
   // 状態管理
@@ -158,13 +107,26 @@ export default function TaskColumn({
     onReset();
   }, [onReset]);
 
-  const handleAddTask = useAddTask({
-    session,
-    droppableId,
-    onTasksChange,
-    setIsAddingTask,
-    toast,
-  });
+  const handleAddTask = async (
+    taskData: Omit<CreateTaskData, 'task_order'>
+  ) => {
+    try {
+      await onAddTask({
+        ...taskData,
+        status: 'pending',
+        task_order: 0,
+        category: droppableId,
+      });
+      setIsAddingTask(false);
+    } catch (error) {
+      console.error('Failed to add task:', error);
+      toast({
+        title: 'エラー',
+        description: 'タスクの追加に失敗しました',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const isFiltering = statusFilter !== 'all' || dueDateFilter !== 'all';
   const activeFiltersCount = [

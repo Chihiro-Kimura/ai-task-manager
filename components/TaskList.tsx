@@ -11,6 +11,7 @@ import { TaskWithExtras } from '@/types/task';
 import useSWR from 'swr';
 import { useToast } from '@/hooks/use-toast';
 import { useTaskStore } from '@/store/taskStore';
+import { cn } from '@/lib/utils';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
@@ -24,6 +25,7 @@ export default function TaskList() {
     sortBy,
     setSortBy,
     getFilteredAndSortedTasks,
+    isEditModalOpen,
   } = useTaskStore();
 
   // useSWRを使用してタスクを取得
@@ -67,7 +69,7 @@ export default function TaskList() {
   }, [fetchedTasks, setTasks]);
 
   const handleDragEnd = async (result: DropResult) => {
-    if (!result.destination) return;
+    if (!result.destination || isEditModalOpen) return;
 
     const sourceCategory = result.source.droppableId;
     const destinationCategory = result.destination.droppableId;
@@ -81,12 +83,47 @@ export default function TaskList() {
       return;
     }
 
-    // カスタム順でない場合は並び替えを行わない
+    // カスタム順でない場合は、カスタム順に切り替える
     if (
       sortBy[sourceCategory as keyof typeof sortBy] !== 'custom' ||
       sortBy[destinationCategory as keyof typeof sortBy] !== 'custom'
     ) {
-      return;
+      // 現在の表示順でtask_orderを更新
+      const sourceCategoryTasks = getFilteredAndSortedTasks(
+        sourceCategory as 'box' | 'now' | 'next'
+      );
+      const destinationCategoryTasks =
+        sourceCategory === destinationCategory
+          ? sourceCategoryTasks
+          : getFilteredAndSortedTasks(
+              destinationCategory as 'box' | 'now' | 'next'
+            );
+
+      const updatedTasks = [...tasks];
+
+      // 移動元カテゴリーのタスクの順序を更新
+      sourceCategoryTasks.forEach((task, index) => {
+        const taskToUpdate = updatedTasks.find((t) => t.id === task.id);
+        if (taskToUpdate) {
+          taskToUpdate.task_order = index;
+        }
+      });
+
+      // 移動先カテゴリーが異なる場合、そのカテゴリーのタスクの順序も更新
+      if (sourceCategory !== destinationCategory) {
+        destinationCategoryTasks.forEach((task, index) => {
+          const taskToUpdate = updatedTasks.find((t) => t.id === task.id);
+          if (taskToUpdate) {
+            taskToUpdate.task_order = index;
+          }
+        });
+      }
+
+      updateTaskOrder(updatedTasks);
+      setSortBy(sourceCategory as 'box' | 'now' | 'next', 'custom');
+      if (sourceCategory !== destinationCategory) {
+        setSortBy(destinationCategory as 'box' | 'now' | 'next', 'custom');
+      }
     }
 
     // 楽観的更新の前に現在の状態を保存
@@ -200,6 +237,41 @@ export default function TaskList() {
     }
   };
 
+  const handleAddTask = async (task: {
+    title: string;
+    description: string;
+    priority: string;
+    status: string;
+    task_order: number;
+    category: string;
+  }) => {
+    try {
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': session?.user?.id || '',
+        },
+        body: JSON.stringify(task),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add task');
+      }
+
+      // タスクリストを再取得
+      await mutateTasks();
+    } catch (error) {
+      console.error('Failed to add task:', error);
+      toast({
+        title: 'エラー',
+        description: 'タスクの追加に失敗しました',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
   // ソートモードの日本語名を取得
   const getSortModeName = (
     mode: 'custom' | 'priority' | 'createdAt' | 'dueDate'
@@ -288,7 +360,12 @@ export default function TaskList() {
       </div>
 
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-3 gap-4">
+        <div
+          className={cn(
+            'grid grid-cols-3 gap-4',
+            isEditModalOpen && 'pointer-events-none'
+          )}
+        >
           <TaskColumn
             key="box"
             droppableId="box"
@@ -303,6 +380,7 @@ export default function TaskList() {
             onSortByChange={handleSortChange('box')}
             sortMode={categories.box.sortMode}
             onReset={handleReset('box')}
+            onAddTask={handleAddTask}
           />
           <TaskColumn
             key="now"
@@ -318,6 +396,7 @@ export default function TaskList() {
             onSortByChange={handleSortChange('now')}
             sortMode={categories.now.sortMode}
             onReset={handleReset('now')}
+            onAddTask={handleAddTask}
           />
           <TaskColumn
             key="next"
@@ -333,6 +412,7 @@ export default function TaskList() {
             onSortByChange={handleSortChange('next')}
             sortMode={categories.next.sortMode}
             onReset={handleReset('next')}
+            onAddTask={handleAddTask}
           />
         </div>
       </DragDropContext>
