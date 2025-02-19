@@ -9,7 +9,7 @@ import {
 import { cn } from '@/lib/utils';
 
 interface PrioritySelectProps {
-  value: string;
+  value: string | undefined;
   onValueChange: (value: string) => void;
   className?: string;
 }

@@ -14,7 +14,7 @@ interface EditTaskFormProps {
   taskId: string;
   currentTitle: string;
   currentDescription: string | null;
-  currentPriority?: string;
+  currentPriority: string | null;
   currentDueDate?: Date | null;
   onClose: () => void;
 }
@@ -23,7 +23,7 @@ export default function EditTaskForm({
   taskId,
   currentTitle,
   currentDescription = null,
-  currentPriority = '',
+  currentPriority = null,
   currentDueDate = null,
   onClose,
 }: EditTaskFormProps) {
@@ -116,7 +116,10 @@ export default function EditTaskForm({
         />
         <div className="mb-4">
           <div className="text-zinc-400 mb-2">優先度 : </div>
-          <PrioritySelect value={priority} onValueChange={setPriority} />
+          <PrioritySelect
+            value={priority ?? undefined}
+            onValueChange={setPriority}
+          />
         </div>
         <DueDatePicker
           dueDate={dueDate}
