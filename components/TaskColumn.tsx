@@ -14,13 +14,16 @@ interface TaskColumnProps {
   title: string;
   tasks: TaskWithExtras[];
   onTasksChange: () => Promise<void>;
-  sortByPriority?: boolean;
-  onToggleSort?: () => void;
+  sortBy: 'custom' | 'priority' | 'createdAt' | 'dueDate';
+  onSortByChange: (
+    value: 'custom' | 'priority' | 'createdAt' | 'dueDate'
+  ) => void;
+  sortMode: string;
+  onReset: () => void;
 }
 
 type StatusFilter = 'all' | '未完了' | '完了';
 type DueDateFilter = 'all' | 'overdue' | 'today' | 'upcoming';
-type SortBy = 'priority' | 'dueDate' | 'createdAt';
 
 const useAddTask = ({
   session,
@@ -87,14 +90,15 @@ export default function TaskColumn({
   title,
   tasks,
   onTasksChange,
-  sortByPriority,
-  onToggleSort,
+  sortBy,
+  onSortByChange,
+  sortMode,
+  onReset,
 }: TaskColumnProps) {
   const { data: session, status } = useSession();
   const { toast } = useToast();
 
   // 状態管理
-  const [sortBy, setSortBy] = useState<SortBy>('priority');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [dueDateFilter, setDueDateFilter] = useState<DueDateFilter>('all');
   const [isAddingTask, setIsAddingTask] = useState(false);
@@ -133,7 +137,7 @@ export default function TaskColumn({
     const filtered = tasks.filter(filterTasks);
     const sorted = [...filtered];
 
-    if (sortByPriority) {
+    if (sortBy === 'priority') {
       const priorityOrder = { 高: 0, 中: 1, 低: 2 };
       return sorted.sort((a, b) => {
         const aOrder =
@@ -146,12 +150,13 @@ export default function TaskColumn({
     }
 
     return sorted.sort((a, b) => a.task_order - b.task_order);
-  }, [tasks, filterTasks, sortByPriority]);
+  }, [tasks, filterTasks, sortBy]);
 
   const handleReset = useCallback(() => {
     setStatusFilter('all');
     setDueDateFilter('all');
-  }, []);
+    onReset();
+  }, [onReset]);
 
   const handleAddTask = useAddTask({
     session,
@@ -188,12 +193,12 @@ export default function TaskColumn({
             sortBy={sortBy}
             statusFilter={statusFilter}
             dueDateFilter={dueDateFilter}
-            onSortByChange={setSortBy}
+            onSortByChange={onSortByChange}
             onStatusFilterChange={setStatusFilter}
             onDueDateFilterChange={setDueDateFilter}
             onReset={handleReset}
             onAddTask={() => setIsAddingTask(true)}
-            onToggleSort={onToggleSort}
+            sortMode={sortMode}
           />
 
           <TaskColumnContent

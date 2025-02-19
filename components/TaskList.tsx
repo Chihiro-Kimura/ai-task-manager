@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { useSession } from 'next-auth/react';
 import { ListTodo } from 'lucide-react';
@@ -10,20 +10,21 @@ import ErrorState from '@/components/ErrorState';
 import { TaskWithExtras } from '@/types/task';
 import useSWR from 'swr';
 import { useToast } from '@/hooks/use-toast';
+import { useTaskStore } from '@/store/taskStore';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 export default function TaskList() {
   const { data: session } = useSession();
-  const [tasks, setTasks] = useState<TaskWithExtras[]>([]);
-  // 各カラムのソート状態を管理
-  const [sortByPriority, setSortByPriority] = useState({
-    box: false,
-    now: false,
-    next: false,
-  });
-
   const { toast } = useToast();
+  const {
+    tasks,
+    setTasks,
+    updateTaskOrder,
+    sortBy,
+    setSortBy,
+    getFilteredAndSortedTasks,
+  } = useTaskStore();
 
   // useSWRを使用してタスクを取得
   const {
@@ -63,7 +64,7 @@ export default function TaskList() {
     if (fetchedTasks) {
       setTasks(fetchedTasks);
     }
-  }, [fetchedTasks]);
+  }, [fetchedTasks, setTasks]);
 
   const handleDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
@@ -80,12 +81,13 @@ export default function TaskList() {
       return;
     }
 
-    console.log('Drag operation:', {
-      sourceCategory,
-      destinationCategory,
-      sourceIndex,
-      destinationIndex,
-    });
+    // カスタム順でない場合は並び替えを行わない
+    if (
+      sortBy[sourceCategory as keyof typeof sortBy] !== 'custom' ||
+      sortBy[destinationCategory as keyof typeof sortBy] !== 'custom'
+    ) {
+      return;
+    }
 
     // 楽観的更新の前に現在の状態を保存
     const previousTasks = [...tasks];
@@ -94,75 +96,76 @@ export default function TaskList() {
       // 新しい配列を作成
       const updatedTasks = [...tasks];
 
-      // カテゴリー内のタスクを取得
-      const categoryTasks = tasks.filter(
-        (task) => task.category === sourceCategory
+      // 移動するタスクを特定
+      const movedTask = updatedTasks.find(
+        (task) =>
+          task.category === sourceCategory && task.id === result.draggableId
       );
 
-      // 移動するタスクを特定（カテゴリー内でのインデックスを使用）
-      const movedTask = categoryTasks[sourceIndex];
-
       if (!movedTask) {
-        console.error('Task search details:', {
-          sourceCategory,
-          sourceIndex,
-          categoryTasksLength: categoryTasks.length,
-          allTasksLength: tasks.length,
-        });
         throw new Error('Task not found');
       }
 
-      // 移動前のカテゴリーのタスクを更新
-      const sourceTasks = updatedTasks.filter(
-        (task) => task.category === sourceCategory && task.id !== movedTask.id
-      );
-      sourceTasks.forEach((task, index) => {
-        task.task_order = index;
-      });
+      // 同じカテゴリー内での移動の場合
+      if (sourceCategory === destinationCategory) {
+        // 移動するタスクを除外した同じカテゴリーのタスク
+        const categoryTasks = updatedTasks.filter(
+          (task) => task.category === sourceCategory && task.id !== movedTask.id
+        );
 
-      // 移動先のカテゴリーのタスクを更新
-      const destinationTasks = updatedTasks.filter(
-        (task) => task.category === destinationCategory
-      );
+        // 移動するタスクの新しい位置を設定
+        movedTask.task_order = destinationIndex;
 
-      // 移動するタスクのカテゴリーと順序を更新
-      movedTask.category = destinationCategory;
-      movedTask.task_order = destinationIndex;
-
-      // 移動先の他のタスクの順序を更新
-      destinationTasks.forEach((task) => {
-        if (task.id !== movedTask.id) {
-          if (task.task_order >= destinationIndex) {
-            task.task_order = task.task_order + 1;
+        // 他のタスクの順序を更新
+        categoryTasks.forEach((task) => {
+          if (sourceIndex < destinationIndex) {
+            // 上から下に移動する場合
+            if (
+              task.task_order > sourceIndex &&
+              task.task_order <= destinationIndex
+            ) {
+              task.task_order -= 1;
+            }
+          } else {
+            // 下から上に移動する場合
+            if (
+              task.task_order >= destinationIndex &&
+              task.task_order < sourceIndex
+            ) {
+              task.task_order += 1;
+            }
           }
-        }
-      });
+        });
+      } else {
+        // 異なるカテゴリー間での移動の場合
+        // 移動元カテゴリーのタスクの順序を詰める
+        updatedTasks
+          .filter(
+            (task) =>
+              task.category === sourceCategory && task.task_order > sourceIndex
+          )
+          .forEach((task) => {
+            task.task_order -= 1;
+          });
 
-      // 更新対象のタスクを収集
-      const tasksToUpdate = [
-        movedTask,
-        ...sourceTasks,
-        ...destinationTasks.filter((task) => task.id !== movedTask.id),
-      ];
+        // 移動先カテゴリーのタスクの順序をずらす
+        updatedTasks
+          .filter(
+            (task) =>
+              task.category === destinationCategory &&
+              task.task_order >= destinationIndex
+          )
+          .forEach((task) => {
+            task.task_order += 1;
+          });
 
-      console.log('Tasks to update:', {
-        sourceTasksCount: sourceTasks.length,
-        destinationTasksCount: destinationTasks.length,
-        totalTasksToUpdate: tasksToUpdate.length,
-        movedTaskDetails: {
-          id: movedTask.id,
-          category: movedTask.category,
-          task_order: movedTask.task_order,
-        },
-        tasks: tasksToUpdate.map((t) => ({
-          id: t.id,
-          category: t.category,
-          task_order: t.task_order,
-        })),
-      });
+        // 移動するタスクの新しい位置を設定
+        movedTask.category = destinationCategory;
+        movedTask.task_order = destinationIndex;
+      }
 
       // 楽観的更新
-      setTasks(updatedTasks);
+      updateTaskOrder(updatedTasks);
 
       // APIリクエストを送信
       const response = await fetch('/api/tasks/reorder', {
@@ -172,7 +175,7 @@ export default function TaskList() {
           'X-User-Id': session?.user?.id || '',
         },
         body: JSON.stringify({
-          tasks: tasksToUpdate.map((task) => ({
+          tasks: updatedTasks.map((task) => ({
             id: task.id,
             category: task.category,
             task_order: task.task_order,
@@ -180,22 +183,14 @@ export default function TaskList() {
         }),
       });
 
-      const responseData = await response.json();
-      console.log('API Response:', {
-        status: response.status,
-        ok: response.ok,
-        data: responseData,
-      });
-
       if (!response.ok) {
+        const responseData = await response.json();
         throw new Error(responseData.error || 'Failed to update task order');
       }
-
-      // 成功したらデータを再取得
-      await mutateTasks();
     } catch (error) {
       console.error('Failed to update task:', error);
-      setTasks(previousTasks); // エラー時は以前の状態に戻す
+      // エラー時は元の状態に戻す
+      updateTaskOrder(previousTasks);
       toast({
         title: 'エラー',
         description:
@@ -205,59 +200,79 @@ export default function TaskList() {
     }
   };
 
+  // ソートモードの日本語名を取得
+  const getSortModeName = (
+    mode: 'custom' | 'priority' | 'createdAt' | 'dueDate'
+  ) => {
+    switch (mode) {
+      case 'priority':
+        return '優先度順';
+      case 'dueDate':
+        return '締切日順';
+      case 'createdAt':
+        return '作成日順';
+      default:
+        return 'カスタム順';
+    }
+  };
+
   const categories = useMemo(
     () => ({
-      box: tasks
-        .filter((task) => task.category === 'box')
-        .sort((a, b) => {
-          if (sortByPriority.box) {
-            // 優先度でソート
-            const priorityOrder = { 高: 0, 中: 1, 低: 2 };
-            const aOrder =
-              priorityOrder[a.priority as keyof typeof priorityOrder] ?? 3;
-            const bOrder =
-              priorityOrder[b.priority as keyof typeof priorityOrder] ?? 3;
-            if (aOrder !== bOrder) return aOrder - bOrder;
-          }
-          // デフォルトはtask_orderでソート
-          return a.task_order - b.task_order;
-        }),
-      now: tasks
-        .filter((task) => task.category === 'now')
-        .sort((a, b) => {
-          if (sortByPriority.now) {
-            const priorityOrder = { 高: 0, 中: 1, 低: 2 };
-            const aOrder =
-              priorityOrder[a.priority as keyof typeof priorityOrder] ?? 3;
-            const bOrder =
-              priorityOrder[b.priority as keyof typeof priorityOrder] ?? 3;
-            if (aOrder !== bOrder) return aOrder - bOrder;
-          }
-          return a.task_order - b.task_order;
-        }),
-      next: tasks
-        .filter((task) => task.category === 'next')
-        .sort((a, b) => {
-          if (sortByPriority.next) {
-            const priorityOrder = { 高: 0, 中: 1, 低: 2 };
-            const aOrder =
-              priorityOrder[a.priority as keyof typeof priorityOrder] ?? 3;
-            const bOrder =
-              priorityOrder[b.priority as keyof typeof priorityOrder] ?? 3;
-            if (aOrder !== bOrder) return aOrder - bOrder;
-          }
-          return a.task_order - b.task_order;
-        }),
+      box: {
+        tasks: getFilteredAndSortedTasks('box'),
+        sortMode: getSortModeName(sortBy.box),
+      },
+      now: {
+        tasks: getFilteredAndSortedTasks('now'),
+        sortMode: getSortModeName(sortBy.now),
+      },
+      next: {
+        tasks: getFilteredAndSortedTasks('next'),
+        sortMode: getSortModeName(sortBy.next),
+      },
     }),
-    [tasks, sortByPriority] // sortByPriorityを依存配列に追加
+    [tasks, sortBy, getFilteredAndSortedTasks]
   );
 
-  // ソート切り替え関数
-  const toggleSort = (category: 'box' | 'now' | 'next') => {
-    setSortByPriority((prev) => ({
-      ...prev,
-      [category]: !prev[category],
-    }));
+  // ソート方法の変更ハンドラー
+  const handleSortChange =
+    (category: 'box' | 'now' | 'next') =>
+    (value: 'custom' | 'priority' | 'createdAt' | 'dueDate') => {
+      // カスタム順に切り替える場合、現在の表示順でtask_orderを更新
+      if (value === 'custom') {
+        const categoryTasks = getFilteredAndSortedTasks(category);
+        const updatedTasks = [...tasks];
+
+        // 現在の表示順でtask_orderを更新
+        categoryTasks.forEach((task, index) => {
+          const taskToUpdate = updatedTasks.find((t) => t.id === task.id);
+          if (taskToUpdate) {
+            taskToUpdate.task_order = index;
+          }
+        });
+
+        updateTaskOrder(updatedTasks);
+      }
+
+      setSortBy(category, value);
+    };
+
+  // リセットハンドラー
+  const handleReset = (category: 'box' | 'now' | 'next') => () => {
+    // カスタム順に戻す際、現在の表示順でtask_orderを更新
+    const categoryTasks = getFilteredAndSortedTasks(category);
+    const updatedTasks = [...tasks];
+
+    // 現在の表示順でtask_orderを更新
+    categoryTasks.forEach((task, index) => {
+      const taskToUpdate = updatedTasks.find((t) => t.id === task.id);
+      if (taskToUpdate) {
+        taskToUpdate.task_order = index;
+      }
+    });
+
+    updateTaskOrder(updatedTasks);
+    setSortBy(category, 'custom');
   };
 
   if (isLoading) return <LoadingState />;
@@ -278,37 +293,46 @@ export default function TaskList() {
             key="box"
             droppableId="box"
             title="ボックス"
-            tasks={categories.box}
+            tasks={categories.box.tasks}
             onTasksChange={async () => {
-              await mutateTasks();
-              return;
+              if (sortBy.box !== 'custom') {
+                await mutateTasks();
+              }
             }}
-            sortByPriority={sortByPriority.box}
-            onToggleSort={() => toggleSort('box')}
+            sortBy={sortBy.box}
+            onSortByChange={handleSortChange('box')}
+            sortMode={categories.box.sortMode}
+            onReset={handleReset('box')}
           />
           <TaskColumn
             key="now"
             droppableId="now"
             title="今やる"
-            tasks={categories.now}
+            tasks={categories.now.tasks}
             onTasksChange={async () => {
-              await mutateTasks();
-              return;
+              if (sortBy.now !== 'custom') {
+                await mutateTasks();
+              }
             }}
-            sortByPriority={sortByPriority.now}
-            onToggleSort={() => toggleSort('now')}
+            sortBy={sortBy.now}
+            onSortByChange={handleSortChange('now')}
+            sortMode={categories.now.sortMode}
+            onReset={handleReset('now')}
           />
           <TaskColumn
             key="next"
             droppableId="next"
             title="次やる"
-            tasks={categories.next}
+            tasks={categories.next.tasks}
             onTasksChange={async () => {
-              await mutateTasks();
-              return;
+              if (sortBy.next !== 'custom') {
+                await mutateTasks();
+              }
             }}
-            sortByPriority={sortByPriority.next}
-            onToggleSort={() => toggleSort('next')}
+            sortBy={sortBy.next}
+            onSortByChange={handleSortChange('next')}
+            sortMode={categories.next.sortMode}
+            onReset={handleReset('next')}
           />
         </div>
       </DragDropContext>
