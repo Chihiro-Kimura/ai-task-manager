@@ -18,7 +18,7 @@ export const authOptions: NextAuthOptions = {
       try {
         console.log('🔍 Signing in user:', user.email);
 
-        // Supabase でユーザーを検索
+        // ユーザーを検索
         const existingUser = await prisma.user.findUnique({
           where: {
             email: user.email,
