@@ -22,29 +22,32 @@ export default function TaskList() {
     error,
     isLoading,
     mutate: mutateTasks,
-  } = useSWR<Task[]>(session?.user?.id ? '/api/tasks' : null, async (url) => {
-    if (!session?.user?.id) return [];
+  } = useSWR<Task[]>(
+    session?.user?.id ? '/api/tasks' : null,
+    async (url: string) => {
+      if (!session?.user?.id) return [];
 
-    if (isDevelopment) {
-      console.log('🔍 Fetching tasks for user:', session.user.id);
+      if (isDevelopment) {
+        console.log('🔍 Fetching tasks for user:', session.user.id);
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          'X-User-Id': session.user.id,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch tasks');
+      }
+
+      const data = await response.json();
+      if (isDevelopment) {
+        console.log('✅ Tasks fetched:', data.length);
+      }
+      return data;
     }
-
-    const response = await fetch(url, {
-      headers: {
-        'X-User-Id': session.user.id,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch tasks');
-    }
-
-    const data = await response.json();
-    if (isDevelopment) {
-      console.log('✅ Tasks fetched:', data.length);
-    }
-    return data;
-  });
+  );
 
   // fetchedTasksが更新されたらstateを更新
   useEffect(() => {
