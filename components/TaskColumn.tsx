@@ -28,24 +28,14 @@ import { Badge } from '@/components/ui/badge';
 import { useSession } from 'next-auth/react';
 import { useToast } from '@/hooks/use-toast';
 import AddTaskForm from '@/components/AddTaskForm';
-
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  status: string;
-  priority: string;
-  due_date: string | null;
-  category: string;
-  created_at: string;
-  updated_at: string;
-}
+import { KeyedMutator } from 'swr';
+import { Task } from '@prisma/client'; // Prismaの型を使用
 
 interface TaskColumnProps {
   droppableId: string;
   title: string;
   tasks: Task[];
-  onTasksChange: () => Promise<void>;
+  onTasksChange: KeyedMutator<Task[]>;
 }
 
 interface CreateTaskData {
@@ -159,7 +149,7 @@ export default function TaskColumn({
         case 'createdAt':
           // 作成日順（新しい順）
           return (
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
 
         default:
@@ -379,7 +369,9 @@ export default function TaskColumn({
                   >
                     <TaskItem
                       task={task}
-                      onMutate={async () => await onTasksChange()}
+                      onMutate={async () => {
+                        await onTasksChange();
+                      }}
                     />
                   </div>
                 )}

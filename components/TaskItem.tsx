@@ -11,16 +11,10 @@ import { ja } from 'date-fns/locale';
 import { useState } from 'react';
 import EditTaskForm from '@/components/EditTaskForm';
 import { cn } from '@/lib/utils';
+import { Task } from '@prisma/client';
 
 interface TaskItemProps {
-  task: {
-    id: string;
-    title: string;
-    description: string;
-    status: string;
-    priority: string;
-    due_date: string | null;
-  };
+  task: Task;
   onMutate: () => Promise<void>;
 }
 
@@ -87,15 +81,14 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
     }
   };
 
-  const getDueDateColor = (dueDate: string | null) => {
+  const getDueDateColor = (dueDate: Date | null) => {
     if (!dueDate) return 'text-zinc-400';
 
     const today = startOfDay(new Date());
-    const date = new Date(dueDate);
 
-    if (isBefore(date, today)) return 'text-rose-400'; // 期限切れ - 赤 (警告)
-    if (isToday(date)) return 'text-amber-400'; // 今日 - 黄 (注意)
-    if (isAfter(date, today)) return 'text-blue-400'; // 今後 - 青 (情報)
+    if (isBefore(dueDate, today)) return 'text-rose-400';
+    if (isToday(dueDate)) return 'text-amber-400';
+    if (isAfter(dueDate, today)) return 'text-blue-400';
 
     return 'text-zinc-400';
   };
@@ -165,7 +158,7 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
                       'text-xs',
                       task.status === '完了'
                         ? 'text-zinc-500'
-                        : getDueDateColor(task.due_date)
+                        : getDueDateColor(new Date(task.due_date))
                     )}
                   >
                     {format(new Date(task.due_date), 'MM/dd', { locale: ja })}

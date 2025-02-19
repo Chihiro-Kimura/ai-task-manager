@@ -13,18 +13,18 @@ import PrioritySelect from '@/components/PrioritySelect';
 interface EditTaskFormProps {
   taskId: string;
   currentTitle: string;
-  currentDescription?: string;
+  currentDescription: string | null;
   currentPriority?: string;
-  currentDueDate?: string;
+  currentDueDate?: Date | null;
   onClose: () => void;
 }
 
 export default function EditTaskForm({
   taskId,
   currentTitle,
-  currentDescription = '',
+  currentDescription = null,
   currentPriority = '',
-  currentDueDate = '',
+  currentDueDate = null,
   onClose,
 }: EditTaskFormProps) {
   const { data: session } = useSession();
