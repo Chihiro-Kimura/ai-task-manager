@@ -2,15 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(req: NextRequest) {
+  console.log('=== Reorder API Start ===');
   try {
     const { tasks, category } = await req.json();
     const userId = req.headers.get('X-User-Id');
 
-    // リクエストの詳細をログ出力
-    console.log('Reorder request:', {
+    console.log('Request received:', {
       tasksCount: tasks?.length,
       category,
-      userId: userId?.slice(0, 8), // IDの一部のみログ出力
+      userId: userId?.slice(0, 8),
+      timestamp: new Date().toISOString(),
     });
 
     if (!tasks || !Array.isArray(tasks) || !category) {
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
     // トランザクション内でカテゴリー内の全タスクを取得して並び順を更新
     await prisma.$transaction(
       async (tx) => {
-        // 現在のカテゴリー内のタスクを取得
+        console.log('Transaction started');
         const currentTasks = await tx.task.findMany({
           where: {
             userId: userId as string,
@@ -32,7 +33,10 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        console.log('Current tasks found:', currentTasks.length);
+        console.log('Tasks state:', {
+          found: currentTasks.length,
+          timestamp: new Date().toISOString(),
+        });
 
         // 新しい並び順のマッピングを作成
         const taskOrderMap = new Map(
@@ -56,20 +60,24 @@ export async function POST(req: NextRequest) {
 
         console.log('Updates to perform:', updates.length);
         await Promise.all(updates);
+
+        console.log('Transaction completed');
       },
       {
-        timeout: 10000, // タイムアウトを10秒に設定
+        timeout: 10000,
+        maxWait: 5000,
       }
     );
 
+    console.log('=== Reorder API End ===');
     return NextResponse.json({ message: 'Order updated successfully' });
   } catch (error) {
-    // エラーの詳細をログ出力
-    console.error('Reorder error:', {
+    console.error('=== Reorder API Error ===');
+    console.error('Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString(),
     });
-
     return NextResponse.json(
       { error: 'タスクの並び順の更新に失敗しました' },
       { status: 500 }

@@ -85,20 +85,33 @@ export default function TaskList() {
       try {
         // カテゴリー変更の場合
         if (sourceCategory !== destinationCategory) {
-          const categoryResponse = await fetch('/api/tasks/update-category', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-User-Id': session?.user?.id || '',
-            },
-            body: JSON.stringify({
-              taskId: movedTask.id,
-              category: destinationCategory,
-            }),
-          });
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 8000); // 8秒でタイムアウト
 
-          if (!categoryResponse.ok) {
-            throw new Error('カテゴリーの更新に失敗しました');
+          try {
+            const categoryResponse = await fetch('/api/tasks/update-category', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-User-Id': session?.user?.id || '',
+              },
+              body: JSON.stringify({
+                taskId: movedTask.id,
+                category: destinationCategory,
+              }),
+              signal: controller.signal,
+            });
+
+            clearTimeout(timeout);
+
+            if (!categoryResponse.ok) {
+              throw new Error('カテゴリーの更新に失敗しました');
+            }
+          } catch (error: unknown) {
+            if (error instanceof Error && error.name === 'AbortError') {
+              throw new Error('カテゴリー更新がタイムアウトしました');
+            }
+            throw error;
           }
         }
 
@@ -107,24 +120,36 @@ export default function TaskList() {
           .filter((task) => task.category === destinationCategory)
           .map((task) => ({ id: task.id }));
 
-        const reorderResponse = await fetch('/api/tasks/reorder', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-User-Id': session?.user?.id || '',
-          },
-          body: JSON.stringify({
-            tasks: tasksInCategory,
-            category: destinationCategory,
-          }),
-        });
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000); // 8秒でタイムアウト
 
-        if (!reorderResponse.ok) {
-          const errorData = await reorderResponse.json();
-          throw new Error(errorData.error || '並び順の更新に失敗しました');
+        try {
+          const reorderResponse = await fetch('/api/tasks/reorder', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-User-Id': session?.user?.id || '',
+            },
+            body: JSON.stringify({
+              tasks: tasksInCategory,
+              category: destinationCategory,
+            }),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeout);
+
+          if (!reorderResponse.ok) {
+            const errorData = await reorderResponse.json();
+            throw new Error(errorData.error || '並び順の更新に失敗しました');
+          }
+        } catch (error: unknown) {
+          if (error instanceof Error && error.name === 'AbortError') {
+            throw new Error('並び順更新がタイムアウトしました');
+          }
+          throw error;
         }
 
-        // 成功したらループを抜ける
         break;
       } catch (error) {
         retryCount++;
