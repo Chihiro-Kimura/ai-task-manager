@@ -29,8 +29,8 @@ const mockTasks: TaskWithExtras[] = [
     priority: '高',
     category: 'box',
     task_order: 0,
-    due_date: null,
-    createdAt: new Date(),
+    due_date: new Date('2024-03-01'),
+    createdAt: new Date('2024-01-01'),
     updatedAt: new Date(),
     userId: 'user1',
   },
@@ -42,8 +42,21 @@ const mockTasks: TaskWithExtras[] = [
     priority: '中',
     category: 'box',
     task_order: 1,
-    due_date: null,
-    createdAt: new Date(),
+    due_date: new Date('2024-03-15'),
+    createdAt: new Date('2024-01-15'),
+    updatedAt: new Date(),
+    userId: 'user1',
+  },
+  {
+    id: '3',
+    title: 'テストタスク3',
+    description: '説明3',
+    status: '未完了',
+    priority: '低',
+    category: 'now',
+    task_order: 0,
+    due_date: new Date('2024-02-01'),
+    createdAt: new Date('2024-02-01'),
     updatedAt: new Date(),
     userId: 'user1',
   },
@@ -61,7 +74,9 @@ const mockProvided: DroppableProvided = {
 describe('TaskColumnContent', () => {
   beforeEach(() => {
     mockUseTaskStore.mockReturnValue({
-      getFilteredAndSortedTasks: jest.fn().mockReturnValue(mockTasks),
+      getFilteredAndSortedTasks: jest
+        .fn()
+        .mockReturnValue(mockTasks.filter((task) => task.category === 'box')),
     } as ReturnType<typeof useTaskStore>);
   });
 
@@ -111,5 +126,62 @@ describe('TaskColumnContent', () => {
 
     expect(container.firstChild).toHaveClass('custom-class');
     expect(container.firstChild).toHaveClass('space-y-4');
+  });
+
+  it('NOWカテゴリーのタスクのみを表示すること', () => {
+    mockUseTaskStore.mockReturnValue({
+      getFilteredAndSortedTasks: jest
+        .fn()
+        .mockReturnValue(mockTasks.filter((task) => task.category === 'now')),
+    } as ReturnType<typeof useTaskStore>);
+
+    const { getAllByTestId } = render(
+      <TaskColumnContent
+        category="now"
+        provided={mockProvided}
+        className="test-class"
+      />
+    );
+
+    const tasks = getAllByTestId('mock-task');
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]).toHaveTextContent('テストタスク3');
+  });
+
+  it('getFilteredAndSortedTasksが正しいカテゴリーで呼び出されること', () => {
+    const mockGetFilteredAndSortedTasks = jest.fn().mockReturnValue([]);
+    mockUseTaskStore.mockReturnValue({
+      getFilteredAndSortedTasks: mockGetFilteredAndSortedTasks,
+    } as ReturnType<typeof useTaskStore>);
+
+    render(
+      <TaskColumnContent
+        category="next"
+        provided={mockProvided}
+        className="test-class"
+      />
+    );
+
+    expect(mockGetFilteredAndSortedTasks).toHaveBeenCalledWith('next');
+  });
+
+  it('Droppableのプレースホルダーが正しく表示されること', () => {
+    const mockPlaceholder = (
+      <div data-testid="mock-placeholder">Placeholder</div>
+    );
+    const providedWithPlaceholder = {
+      ...mockProvided,
+      placeholder: mockPlaceholder,
+    };
+
+    const { getByTestId } = render(
+      <TaskColumnContent
+        category="box"
+        provided={providedWithPlaceholder}
+        className="test-class"
+      />
+    );
+
+    expect(getByTestId('mock-placeholder')).toBeInTheDocument();
   });
 });
