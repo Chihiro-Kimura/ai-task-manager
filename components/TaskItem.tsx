@@ -1,78 +1,93 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { useToast } from '@/hooks/use-toast';
-import { useSession } from 'next-auth/react';
-import { Pencil, Trash2, Flag } from 'lucide-react';
-import { CheckIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
-import { format, isBefore, isToday, isAfter, startOfDay } from 'date-fns';
+import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { Check, Clock, Pencil, Trash2 } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 import { useState } from 'react';
-import EditTaskForm from '@/components/EditTaskForm';
-import { cn } from '@/lib/utils';
-import { TaskWithExtras } from '@/types/task';
-import { useTaskStore } from '@/store/taskStore';
 
-interface TaskItemProps {
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+import { useTaskStore } from '@/store/taskStore';
+import { TaskWithExtras } from '@/types/task';
+
+interface ITaskItemProps {
   task: TaskWithExtras;
-  onMutate: () => Promise<void>;
 }
 
-export default function TaskItem({ task, onMutate }: TaskItemProps) {
+export default function TaskItem({ task }: ITaskItemProps): React.JSX.Element {
   const { data: session } = useSession();
   const { toast } = useToast();
-  const [isEditing, setIsEditing] = useState(false);
-  const { setIsEditModalOpen } = useTaskStore();
+  const { setIsEditModalOpen, setEditingTask } = useTaskStore();
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleToggleStatus = async () => {
-    const newStatus = task.status === '完了' ? '未完了' : '完了';
+  const handleStatusToggle = async (): Promise<void> => {
+    if (!session?.user?.id) return;
+
     try {
-      const res = await fetch(`/api/tasks/${task.id}`, {
+      const response = await fetch(`/api/tasks/${task.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'X-User-Id': session?.user?.id || '',
+          'X-User-Id': session.user.id,
         },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({
+          status: task.status === '完了' ? '未完了' : '完了',
+        }),
       });
 
-      if (res.ok) {
-        await onMutate();
-        toast({
-          title: 'ステータス更新',
-          description: `タスクを${newStatus}に変更しました`,
-          icon: <CheckIcon className="h-4 w-4 text-zinc-100" />,
-        });
-      } else {
-        throw new Error('ステータスの更新に失敗しました');
+      if (!response.ok) {
+        throw new Error('Failed to update task status');
       }
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : '不明なエラー';
+
+      toast({
+        title: '更新完了',
+        description: 'タスクのステータスを更新しました',
+      });
+    } catch (error) {
+      console.error('Failed to update task status:', error);
       toast({
         title: 'エラー',
-        description: errorMessage,
+        description: 'タスクの更新に失敗しました',
         variant: 'destructive',
-        icon: <ExclamationTriangleIcon className="h-4 w-4 text-red-400" />,
       });
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = async (): Promise<void> => {
+    if (!session?.user?.id) return;
+
+    setIsDeleting(true);
     try {
       const response = await fetch(`/api/tasks/${task.id}`, {
         method: 'DELETE',
         headers: {
-          'X-User-Id': session?.user?.id || '',
+          'Content-Type': 'application/json',
+          'X-User-Id': session.user.id,
         },
       });
 
       if (!response.ok) {
-        throw new Error('タスクの削除に失敗しました');
+        throw new Error('Failed to delete task');
       }
 
-      await onMutate(); // タスク一覧を更新
+      toast({
+        title: '削除完了',
+        description: 'タスクを削除しました',
+      });
     } catch (error) {
       console.error('Failed to delete task:', error);
       toast({
@@ -80,127 +95,114 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
         description: 'タスクの削除に失敗しました',
         variant: 'destructive',
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  const handleEdit = () => {
-    setIsEditing(true);
+  const handleEdit = (): void => {
+    setEditingTask(task);
     setIsEditModalOpen(true);
   };
 
-  const handleCloseEdit = () => {
-    setIsEditing(false);
-    setIsEditModalOpen(false);
-  };
-
-  const getDueDateColor = (dueDate: Date | null) => {
-    if (!dueDate) return 'text-zinc-400';
-
-    const today = startOfDay(new Date());
-
-    if (isBefore(dueDate, today)) return 'text-rose-400';
-    if (isToday(dueDate)) return 'text-amber-400';
-    if (isAfter(dueDate, today)) return 'text-blue-400';
-
-    return 'text-zinc-400';
+  const priorityColors = {
+    高: 'bg-red-500/10 text-red-500',
+    中: 'bg-yellow-500/10 text-yellow-500',
+    低: 'bg-blue-500/10 text-blue-500',
   };
 
   return (
-    <>
-      {isEditing ? (
-        <EditTaskForm
-          taskId={task.id}
-          currentTitle={task.title}
-          currentDescription={task.description}
-          currentPriority={task.priority}
-          currentDueDate={task.due_date}
-          onClose={handleCloseEdit}
-        />
-      ) : (
-        <div className="group relative">
-          <div className="p-3 bg-zinc-800 rounded-lg">
-            <div className="flex items-start gap-3">
-              <Checkbox
-                checked={task.status === '完了'}
-                onCheckedChange={handleToggleStatus}
-                className={cn(
-                  'h-4 w-4 border transition-colors',
-                  task.status === '完了'
-                    ? 'border-blue-500 bg-blue-500/20 text-blue-500 hover:bg-blue-500/30 hover:border-blue-400'
-                    : 'border-zinc-600 bg-zinc-900/50 hover:border-zinc-500'
-                )}
-              />
-              <div className="flex-1 min-w-0">
-                <h3
-                  className={cn(
-                    'text-sm font-medium',
-                    task.status === '完了'
-                      ? 'text-zinc-400 line-through'
-                      : 'text-zinc-100'
-                  )}
-                >
-                  {task.title}
-                </h3>
-                {task.description && (
-                  <p
-                    className={cn(
-                      'mt-1 text-xs',
-                      task.status === '完了'
-                        ? 'text-zinc-500 line-through'
-                        : 'text-zinc-400'
-                    )}
-                  >
-                    {task.description}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {task.priority && (
-                  <Flag
-                    className={cn(
-                      'h-4 w-4',
-                      task.priority === '高' && 'text-rose-500',
-                      task.priority === '中' && 'text-amber-500',
-                      task.priority === '低' && 'text-emerald-500'
-                    )}
-                  />
-                )}
-                {task.due_date && (
-                  <span
-                    className={cn(
-                      'text-xs',
-                      task.status === '完了'
-                        ? 'text-zinc-500'
-                        : getDueDateColor(new Date(task.due_date))
-                    )}
-                  >
-                    {format(new Date(task.due_date), 'MM/dd', { locale: ja })}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 bg-zinc-900/80 hover:bg-blue-900/80 text-zinc-400 hover:text-blue-400"
-              onClick={handleEdit}
+    <div className="flex flex-col gap-2 rounded-lg border bg-card p-4 text-card-foreground">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1">
+          <h3
+            className={cn(
+              'text-base font-medium',
+              task.status === '完了' && 'line-through text-muted-foreground'
+            )}
+          >
+            {task.title}
+          </h3>
+          {task.description && (
+            <p
+              className={cn(
+                'mt-1 text-sm text-muted-foreground',
+                task.status === '完了' && 'line-through'
+              )}
             >
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 bg-zinc-900/80 hover:bg-rose-900/80 text-zinc-400 hover:text-rose-400"
-              onClick={handleDelete}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+              {task.description}
+            </p>
+          )}
         </div>
-      )}
-    </>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleStatusToggle}
+            disabled={isDeleting}
+          >
+            <Check
+              className={cn(
+                'h-4 w-4',
+                task.status === '完了'
+                  ? 'text-green-500'
+                  : 'text-muted-foreground'
+              )}
+            />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleEdit}
+            disabled={isDeleting}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" disabled={isDeleting}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>タスクの削除</AlertDialogTitle>
+                <AlertDialogDescription>
+                  このタスクを削除してもよろしいですか？この操作は取り消せません。
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete}>
+                  削除
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        {task.priority && (
+          <Badge
+            variant="secondary"
+            className={cn(
+              'pointer-events-none',
+              priorityColors[task.priority as keyof typeof priorityColors]
+            )}
+          >
+            {task.priority}
+          </Badge>
+        )}
+        {task.due_date && (
+          <Badge
+            variant="secondary"
+            className="pointer-events-none flex items-center gap-1"
+          >
+            <Clock className="h-3 w-3" />
+            {format(new Date(task.due_date), 'M/d', { locale: ja })}
+          </Badge>
+        )}
+      </div>
+    </div>
   );
 }

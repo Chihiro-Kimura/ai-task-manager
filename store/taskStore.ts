@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { TaskWithExtras } from '@/types/task';
 
-interface TaskState {
+interface ITaskState {
   tasks: TaskWithExtras[];
   setTasks: (tasks: TaskWithExtras[]) => void;
   updateTaskOrder: (updatedTasks: TaskWithExtras[]) => void;
@@ -19,25 +19,33 @@ interface TaskState {
   ) => TaskWithExtras[];
   isEditModalOpen: boolean;
   setIsEditModalOpen: (isOpen: boolean) => void;
+  editingTask: TaskWithExtras | null;
+  setEditingTask: (task: TaskWithExtras | null) => void;
 }
 
-export const useTaskStore = create<TaskState>((set, get) => ({
+export const useTaskStore = create<ITaskState>((set, get) => ({
   tasks: [],
-  setTasks: (tasks) => set({ tasks }),
-  updateTaskOrder: (updatedTasks) => set({ tasks: updatedTasks }),
+  setTasks: (tasks: TaskWithExtras[]): void => set({ tasks }),
+  updateTaskOrder: (updatedTasks: TaskWithExtras[]): void =>
+    set({ tasks: updatedTasks }),
   sortBy: {
     box: 'custom',
     now: 'custom',
     next: 'custom',
   },
-  setSortBy: (category, value) =>
+  setSortBy: (
+    category: 'box' | 'now' | 'next',
+    value: 'custom' | 'priority' | 'createdAt' | 'dueDate'
+  ): void =>
     set((state) => ({
       sortBy: {
         ...state.sortBy,
         [category]: value,
       },
     })),
-  getFilteredAndSortedTasks: (category) => {
+  getFilteredAndSortedTasks: (
+    category: 'box' | 'now' | 'next'
+  ): TaskWithExtras[] => {
     const state = get();
     const filteredTasks = state.tasks.filter(
       (task) => task.category === category
@@ -82,5 +90,9 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     }
   },
   isEditModalOpen: false,
-  setIsEditModalOpen: (isOpen) => set({ isEditModalOpen: isOpen }),
+  setIsEditModalOpen: (isOpen: boolean): void =>
+    set({ isEditModalOpen: isOpen }),
+  editingTask: null,
+  setEditingTask: (task: TaskWithExtras | null): void =>
+    set({ editingTask: task }),
 }));
