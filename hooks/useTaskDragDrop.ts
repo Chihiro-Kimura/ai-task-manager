@@ -1,10 +1,12 @@
-import { DropResult } from '@hello-pangea/dnd';
-import { useSession } from 'next-auth/react';
-import { useToast } from '@/hooks/use-toast';
-import { useTaskStore } from '@/store/taskStore';
-import { TaskWithExtras } from '@/types/task';
+import { DropResult } from "@hello-pangea/dnd";
+import { useSession } from "next-auth/react";
 
-export function useTaskDragDrop() {
+import { useToast } from "@/hooks/use-toast";
+import { useTaskStore } from "@/store/taskStore";
+
+export function useTaskDragDrop(): {
+  handleDragEnd: (result: DropResult) => Promise<void>;
+} {
   const { data: session } = useSession();
   const { toast } = useToast();
   const {
@@ -33,17 +35,17 @@ export function useTaskDragDrop() {
 
     // カスタム順でない場合は、カスタム順に切り替える
     if (
-      sortBy[sourceCategory as keyof typeof sortBy] !== 'custom' ||
-      sortBy[destinationCategory as keyof typeof sortBy] !== 'custom'
+      sortBy[sourceCategory as keyof typeof sortBy] !== "custom" ||
+      sortBy[destinationCategory as keyof typeof sortBy] !== "custom"
     ) {
       const sourceCategoryTasks = getFilteredAndSortedTasks(
-        sourceCategory as 'box' | 'now' | 'next'
+        sourceCategory as "box" | "now" | "next",
       );
       const destinationCategoryTasks =
         sourceCategory === destinationCategory
           ? sourceCategoryTasks
           : getFilteredAndSortedTasks(
-              destinationCategory as 'box' | 'now' | 'next'
+              destinationCategory as "box" | "now" | "next",
             );
 
       const updatedTasks = [...tasks];
@@ -65,9 +67,9 @@ export function useTaskDragDrop() {
       }
 
       updateTaskOrder(updatedTasks);
-      setSortBy(sourceCategory as 'box' | 'now' | 'next', 'custom');
+      setSortBy(sourceCategory as "box" | "now" | "next", "custom");
       if (sourceCategory !== destinationCategory) {
-        setSortBy(destinationCategory as 'box' | 'now' | 'next', 'custom');
+        setSortBy(destinationCategory as "box" | "now" | "next", "custom");
       }
     }
 
@@ -77,16 +79,17 @@ export function useTaskDragDrop() {
       const updatedTasks = [...tasks];
       const movedTask = updatedTasks.find(
         (task) =>
-          task.category === sourceCategory && task.id === result.draggableId
+          task.category === sourceCategory && task.id === result.draggableId,
       );
 
       if (!movedTask) {
-        throw new Error('Task not found');
+        throw new Error("Task not found");
       }
 
       if (sourceCategory === destinationCategory) {
         const categoryTasks = updatedTasks.filter(
-          (task) => task.category === sourceCategory && task.id !== movedTask.id
+          (task) =>
+            task.category === sourceCategory && task.id !== movedTask.id,
         );
 
         movedTask.task_order = destinationIndex;
@@ -112,7 +115,7 @@ export function useTaskDragDrop() {
         updatedTasks
           .filter(
             (task) =>
-              task.category === sourceCategory && task.task_order > sourceIndex
+              task.category === sourceCategory && task.task_order > sourceIndex,
           )
           .forEach((task) => {
             task.task_order -= 1;
@@ -122,7 +125,7 @@ export function useTaskDragDrop() {
           .filter(
             (task) =>
               task.category === destinationCategory &&
-              task.task_order >= destinationIndex
+              task.task_order >= destinationIndex,
           )
           .forEach((task) => {
             task.task_order += 1;
@@ -134,11 +137,11 @@ export function useTaskDragDrop() {
 
       updateTaskOrder(updatedTasks);
 
-      const response = await fetch('/api/tasks/reorder', {
-        method: 'POST',
+      const response = await fetch("/api/tasks/reorder", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': session?.user?.id || '',
+          "Content-Type": "application/json",
+          "X-User-Id": session?.user?.id || "",
         },
         body: JSON.stringify({
           tasks: updatedTasks.map((task) => ({
@@ -151,16 +154,16 @@ export function useTaskDragDrop() {
 
       if (!response.ok) {
         const responseData = await response.json();
-        throw new Error(responseData.error || 'Failed to update task order');
+        throw new Error(responseData.error || "Failed to update task order");
       }
     } catch (error) {
-      console.error('Failed to update task:', error);
+      console.error("Failed to update task:", error);
       updateTaskOrder(previousTasks);
       toast({
-        title: 'エラー',
+        title: "エラー",
         description:
-          error instanceof Error ? error.message : 'タスクの更新に失敗しました',
-        variant: 'destructive',
+          error instanceof Error ? error.message : "タスクの更新に失敗しました",
+        variant: "destructive",
       });
     }
   };
