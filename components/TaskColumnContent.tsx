@@ -1,50 +1,35 @@
-'use client';
+"use client";
 
-import { DroppableProvided } from '@hello-pangea/dnd';
-import { TaskWithExtras } from '@/types/task';
-import AddTaskForm from '@/components/AddTaskForm';
-import DraggableTaskItem from '@/components/DraggableTaskItem';
-import { CreateTaskData } from '@/types/task';
+import { DroppableProvided } from "@hello-pangea/dnd";
 
-interface TaskColumnContentProps {
-  isAddingTask: boolean;
-  tasks: TaskWithExtras[];
-  onAddTask: (taskData: CreateTaskData) => Promise<void>;
-  onCancelAdd: () => void;
-  onTasksChange: () => Promise<void>;
-  droppableId: string;
+import DraggableTaskItem from "@/components/DraggableTaskItem";
+import { cn } from "@/lib/utils";
+import { useTaskStore } from "@/store/taskStore";
+
+interface ITaskColumnContentProps {
+  category: "box" | "now" | "next";
   provided: DroppableProvided;
+  className?: string;
 }
 
-export function TaskColumnContent({
-  isAddingTask,
-  tasks,
-  onAddTask,
-  onCancelAdd,
-  onTasksChange,
-  droppableId,
+export default function TaskColumnContent({
+  category,
   provided,
-}: TaskColumnContentProps) {
+  className,
+}: ITaskColumnContentProps): React.JSX.Element {
+  const { getFilteredAndSortedTasks } = useTaskStore();
+  const tasks = getFilteredAndSortedTasks(category);
+
   return (
-    <ul className="space-y-2">
-      {isAddingTask && (
-        <AddTaskForm
-          onSubmit={onAddTask}
-          onCancel={onCancelAdd}
-          category={droppableId}
-        />
-      )}
+    <div
+      ref={provided.innerRef}
+      {...provided.droppableProps}
+      className={cn("space-y-4", className)}
+    >
       {tasks.map((task, index) => (
-        <DraggableTaskItem
-          key={task.id}
-          task={task}
-          index={index}
-          onMutate={async () => {
-            await onTasksChange();
-          }}
-        />
+        <DraggableTaskItem key={task.id} task={task} index={index} />
       ))}
       {provided.placeholder}
-    </ul>
+    </div>
   );
 }

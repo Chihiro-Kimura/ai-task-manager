@@ -1,22 +1,21 @@
-'use client';
+"use client";
 
-import { Draggable } from '@hello-pangea/dnd';
-import TaskItem from '@/components/TaskItem';
-import { TaskWithExtras } from '@/types/task';
-import { useTaskStore } from '@/store/taskStore';
-import { cn } from '@/lib/utils';
+import { Draggable } from "@hello-pangea/dnd";
 
-interface DraggableTaskItemProps {
+import TaskItem from "@/components/TaskItem";
+import { cn } from "@/lib/utils";
+import { useTaskStore } from "@/store/taskStore";
+import { TaskWithExtras } from "@/types/task";
+
+interface IDraggableTaskItemProps {
   task: TaskWithExtras;
   index: number;
-  onMutate: () => Promise<void>;
 }
 
 export default function DraggableTaskItem({
   task,
   index,
-  onMutate,
-}: DraggableTaskItemProps) {
+}: IDraggableTaskItemProps): React.JSX.Element {
   const { isEditModalOpen } = useTaskStore();
 
   return (
@@ -25,17 +24,21 @@ export default function DraggableTaskItem({
       index={index}
       isDragDisabled={isEditModalOpen}
     >
-      {(provided) => (
+      {(provided, snapshot) => (
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
+          style={{
+            ...provided.draggableProps.style,
+            opacity: snapshot.isDragging ? 0.5 : 1,
+          }}
           className={cn(
-            'cursor-grab active:cursor-grabbing',
-            isEditModalOpen && 'cursor-default pointer-events-none'
+            "cursor-grab active:cursor-grabbing",
+            isEditModalOpen && "cursor-default pointer-events-none",
           )}
         >
-          <TaskItem task={task} onMutate={onMutate} />
+          <TaskItem task={task} />
         </div>
       )}
     </Draggable>
