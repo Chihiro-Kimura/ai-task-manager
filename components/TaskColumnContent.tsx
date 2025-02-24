@@ -3,8 +3,10 @@
 import { DroppableProvided } from '@hello-pangea/dnd';
 import { TaskWithExtras } from '@/types/task';
 import AddTaskForm from '@/components/AddTaskForm';
-import DraggableTaskItem from '@/components/DraggableTaskItem';
+import { DraggableTaskItem } from '@/components/DraggableTaskItem';
 import { CreateTaskData } from '@/types/task';
+import { Suspense } from 'react';
+import { TaskItemSkeleton } from '@/components/TaskItemSkeleton';
 
 interface TaskColumnContentProps {
   isAddingTask: boolean;
@@ -35,14 +37,15 @@ export function TaskColumnContent({
         />
       )}
       {tasks.map((task, index) => (
-        <DraggableTaskItem
-          key={task.id}
-          task={task}
-          index={index}
-          onMutate={async () => {
-            await onTasksChange();
-          }}
-        />
+        <Suspense key={task.id} fallback={<TaskItemSkeleton />}>
+          <DraggableTaskItem
+            task={task}
+            index={index}
+            onMutate={async () => {
+              await onTasksChange();
+            }}
+          />
+        </Suspense>
       ))}
       {provided.placeholder}
     </ul>

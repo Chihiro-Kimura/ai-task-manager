@@ -12,11 +12,7 @@ interface DraggableTaskItemProps {
   onMutate: () => Promise<void>;
 }
 
-export default function DraggableTaskItem({
-  task,
-  index,
-  onMutate,
-}: DraggableTaskItemProps) {
+export function DraggableTaskItem({ task, index }: DraggableTaskItemProps) {
   const { isEditModalOpen } = useTaskStore();
 
   return (
@@ -35,7 +31,7 @@ export default function DraggableTaskItem({
             isEditModalOpen && 'cursor-default pointer-events-none'
           )}
         >
-          <TaskItem task={task} onMutate={onMutate} />
+          <TaskItem task={task} />
         </div>
       )}
     </Draggable>
