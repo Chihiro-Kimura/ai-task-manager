@@ -92,6 +92,7 @@ model Note {
   id        String   @id @default(uuid())
   title     String   @db.VarChar(100)
   content   String   @db.Text
+  priority  String?  @db.VarChar(10)
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   tags      Tag[]    @relation("NoteToTag")
