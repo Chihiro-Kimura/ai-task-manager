@@ -34,6 +34,8 @@ model User {
   accounts      Account[]
   sessions      Session[]
   tasks         Task[]
+  notes         Note[]
+  tags          Tag[]
   chats         ChatHistory[]
 }
 
@@ -84,4 +86,29 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  title     String   @db.VarChar(100)
+  content   String   @db.Text
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tags      Tag[]    @relation("NoteToTag")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([userId])
+}
+
+model Tag {
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(50)
+  color     String?  @db.VarChar(7)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes     Note[]   @relation("NoteToTag")
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
