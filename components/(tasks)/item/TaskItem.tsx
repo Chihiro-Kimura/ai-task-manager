@@ -1,18 +1,20 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { useToast } from '@/hooks/use-toast';
-import { useSession } from 'next-auth/react';
-import { Pencil, Trash2, Flag } from 'lucide-react';
 import { CheckIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import { format, isBefore, isToday, isAfter, startOfDay } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { Pencil, Trash2, Flag } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 import { useState } from 'react';
+
 import EditTaskForm from '@/components/(tasks)/forms/EditTaskForm';
+import { EditButton, DeleteButton } from '@/components/ui/action-button';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { TaskWithExtras } from '@/types/task';
 import { useTaskStore } from '@/store/taskStore';
+import { TaskWithExtras } from '@/types/task';
 
 interface TaskItemProps {
   task: TaskWithExtras;
@@ -182,22 +184,12 @@ export default function TaskItem({ task, onMutate }: TaskItemProps) {
           </div>
 
           <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 bg-zinc-900/80 hover:bg-blue-900/80 text-zinc-400 hover:text-blue-400"
-              onClick={handleEdit}
-            >
+            <EditButton onClick={handleEdit}>
               <Pencil className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 bg-zinc-900/80 hover:bg-rose-900/80 text-zinc-400 hover:text-rose-400"
-              onClick={handleDelete}
-            >
+            </EditButton>
+            <DeleteButton onClick={handleDelete}>
               <Trash2 className="h-4 w-4" />
-            </Button>
+            </DeleteButton>
           </div>
         </div>
       )}

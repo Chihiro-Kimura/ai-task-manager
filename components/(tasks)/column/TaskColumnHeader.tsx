@@ -1,14 +1,16 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
 import { SlidersHorizontal, Plus } from 'lucide-react';
+
+import TaskFilters from '@/components/(tasks)/filters/TaskFilters';
+import { AddButton } from '@/components/ui/action-button';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Badge } from '@/components/ui/badge';
-import TaskFilters from '@/components/(tasks)/filters/TaskFilters';
 
 interface TaskColumnHeaderProps {
   title: string;
@@ -83,15 +85,14 @@ export function TaskColumnHeader({
           </PopoverContent>
         </Popover>
 
-        <Button
-          variant="ghost"
+        <AddButton
           size="sm"
-          className="h-8 w-8 p-0 text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
           onClick={onAddTask}
           title="タスクを追加"
+          className="h-8 w-8 p-0"
         >
           <Plus className="h-4 w-4" />
-        </Button>
+        </AddButton>
       </div>
     </div>
   );

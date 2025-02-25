@@ -1,14 +1,15 @@
 'use client';
 
+import { useSession } from 'next-auth/react';
 import { useState } from 'react';
+import { mutate } from 'swr';
+
+import DueDatePicker from '@/components/(tasks)/filters/DueDatePicker';
+import PrioritySelect from '@/components/(tasks)/filters/PrioritySelect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { mutate } from 'swr';
-import { useSession } from 'next-auth/react';
-import DueDatePicker from '@/components/(tasks)/filters/DueDatePicker';
-import PrioritySelect from '@/components/(tasks)/filters/PrioritySelect';
 import { useTaskStore } from '@/store/taskStore';
 
 interface EditTaskFormProps {
@@ -162,7 +163,7 @@ export default function EditTaskForm({
             disabled={isLoading}
             variant="ghost"
             size="sm"
-            className="hover:bg-blue-900/20 hover:text-blue-400 text-zinc-400"
+            className="hover:bg-emerald-900/20 hover:text-emerald-400 text-zinc-400"
           >
             {isLoading ? '更新中...' : '更新'}
           </Button>
