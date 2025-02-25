@@ -1,7 +1,8 @@
-import { NextAuthOptions } from 'next-auth';
 import { PrismaAdapter } from '@auth/prisma-adapter';
-import { prisma } from '@/lib/prisma';
+import { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
+
+import { prisma } from '@/lib/prisma';
 
 export const authOptions: NextAuthOptions = {
   debug: true,
@@ -25,12 +26,10 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     async redirect({ url, baseUrl }) {
-      console.log('Redirect:', { url, baseUrl });
       return url.startsWith(baseUrl) ? url : baseUrl;
     },
   },
   pages: {
     signIn: '/auth/signin',
-    error: '/auth/error',
   },
 };

@@ -1,6 +1,11 @@
 'use client';
 
-import { signIn } from 'next-auth/react';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { signIn, useSession } from 'next-auth/react';
+import { useEffect } from 'react';
+
+import LoadingState from '@/components/(common)/loading/LoadingState';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -8,21 +13,30 @@ import {
   CardContent,
   CardFooter,
 } from '@/components/ui/card';
-import Image from 'next/image';
-import { useSession } from 'next-auth/react';
-import { redirect } from 'next/navigation';
-import LoadingState from '@/components/(common)/loading/LoadingState';
 
-export default function SignIn() {
+export default function SignIn(): JSX.Element {
   const { data: session, status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (session) {
+      router.replace('/tasks');
+    }
+  }, [session, router]);
 
   if (status === 'loading') {
     return <LoadingState message="認証状態を確認中..." />;
   }
 
-  if (session) {
-    redirect('/');
-  }
+  const handleSignIn = async () => {
+    try {
+      await signIn('google', {
+        callbackUrl: '/tasks',
+      });
+    } catch (error) {
+      console.error('Failed to sign in:', error);
+    }
+  };
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-black">
@@ -37,7 +51,7 @@ export default function SignIn() {
         </CardHeader>
         <CardContent className="space-y-4">
           <Button
-            onClick={() => signIn('google', { callbackUrl: '/' })}
+            onClick={handleSignIn}
             variant="outline"
             className="w-full border-zinc-800 bg-zinc-900 text-zinc-100 hover:bg-zinc-800 hover:text-zinc-50"
           >
