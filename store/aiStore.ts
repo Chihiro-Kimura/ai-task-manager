@@ -3,35 +3,42 @@ import { persist } from 'zustand/middleware';
 
 import { geminiProvider } from '@/lib/ai/gemini';
 import { transformersProvider } from '@/lib/ai/transformers';
-import { AISettings } from '@/lib/ai/types';
+import { AIProvider, AISettings } from '@/lib/ai/types';
 
-interface AIStore {
+interface AIState {
   settings: AISettings;
   updateSettings: (settings: Partial<AISettings>) => void;
-  getActiveProvider: () => typeof geminiProvider | typeof transformersProvider;
+  getActiveProvider: () => AIProvider;
 }
 
-export const useAIStore = create<AIStore>()(
+export const useAIStore = create<AIState>()(
   persist(
     (set, get) => ({
       settings: {
         provider: 'transformers',
         isEnabled: true,
       },
-      updateSettings: (newSettings) =>
+      updateSettings: (newSettings) => {
         set((state) => {
-          const settings = { ...state.settings, ...newSettings };
+          const settings = {
+            ...state.settings,
+            ...newSettings,
+          };
 
-          // Gemini APIキーが設定された場合
+          // APIキーが設定されている場合はGeminiプロバイダーを初期化
           if (settings.provider === 'gemini' && settings.apiKey) {
             geminiProvider.initialize(settings.apiKey);
           }
 
           return { settings };
-        }),
+        });
+      },
       getActiveProvider: () => {
-        const { provider } = get().settings;
-        return provider === 'gemini' ? geminiProvider : transformersProvider;
+        const { settings } = get();
+        if (settings.provider === 'gemini' && settings.apiKey) {
+          return geminiProvider;
+        }
+        return transformersProvider;
       },
     }),
     {

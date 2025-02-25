@@ -1,4 +1,9 @@
-import { Button } from '@/components/ui/button';
+'use client';
+
+import { Pencil, Trash2 } from 'lucide-react';
+import { useState, type ReactElement } from 'react';
+
+import { EditButton, DeleteButton } from '@/components/ui/action-button';
 import {
   Card,
   CardContent,
@@ -20,17 +25,20 @@ import { geminiProvider } from '@/lib/ai/gemini';
 import { transformersProvider } from '@/lib/ai/transformers';
 import { useAIStore } from '@/store/aiStore';
 
-export function AISettings() {
+export function AISettings(): ReactElement {
   const { settings, updateSettings } = useAIStore();
   const [apiKey, setApiKey] = useState(settings.apiKey || '');
   const { toast } = useToast();
 
-  const handleProviderChange = (value: string) => {
-    updateSettings({ provider: value as 'gemini' | 'transformers' });
+  const handleProviderChange = (value: string): void => {
+    updateSettings({
+      provider: value as 'gemini' | 'transformers',
+      apiKey: value === 'transformers' ? undefined : apiKey,
+    });
   };
 
-  const handleSaveApiKey = () => {
-    if (!apiKey.trim()) {
+  const handleSaveApiKey = (): void => {
+    if (!apiKey.trim() && settings.provider === 'gemini') {
       toast({
         title: 'APIキーを入力してください',
         variant: 'destructive',
@@ -38,10 +46,23 @@ export function AISettings() {
       return;
     }
 
-    updateSettings({ apiKey: apiKey.trim() });
+    updateSettings({
+      apiKey: apiKey.trim(),
+    });
+
     toast({
       title: 'APIキーを保存しました',
-      description: 'Gemini AIが使用可能になりました',
+    });
+  };
+
+  const handleDeleteApiKey = (): void => {
+    setApiKey('');
+    updateSettings({
+      apiKey: undefined,
+    });
+
+    toast({
+      title: 'APIキーを削除しました',
     });
   };
 
@@ -66,7 +87,7 @@ export function AISettings() {
               id="provider"
               className="bg-zinc-900 border-zinc-800"
             >
-              <SelectValue />
+              <SelectValue placeholder="プロバイダーを選択" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="transformers">
@@ -83,6 +104,11 @@ export function AISettings() {
               </SelectItem>
             </SelectContent>
           </Select>
+          <p className="text-xs text-zinc-400">
+            {settings.provider === 'transformers'
+              ? 'ローカルで動作する軽量な日本語AIモデルです。APIキーは不要です。'
+              : 'Googleが提供する高性能なAIモデルです。APIキーが必要です。'}
+          </p>
         </div>
 
         {settings.provider === 'gemini' && (
@@ -90,7 +116,7 @@ export function AISettings() {
             <Label htmlFor="apiKey" className="text-zinc-100">
               Gemini API Key
             </Label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <Input
                 id="apiKey"
                 type="password"
@@ -99,13 +125,16 @@ export function AISettings() {
                 className="flex-1 bg-zinc-900 border-zinc-800"
                 placeholder="sk-..."
               />
-              <Button
-                onClick={handleSaveApiKey}
-                variant="outline"
-                className="border-zinc-800 hover:bg-emerald-900/20 hover:text-emerald-400"
-              >
-                保存
-              </Button>
+              {(!settings.apiKey || apiKey !== settings.apiKey) && (
+                <EditButton className="h-9 w-9" onClick={handleSaveApiKey}>
+                  <Pencil className="h-4 w-4" />
+                </EditButton>
+              )}
+              {settings.apiKey && (
+                <DeleteButton className="h-9 w-9" onClick={handleDeleteApiKey}>
+                  <Trash2 className="h-4 w-4" />
+                </DeleteButton>
+              )}
             </div>
             <p className="text-xs text-zinc-400">
               Google AI StudioでAPIキーを取得できます
