@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, type ReactElement } from 'react';
 
-import AddNoteForm from '@/components/(notes)/forms/AddNoteForm';
+import { AddNoteForm } from '@/components/(notes)/forms/AddNoteForm';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { NoteWithTags } from '@/types/note';
 
@@ -15,7 +16,7 @@ interface NoteFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => Promise<void>;
-  note?: NoteWithTags; // 編集時のみ使用
+  note?: NoteWithTags;
 }
 
 export default function NoteFormModal({
@@ -23,7 +24,7 @@ export default function NoteFormModal({
   onClose,
   onSuccess,
   note,
-}: NoteFormModalProps): JSX.Element {
+}: NoteFormModalProps): ReactElement {
   // モーダルが閉じられたときにフォームをリセット
   useEffect(() => {
     if (!isOpen) {
@@ -36,6 +37,11 @@ export default function NoteFormModal({
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>{note ? 'メモを編集' : '新規メモ'}</DialogTitle>
+          <DialogDescription>
+            {note
+              ? 'メモの内容を編集してください。'
+              : '新しいメモを作成します。'}
+          </DialogDescription>
         </DialogHeader>
         <AddNoteForm
           note={note}
@@ -43,7 +49,6 @@ export default function NoteFormModal({
             await onSuccess();
             onClose();
           }}
-          onCancel={onClose}
         />
       </DialogContent>
     </Dialog>

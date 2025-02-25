@@ -1,10 +1,14 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import { useEffect, useState, type ReactElement } from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import useSWR from 'swr';
 import * as z from 'zod';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -16,68 +20,144 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
-import { CreateNoteData, NoteWithTags } from '@/types/note';
+import { NoteWithTags } from '@/types/note';
 
 const formSchema = z.object({
-  title: z
-    .string()
-    .min(1, '必須項目です')
-    .max(100, '100文字以内で入力してください'),
-  content: z
-    .string()
-    .min(1, '必須項目です')
-    .max(1000, '1000文字以内で入力してください'),
-  tags: z.array(z.string()).optional(),
+  title: z.string().min(1, '必須項目です'),
+  content: z.string().min(1, '必須項目です'),
+  tags: z.array(z.string()),
 });
+
+type FormValues = z.infer<typeof formSchema>;
 
 interface AddNoteFormProps {
   note?: NoteWithTags;
-  onSuccess: () => Promise<void>;
-  onCancel: () => void;
+  onSuccess?: () => void;
 }
 
-export default function AddNoteForm({
+export function AddNoteForm({
   note,
   onSuccess,
-  onCancel,
-}: AddNoteFormProps): JSX.Element {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
+}: AddNoteFormProps): ReactElement {
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSuggestingTags, setIsSuggestingTags] = useState(false);
+  const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
+  const [pendingTags, setPendingTags] = useState<{ [key: string]: boolean }>(
+    {}
+  );
+  const [localTags, setLocalTags] = useState<{ id: string; name: string }[]>(
+    []
+  );
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const { data: tags, mutate: mutateTags } =
+    useSWR<{ id: string; name: string }[]>('/api/tags');
+
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: note?.title ?? '',
-      content: note?.content ?? '',
-      tags: note?.tags.map((tag) => tag.id) ?? [],
+      title: note?.title || '',
+      content: note?.content || '',
+      tags: note?.tags?.map((tag) => tag.id) || [],
     },
   });
 
+  const { watch } = form;
+  const title = watch('title');
+  const content = watch('content');
+  const selectedTags = watch('tags');
+
   useEffect(() => {
-    if (note) {
-      form.reset({
-        title: note.title,
-        content: note.content,
-        tags: note.tags.map((tag) => tag.id),
-      });
+    if (tags) {
+      setLocalTags(tags);
     }
-  }, [note, form]);
+  }, [tags]);
 
-  const onSubmit = async (
-    values: z.infer<typeof formSchema>
-  ): Promise<void> => {
-    setIsSubmitting(true);
+  useEffect(() => {
+    const debounceTimer = setTimeout(async () => {
+      if (title && content) {
+        setIsSuggestingTags(true);
+        try {
+          const response = await fetch('/api/notes/suggest-tags', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, content }),
+          });
 
+          if (!response.ok) throw new Error('Failed to suggest tags');
+
+          const data = await response.json();
+          setSuggestedTags(data.suggestions);
+        } catch (error) {
+          console.error('Failed to get tag suggestions:', error);
+          toast.error('タグの提案に失敗しました');
+        } finally {
+          setIsSuggestingTags(false);
+        }
+      }
+    }, 1000); // 1秒のデバウンス
+
+    return () => clearTimeout(debounceTimer);
+  }, [title, content]);
+
+  const toggleTag = (tagId: string): void => {
+    const newTags = selectedTags.includes(tagId)
+      ? selectedTags.filter((id) => id !== tagId)
+      : [...selectedTags, tagId];
+    form.setValue('tags', newTags, { shouldDirty: true });
+  };
+
+  const createTag = async (name: string): Promise<string | null> => {
+    try {
+      const response = await fetch('/api/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+
+      if (!response.ok) throw new Error('Failed to create tag');
+
+      const newTag = await response.json();
+      setLocalTags((prev) => [...prev, newTag]);
+      return newTag.id;
+    } catch (error) {
+      console.error('Failed to create tag:', error);
+      toast.error('タグの作成に失敗しました');
+      return null;
+    }
+  };
+
+  const handleSuggestedTagClick = async (tagName: string): Promise<void> => {
+    const existingTag = localTags?.find(
+      (t) => t.name.toLowerCase() === tagName.toLowerCase()
+    );
+
+    if (existingTag) {
+      toggleTag(existingTag.id);
+      return;
+    }
+
+    if (pendingTags[tagName]) return;
+
+    setPendingTags((prev) => ({ ...prev, [tagName]: true }));
+    const newTagId = await createTag(tagName);
+    setPendingTags((prev) => ({ ...prev, [tagName]: false }));
+
+    if (newTagId) {
+      toggleTag(newTagId);
+      // タグリストの更新は非同期で行う
+      mutateTags().catch(console.error);
+    }
+  };
+
+  const onSubmit = async (values: FormValues): Promise<void> => {
+    setIsLoading(true);
     try {
       const response = await fetch(
         note ? `/api/notes/${note.id}` : '/api/notes',
         {
-          method: note ? 'PATCH' : 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(values as CreateNoteData),
+          method: note ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(values),
         }
       );
 
@@ -85,20 +165,15 @@ export default function AddNoteForm({
         throw new Error('Failed to save note');
       }
 
-      toast({
-        title: note ? 'メモを更新しました' : 'メモを作成しました',
-        variant: 'default',
-      });
-
-      await onSuccess();
+      toast.success(note ? 'メモを更新しました' : 'メモを作成しました');
+      onSuccess?.();
     } catch (error) {
       console.error('Failed to save note:', error);
-      toast({
-        title: note ? 'メモの更新に失敗しました' : 'メモの作成に失敗しました',
-        variant: 'destructive',
-      });
+      toast.error(
+        note ? 'メモの更新に失敗しました' : 'メモの作成に失敗しました'
+      );
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
@@ -112,7 +187,7 @@ export default function AddNoteForm({
             <FormItem>
               <FormLabel>タイトル</FormLabel>
               <FormControl>
-                <Input placeholder="メモのタイトル" {...field} />
+                <Input {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -126,30 +201,122 @@ export default function AddNoteForm({
             <FormItem>
               <FormLabel>内容</FormLabel>
               <FormControl>
-                <Textarea
-                  placeholder="メモの内容"
-                  className="min-h-[200px]"
-                  {...field}
-                />
+                <Textarea {...field} rows={5} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCancel}
-            disabled={isSubmitting}
-          >
-            キャンセル
-          </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? '保存中...' : note ? '更新' : '作成'}
-          </Button>
+        <div className="space-y-4 rounded-lg border border-zinc-800 p-4">
+          <div>
+            <FormLabel className="text-base">タグ管理</FormLabel>
+            <p className="text-sm text-muted-foreground mt-1">
+              タグを選択するか、AIが提案したタグを使用できます
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium mb-2">既存のタグ</p>
+              <div className="flex flex-wrap gap-2 min-h-[2.5rem] p-2 rounded-md bg-zinc-900/50">
+                {localTags?.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    タグがありません
+                  </p>
+                ) : (
+                  localTags?.map((tag) => (
+                    <Badge
+                      key={tag.id}
+                      variant={
+                        selectedTags.includes(tag.id) ? 'default' : 'outline'
+                      }
+                      className={`cursor-pointer transition-all hover:opacity-80 ${
+                        selectedTags.includes(tag.id)
+                          ? 'bg-blue-500 hover:bg-blue-600'
+                          : 'bg-zinc-800 hover:bg-zinc-700'
+                      }`}
+                      onClick={() => toggleTag(tag.id)}
+                    >
+                      {tag.name}
+                      <span className="ml-1 text-xs opacity-70">
+                        {selectedTags.includes(tag.id) ? '✓' : '+'}
+                      </span>
+                    </Badge>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <p className="text-sm font-medium">AIによるタグ提案</p>
+                {isSuggestingTags && (
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>提案中...</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2 min-h-[2.5rem] p-2 rounded-md bg-zinc-900/50">
+                {suggestedTags.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {title && content
+                      ? 'タグを提案できませんでした'
+                      : 'タイトルと内容を入力するとタグを提案します'}
+                  </p>
+                ) : (
+                  suggestedTags.map((tagName, index) => {
+                    const existingTag = localTags?.find(
+                      (t) => t.name.toLowerCase() === tagName.toLowerCase()
+                    );
+                    const isPending = pendingTags[tagName];
+                    const isSelected =
+                      existingTag && selectedTags.includes(existingTag.id);
+
+                    return (
+                      <Badge
+                        key={index}
+                        variant={isSelected ? 'default' : 'outline'}
+                        className={`cursor-pointer transition-all hover:opacity-80 ${
+                          isPending
+                            ? 'opacity-50'
+                            : isSelected
+                            ? 'bg-blue-500 hover:bg-blue-600'
+                            : 'bg-zinc-800 hover:bg-zinc-700'
+                        }`}
+                        onClick={() => handleSuggestedTagClick(tagName)}
+                      >
+                        {isPending ? (
+                          <div className="flex items-center gap-1">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            {tagName}
+                          </div>
+                        ) : (
+                          <>
+                            {tagName}
+                            <span className="ml-1 text-xs opacity-70">
+                              {isSelected ? '✓' : '+'}
+                            </span>
+                          </>
+                        )}
+                      </Badge>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
         </div>
+
+        <Button
+          type="submit"
+          disabled={isLoading || Object.values(pendingTags).some(Boolean)}
+          className="w-full"
+        >
+          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {note ? 'メモを更新' : 'メモを作成'}
+        </Button>
       </form>
     </Form>
   );
