@@ -8,8 +8,8 @@ import { toast } from 'sonner';
 import useSWR from 'swr';
 import * as z from 'zod';
 
+import { AddButton } from '@/components/ui/action-button';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { getRandomColor } from '@/lib/utils';
 import { NoteWithTags } from '@/types/note';
 
 const formSchema = z.object({
@@ -108,10 +109,14 @@ export function AddNoteForm({
 
   const createTag = async (name: string): Promise<string | null> => {
     try {
+      const randomColor = getRandomColor();
       const response = await fetch('/api/tags', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({
+          name,
+          color: JSON.stringify(randomColor),
+        }),
       });
 
       if (!response.ok) throw new Error('Failed to create tag');
@@ -282,7 +287,7 @@ export function AddNoteForm({
                           isPending
                             ? 'opacity-50'
                             : isSelected
-                            ? 'bg-blue-500 hover:bg-blue-600'
+                            ? 'bg-emerald-500 hover:bg-emerald-600'
                             : 'bg-zinc-800 hover:bg-zinc-700'
                         }`}
                         onClick={() => handleSuggestedTagClick(tagName)}
@@ -309,14 +314,27 @@ export function AddNoteForm({
           </div>
         </div>
 
-        <Button
+        <div className="flex flex-wrap gap-2 mb-4">
+          {suggestedTags.map((tag) => (
+            <Badge
+              key={tag}
+              variant="secondary"
+              className="cursor-pointer bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+              onClick={() => handleSuggestedTagClick(tag)}
+            >
+              {tag}
+            </Badge>
+          ))}
+        </div>
+
+        <AddButton
           type="submit"
           disabled={isLoading || Object.values(pendingTags).some(Boolean)}
-          className="w-full"
+          className="flex items-center justify-center gap-2"
         >
-          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
           {note ? 'メモを更新' : 'メモを作成'}
-        </Button>
+        </AddButton>
       </form>
     </Form>
   );

@@ -1,32 +1,48 @@
 'use client';
 
 import { Tag } from '@prisma/client';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Trash } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import { useState } from 'react';
+import { useState, type JSX } from 'react';
 import useSWR from 'swr';
 
-import { Badge } from '@/components/ui/badge';
+import { EditButton, DeleteButton } from '@/components/ui/action-button';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
+import { getTagOpacity, type TagColor } from '@/lib/constants/colors';
+import { getRandomColor } from '@/lib/utils';
 
-import TagFormModal from './TagFormModal';
+import { TagFormModal } from './TagFormModal';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
-export default function TagManager(): JSX.Element {
+interface TagManagerProps {
+  tags: Tag[];
+  onTagCreate: (tag: Tag) => void;
+  onTagUpdate: (tag: Tag) => void;
+  onTagDelete: (tagId: string) => void;
+}
+
+export function TagManager({
+  tags: _tags,
+  onTagCreate: _onTagCreate,
+  onTagUpdate: _onTagUpdate,
+  onTagDelete: _onTagDelete,
+}: TagManagerProps): JSX.Element {
   const { data: session } = useSession();
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTag, setSelectedTag] = useState<Tag | undefined>();
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
 
   // useSWRを使用してタグを取得
   const {
-    data: tags,
+    data: tagsData,
     error,
     mutate: mutateTags,
-  } = useSWR<Tag[]>(
+  } = useSWR<(Tag & { _count?: { notes: number } })[]>(
     session?.user?.id ? '/api/tags' : null,
     async (url: string) => {
       if (!session?.user?.id) return [];
@@ -95,6 +111,63 @@ export default function TagManager(): JSX.Element {
     }
   };
 
+  const handleToggleTag = (tagId: string): void => {
+    setSelectedTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(tagId)) {
+        next.delete(tagId);
+      } else {
+        next.add(tagId);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleAll = (): void => {
+    if (!tagsData) return;
+
+    if (selectedTags.size === tagsData.length) {
+      setSelectedTags(new Set());
+    } else {
+      setSelectedTags(new Set(tagsData.map((tag) => tag.id)));
+    }
+  };
+
+  const handleDeleteSelected = async (): Promise<void> => {
+    if (selectedTags.size === 0) return;
+
+    if (
+      !confirm(
+        `選択した${selectedTags.size}個のタグを削除してもよろしいですか？\n関連付けられたメモからもタグが削除されます。`
+      )
+    )
+      return;
+
+    try {
+      const promises = Array.from(selectedTags).map((tagId) =>
+        fetch(`/api/tags/${tagId}`, {
+          method: 'DELETE',
+        })
+      );
+
+      await Promise.all(promises);
+
+      toast({
+        title: `${selectedTags.size}個のタグを削除しました`,
+        variant: 'default',
+      });
+
+      setSelectedTags(new Set());
+      await mutateTags();
+    } catch (error) {
+      console.error('Failed to delete tags:', error);
+      toast({
+        title: 'タグの削除に失敗しました',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (error) {
     return (
       <div className="text-red-500">
@@ -103,57 +176,119 @@ export default function TagManager(): JSX.Element {
     );
   }
 
+  const hasSelectedTags = selectedTags.size > 0;
+
   return (
     <>
-      <Card>
+      <Card className="bg-zinc-900/50 border-zinc-800">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-lg font-medium">タグ管理</CardTitle>
-          <Button
-            onClick={handleAddTag}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-            size="sm"
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            新規タグ
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {tags?.map((tag) => (
-              <div
-                key={tag.id}
-                className="flex items-center justify-between p-2 rounded-lg border border-zinc-800 bg-zinc-900"
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-lg font-medium">タグ管理</CardTitle>
+            {hasSelectedTags && (
+              <span className="text-sm text-zinc-400">
+                {selectedTags.size}個選択中
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {hasSelectedTags ? (
+              <Button
+                onClick={handleDeleteSelected}
+                variant="ghost"
+                size="sm"
+                className="h-8 text-red-500 hover:text-red-400"
               >
-                <Badge
-                  variant="secondary"
-                  className="bg-zinc-800 text-zinc-300"
-                  style={{ backgroundColor: tag.color }}
+                <Trash className="h-4 w-4 mr-1" />
+                削除
+              </Button>
+            ) : (
+              <Button
+                onClick={handleAddTag}
+                variant="outline"
+                size="sm"
+                className="h-8"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="space-y-1.5">
+            {tagsData && tagsData.length > 0 && (
+              <div className="flex items-center gap-2 py-1 border-b border-zinc-800">
+                <Checkbox
+                  id="select-all"
+                  checked={tagsData.length === selectedTags.size}
+                  onCheckedChange={handleToggleAll}
+                />
+                <label
+                  htmlFor="select-all"
+                  className="text-sm text-zinc-400 cursor-pointer select-none"
                 >
-                  {tag.name}
-                </Badge>
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleEditTag(tag)}
-                    className="h-8 w-8"
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteTag(tag)}
-                    className="h-8 w-8 text-red-500 hover:text-red-400"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                  すべて選択
+                </label>
               </div>
-            ))}
-            {tags?.length === 0 && (
-              <p className="text-zinc-500 text-center py-4">
-                タグがありません。新規タグを作成してください。
+            )}
+            {tagsData?.map((tag) => {
+              let tagColor: TagColor | null = null;
+              try {
+                if (tag.color) {
+                  tagColor = JSON.parse(tag.color) as TagColor;
+                }
+              } catch (e) {
+                console.error('Failed to parse tag color:', e);
+              }
+              const opacity = getTagOpacity(tag._count?.notes || 0);
+
+              return (
+                <div
+                  key={tag.id}
+                  className="group flex items-center justify-between py-1"
+                >
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id={`tag-${tag.id}`}
+                      checked={selectedTags.has(tag.id)}
+                      onCheckedChange={() => handleToggleTag(tag.id)}
+                    />
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{
+                        backgroundColor:
+                          tagColor?.color || 'rgb(156, 163, 175)',
+                        opacity,
+                      }}
+                    />
+                    <label
+                      htmlFor={`tag-${tag.id}`}
+                      className="text-sm text-zinc-100 cursor-pointer select-none"
+                    >
+                      {tag.name}
+                      {tag._count?.notes ? (
+                        <span className="ml-1.5 text-xs text-zinc-500">
+                          {tag._count.notes}
+                        </span>
+                      ) : null}
+                    </label>
+                  </div>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <EditButton onClick={() => handleEditTag(tag)} size="sm">
+                      <Edit2 className="h-3 w-3" />
+                    </EditButton>
+                    <DeleteButton
+                      onClick={() => handleDeleteTag(tag)}
+                      size="sm"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </DeleteButton>
+                  </div>
+                </div>
+              );
+            })}
+            {!tagsData?.length && (
+              <p className="text-sm text-zinc-500 text-center py-2">
+                タグがありません
               </p>
             )}
           </div>
@@ -170,6 +305,7 @@ export default function TagManager(): JSX.Element {
           await mutateTags();
         }}
         tag={selectedTag}
+        defaultColor={getRandomColor()}
       />
     </>
   );

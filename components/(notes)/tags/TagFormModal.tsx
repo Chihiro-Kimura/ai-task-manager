@@ -1,10 +1,7 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
 import { Tag } from '@prisma/client';
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import * as z from 'zod';
+import { useEffect, useState, type JSX } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -13,69 +10,55 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-
-const formSchema = z.object({
-  name: z
-    .string()
-    .min(1, '必須項目です')
-    .max(50, '50文字以内で入力してください'),
-  color: z
-    .string()
-    .regex(/^#[0-9A-Fa-f]{6}$/, '有効なカラーコードを入力してください')
-    .optional(),
-});
+import { type TagColor } from '@/lib/constants/colors';
 
 interface TagFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => Promise<void>;
   tag?: Tag;
+  defaultColor: TagColor;
 }
 
-export default function TagFormModal({
+export function TagFormModal({
   isOpen,
   onClose,
   onSuccess,
   tag,
+  defaultColor,
 }: TagFormModalProps): JSX.Element {
+  const [name, setName] = useState(tag?.name || '');
+  const [color, setColor] = useState<TagColor>(
+    tag?.color ? JSON.parse(tag.color) : defaultColor
+  );
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: tag?.name ?? '',
-      color: tag?.color ?? '#6B7280',
-    },
-  });
 
   useEffect(() => {
     if (tag) {
-      form.reset({
-        name: tag.name,
-        color: tag.color ?? '#6B7280',
-      });
+      setName(tag.name);
+      setColor(tag.color ? JSON.parse(tag.color) : defaultColor);
+    } else {
+      setName('');
+      setColor(defaultColor);
     }
-  }, [tag, form]);
+  }, [tag, defaultColor]);
 
-  const onSubmit = async (
-    values: z.infer<typeof formSchema>
-  ): Promise<void> => {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
+    e.preventDefault();
+    if (!name.trim()) return;
+
+    setIsLoading(true);
     try {
       const response = await fetch(tag ? `/api/tags/${tag.id}` : '/api/tags', {
-        method: tag ? 'PATCH' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(values),
+        method: tag ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          color,
+        }),
       });
 
       if (!response.ok) {
@@ -95,60 +78,40 @@ export default function TagFormModal({
         title: tag ? 'タグの更新に失敗しました' : 'タグの作成に失敗しました',
         variant: 'destructive',
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>{tag ? 'タグを編集' : '新規タグ'}</DialogTitle>
+          <DialogTitle>{tag ? 'タグを編集' : 'タグを作成'}</DialogTitle>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>タグ名</FormLabel>
-                  <FormControl>
-                    <Input placeholder="タグの名前" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Input
+              placeholder="タグ名"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={isLoading}
             />
-
-            <FormField
-              control={form.control}
-              name="color"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>カラー</FormLabel>
-                  <FormControl>
-                    <div className="flex gap-2 items-center">
-                      <Input type="color" className="w-12 h-8 p-1" {...field} />
-                      <Input
-                        placeholder="#000000"
-                        className="flex-1"
-                        {...field}
-                      />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={onClose}>
-                キャンセル
-              </Button>
-              <Button type="submit">{tag ? '更新' : '作成'}</Button>
-            </div>
-          </form>
-        </Form>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isLoading}
+            >
+              キャンセル
+            </Button>
+            <Button type="submit" disabled={isLoading || !name.trim()}>
+              {tag ? '更新' : '作成'}
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

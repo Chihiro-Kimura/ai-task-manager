@@ -19,10 +19,17 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
 
     const userId = session.user.id;
 
-    // ユーザーのタグを取得
+    // タグと使用回数を取得
     const tags = await prisma.tag.findMany({
       where: {
         userId,
+      },
+      include: {
+        _count: {
+          select: {
+            notes: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',

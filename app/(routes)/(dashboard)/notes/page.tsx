@@ -2,7 +2,7 @@ import { Metadata } from 'next';
 import { type ReactElement } from 'react';
 
 import NoteList from '@/components/(notes)/list/NoteList';
-import TagManager from '@/components/(notes)/tags/TagManager';
+import { TagManager } from '@/components/(notes)/tags/TagManager';
 
 export const metadata: Metadata = {
   title: 'メモ一覧 | AI Task Manager',

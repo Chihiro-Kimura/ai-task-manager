@@ -1,6 +1,6 @@
 'use client';
 
-import { StickyNote } from 'lucide-react';
+import { Plus, StickyNote } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useState } from 'react';
 import useSWR from 'swr';
@@ -8,7 +8,7 @@ import useSWR from 'swr';
 import ErrorState from '@/components/(common)/error/ErrorState';
 import LoadingState from '@/components/(common)/loading/LoadingState';
 import NoteFormModal from '@/components/(notes)/modals/NoteFormModal';
-import { Button } from '@/components/ui/button';
+import { AddButton } from '@/components/ui/action-button';
 import { useToast } from '@/hooks/use-toast';
 import { NoteWithTags } from '@/types/note';
 
@@ -76,12 +76,9 @@ export default function NoteList(): JSX.Element {
             <StickyNote className="h-5 w-5" />
             メモ一覧
           </h2>
-          <Button
-            onClick={handleAddNote}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            新規メモ
-          </Button>
+          <AddButton onClick={handleAddNote} title="新規メモ">
+            <Plus className="h-4 w-4" />
+          </AddButton>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto">

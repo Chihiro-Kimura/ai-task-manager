@@ -3,10 +3,10 @@
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { Edit2, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type JSX } from 'react';
 
+import { EditButton, DeleteButton } from '@/components/ui/action-button';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   Card,
   CardHeader,
@@ -14,6 +14,7 @@ import {
   CardFooter,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { type TagColor } from '@/lib/constants/colors';
 import { NoteWithTags } from '@/types/note';
 
 interface NoteItemProps {
@@ -66,23 +67,12 @@ export default function NoteItem({
         <div className="flex justify-between items-start">
           <h3 className="text-lg font-semibold text-zinc-100">{note.title}</h3>
           <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onEdit}
-              className="h-8 w-8"
-            >
+            <EditButton onClick={onEdit}>
               <Edit2 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="h-8 w-8 text-red-500 hover:text-red-400"
-            >
+            </EditButton>
+            <DeleteButton onClick={handleDelete} disabled={isDeleting}>
               <Trash2 className="h-4 w-4" />
-            </Button>
+            </DeleteButton>
           </div>
         </div>
       </CardHeader>
@@ -91,15 +81,30 @@ export default function NoteItem({
       </CardContent>
       <CardFooter className="flex flex-col items-start gap-2">
         <div className="flex flex-wrap gap-1">
-          {note.tags.map((tag) => (
-            <Badge
-              key={tag.id}
-              variant="secondary"
-              className="bg-zinc-800 text-zinc-300"
-            >
-              {tag.name}
-            </Badge>
-          ))}
+          {note.tags.map((tag) => {
+            let tagColor: TagColor | null = null;
+            try {
+              if (tag.color) {
+                tagColor = JSON.parse(tag.color) as TagColor;
+              }
+            } catch (e) {
+              console.error('Failed to parse tag color:', e);
+            }
+
+            return (
+              <Badge
+                key={tag.id}
+                variant="secondary"
+                className="bg-zinc-800 text-zinc-300"
+                style={{
+                  backgroundColor: tagColor?.bg || 'rgba(55, 65, 81, 0.15)',
+                  color: tagColor?.color || 'rgb(156, 163, 175)',
+                }}
+              >
+                {tag.name}
+              </Badge>
+            );
+          })}
         </div>
         <p className="text-xs text-zinc-500">
           作成:{' '}
