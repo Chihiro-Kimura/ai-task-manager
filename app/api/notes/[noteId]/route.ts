@@ -80,20 +80,18 @@ export async function PATCH(
       return NextResponse.json({ error: 'Note not found' }, { status: 404 });
     }
 
-    // メモを更新（タグの関連付けも同時に更新）
+    // メモを更新
     const updatedNote = await prisma.note.update({
       where: {
         id: noteId,
       },
       data: {
-        title: data.title ?? existingNote.title,
-        content: data.content ?? existingNote.content,
-        tags: data.tags
-          ? {
-              set: [], // 既存のタグをクリア
-              connect: data.tags.map((tagId) => ({ id: tagId })), // 新しいタグを接続
-            }
-          : undefined,
+        title: data.title,
+        content: data.content,
+        priority: data.priority,
+        tags: {
+          set: data.tags?.map((tagId) => ({ id: tagId })) ?? [],
+        },
       },
       include: {
         tags: {

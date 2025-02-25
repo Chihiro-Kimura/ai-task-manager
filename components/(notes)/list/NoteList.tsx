@@ -2,23 +2,21 @@
 
 import { Plus, StickyNote } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import { useState } from 'react';
+import { useState, type ReactElement } from 'react';
 import useSWR from 'swr';
 
 import ErrorState from '@/components/(common)/error/ErrorState';
 import LoadingState from '@/components/(common)/loading/LoadingState';
 import NoteFormModal from '@/components/(notes)/modals/NoteFormModal';
 import { AddButton } from '@/components/ui/action-button';
-import { useToast } from '@/hooks/use-toast';
 import { NoteWithTags } from '@/types/note';
 
 import NoteItem from './NoteItem';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
-export default function NoteList(): JSX.Element {
+export default function NoteList(): ReactElement {
   const { data: session } = useSession();
-  const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedNote, setSelectedNote] = useState<NoteWithTags | undefined>();
 
@@ -68,6 +66,14 @@ export default function NoteList(): JSX.Element {
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState />;
 
+  // 作成日時の新しい順でソート
+  const sortedNotes = notes
+    ? [...notes].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+    : [];
+
   return (
     <>
       <div className="p-4 border border-zinc-800 bg-zinc-950 rounded-lg min-h-[80vh] max-h-[85vh] flex flex-col">
@@ -82,11 +88,13 @@ export default function NoteList(): JSX.Element {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto">
-          {notes?.map((note) => (
+          {sortedNotes.map((note) => (
             <NoteItem
               key={note.id}
               note={note}
-              onMutate={mutateNotes}
+              onMutate={async () => {
+                await mutateNotes();
+              }}
               onEdit={() => handleEditNote(note)}
             />
           ))}

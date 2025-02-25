@@ -21,12 +21,14 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { getRandomColor } from '@/lib/utils';
+import { useAIStore } from '@/store/aiStore';
 import { NoteWithTags } from '@/types/note';
 
 const formSchema = z.object({
   title: z.string().min(1, '必須項目です'),
   content: z.string().min(1, '必須項目です'),
   tags: z.array(z.string()),
+  priority: z.enum(['高', '中', '低']).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -42,6 +44,7 @@ export function AddNoteForm({
 }: AddNoteFormProps): ReactElement {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuggestingTags, setIsSuggestingTags] = useState(false);
+  const [isAnalyzingPriority, setIsAnalyzingPriority] = useState(false);
   const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
   const [pendingTags, setPendingTags] = useState<{ [key: string]: boolean }>(
     {}
@@ -49,6 +52,7 @@ export function AddNoteForm({
   const [localTags, setLocalTags] = useState<{ id: string; name: string }[]>(
     []
   );
+  const { getActiveProvider } = useAIStore();
 
   const { data: tags, mutate: mutateTags } =
     useSWR<{ id: string; name: string }[]>('/api/tags');
@@ -78,16 +82,18 @@ export function AddNoteForm({
       if (title && content) {
         setIsSuggestingTags(true);
         try {
-          const response = await fetch('/api/notes/suggest-tags', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, content }),
-          });
+          const provider = getActiveProvider();
+          if (!provider.isEnabled) {
+            console.warn('AI provider is not enabled');
+            return;
+          }
 
-          if (!response.ok) throw new Error('Failed to suggest tags');
-
-          const data = await response.json();
-          setSuggestedTags(data.suggestions);
+          const suggestions = await provider.getTagSuggestions(
+            title,
+            content,
+            localTags
+          );
+          setSuggestedTags(suggestions);
         } catch (error) {
           console.error('Failed to get tag suggestions:', error);
           toast.error('タグの提案に失敗しました');
@@ -95,10 +101,35 @@ export function AddNoteForm({
           setIsSuggestingTags(false);
         }
       }
-    }, 1000); // 1秒のデバウンス
+    }, 1000);
 
     return () => clearTimeout(debounceTimer);
-  }, [title, content]);
+  }, [title, content, localTags, getActiveProvider]);
+
+  useEffect(() => {
+    const debounceTimer = setTimeout(async () => {
+      if (title && content) {
+        setIsAnalyzingPriority(true);
+        try {
+          const provider = getActiveProvider();
+          if (!provider.isEnabled) {
+            console.warn('AI provider is not enabled');
+            return;
+          }
+
+          const priority = await provider.analyzePriority(title, content);
+          form.setValue('priority', priority);
+        } catch (error) {
+          console.error('Failed to analyze priority:', error);
+          toast.error('優先度の分析に失敗しました');
+        } finally {
+          setIsAnalyzingPriority(false);
+        }
+      }
+    }, 1500);
+
+    return () => clearTimeout(debounceTimer);
+  }, [title, content, getActiveProvider, form]);
 
   const toggleTag = (tagId: string): void => {
     const newTags = selectedTags.includes(tagId)
@@ -326,6 +357,57 @@ export function AddNoteForm({
             </Badge>
           ))}
         </div>
+
+        <FormField
+          control={form.control}
+          name="priority"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>優先度</FormLabel>
+              <FormControl>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={field.value === '高' ? 'default' : 'outline'}
+                    className={`cursor-pointer ${
+                      field.value === '高'
+                        ? 'bg-rose-500 hover:bg-rose-600'
+                        : 'bg-zinc-800 hover:bg-zinc-700'
+                    }`}
+                    onClick={() => field.onChange('高')}
+                  >
+                    高
+                  </Badge>
+                  <Badge
+                    variant={field.value === '中' ? 'default' : 'outline'}
+                    className={`cursor-pointer ${
+                      field.value === '中'
+                        ? 'bg-amber-500 hover:bg-amber-600'
+                        : 'bg-zinc-800 hover:bg-zinc-700'
+                    }`}
+                    onClick={() => field.onChange('中')}
+                  >
+                    中
+                  </Badge>
+                  <Badge
+                    variant={field.value === '低' ? 'default' : 'outline'}
+                    className={`cursor-pointer ${
+                      field.value === '低'
+                        ? 'bg-emerald-500 hover:bg-emerald-600'
+                        : 'bg-zinc-800 hover:bg-zinc-700'
+                    }`}
+                    onClick={() => field.onChange('低')}
+                  >
+                    低
+                  </Badge>
+                  {isAnalyzingPriority && (
+                    <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+                  )}
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <AddButton
           type="submit"

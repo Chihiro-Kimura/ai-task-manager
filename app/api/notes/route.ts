@@ -58,6 +58,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       data: {
         title: data.title,
         content: data.content,
+        priority: data.priority,
         userId,
         tags: {
           connect: data.tags?.map((tagId) => ({ id: tagId })) ?? [],

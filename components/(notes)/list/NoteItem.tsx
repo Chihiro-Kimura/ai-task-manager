@@ -65,7 +65,25 @@ export default function NoteItem({
     <Card className="bg-zinc-900 border-zinc-800">
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start">
-          <h3 className="text-lg font-semibold text-zinc-100">{note.title}</h3>
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold text-zinc-100">
+              {note.title}
+            </h3>
+            {note.priority && (
+              <Badge
+                variant="outline"
+                className={`${
+                  note.priority === '高'
+                    ? 'border-rose-500/50 text-rose-400'
+                    : note.priority === '中'
+                    ? 'border-amber-500/50 text-amber-400'
+                    : 'border-emerald-500/50 text-emerald-400'
+                }`}
+              >
+                優先度: {note.priority}
+              </Badge>
+            )}
+          </div>
           <div className="flex gap-2">
             <EditButton onClick={onEdit}>
               <Edit2 className="h-4 w-4" />
