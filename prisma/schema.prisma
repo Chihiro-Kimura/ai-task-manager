@@ -104,7 +104,7 @@ model Note {
 model Tag {
   id        String   @id @default(uuid())
   name      String   @db.VarChar(50)
-  color     String?  @db.VarChar(7)
+  color     String?  @db.VarChar(100)
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   notes     Note[]   @relation("NoteToTag")
