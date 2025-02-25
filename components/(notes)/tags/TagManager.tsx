@@ -187,7 +187,9 @@ export function TagManager({
       <Card className="bg-zinc-900/50 border-zinc-800">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div className="flex items-center gap-2">
-            <CardTitle className="text-lg font-medium">タグ管理</CardTitle>
+            <CardTitle className="text-xl font-semibold text-zinc-100">
+              タグ管理
+            </CardTitle>
             {hasSelectedTags && (
               <span className="text-sm text-zinc-400">
                 {selectedTags.size}個選択中
