@@ -6,7 +6,11 @@ import { useSession } from 'next-auth/react';
 import { useState, type JSX } from 'react';
 import useSWR from 'swr';
 
-import { EditButton, DeleteButton } from '@/components/ui/action-button';
+import {
+  EditButton,
+  DeleteButton,
+  AddButton,
+} from '@/components/ui/action-button';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -202,14 +206,9 @@ export function TagManager({
                 削除
               </Button>
             ) : (
-              <Button
-                onClick={handleAddTag}
-                variant="outline"
-                size="sm"
-                className="h-8"
-              >
+              <AddButton onClick={handleAddTag} title="タグを追加">
                 <Plus className="h-4 w-4" />
-              </Button>
+              </AddButton>
             )}
           </div>
         </CardHeader>
