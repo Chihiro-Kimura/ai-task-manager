@@ -1,12 +1,16 @@
-import Header from '@/components/(dashboard)/Header';
-import { ListTodo, StickyNote } from 'lucide-react';
+import { ListTodo, StickyNote, Settings } from 'lucide-react';
 import Link from 'next/link';
+import { type ReactElement } from 'react';
+
+import Header from '@/components/(dashboard)/Header';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
+export default function DashboardLayout({
+  children,
+}: DashboardLayoutProps): ReactElement {
   return (
     <div className="fixed inset-0 bg-black overflow-y-auto">
       <Header />
@@ -30,6 +34,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               >
                 <StickyNote className="w-4 h-4" />
                 <span>メモ帳</span>
+              </Link>
+            </li>
+            <li className="mt-6 pt-6 border-t border-zinc-800">
+              <Link
+                href="/settings"
+                className="flex items-center gap-2 px-4 py-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 rounded-lg transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                <span>AI設定</span>
               </Link>
             </li>
           </ul>
