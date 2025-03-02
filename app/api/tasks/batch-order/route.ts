@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+
 import { prisma } from '@/lib/prisma';
 
 interface TaskUpdate {
@@ -7,11 +8,18 @@ interface TaskUpdate {
   task_order: number;
 }
 
-export async function POST(req: NextRequest) {
-  console.log('=== Reorder API Start ===');
+export async function PATCH(request: Request): Promise<NextResponse> {
+  console.log('=== Batch Order Update API Start ===');
   try {
-    const { tasks } = (await req.json()) as { tasks: TaskUpdate[] };
-    const userId = req.headers.get('X-User-Id');
+    const { tasks } = (await request.json()) as { tasks: TaskUpdate[] };
+    const userId = request.headers.get('X-User-Id');
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'ユーザーIDは必須です' },
+        { status: 400 }
+      );
+    }
 
     console.log('Request received:', {
       tasksCount: tasks?.length,
@@ -80,10 +88,10 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    console.log('=== Reorder API End ===');
+    console.log('=== Batch Order Update API End ===');
     return NextResponse.json({ message: 'Order updated successfully' });
   } catch (error) {
-    console.error('=== Reorder API Error ===');
+    console.error('=== Batch Order Update API Error ===');
     console.error('Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
@@ -94,4 +102,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+} 

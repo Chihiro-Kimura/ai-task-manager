@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+
 import { prisma } from '@/lib/prisma';
 import { UpdateTaskRequest } from '@/types/task';
 
@@ -6,7 +7,7 @@ import { UpdateTaskRequest } from '@/types/task';
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+): Promise<NextResponse> {
   try {
     const { id } = await params;
     const userId = request.headers.get('X-User-Id');
@@ -23,6 +24,9 @@ export async function GET(
         id: id,
         userId: userId,
       },
+      include: {
+        tags: true,
+      },
     });
 
     if (!task) {
@@ -33,7 +37,8 @@ export async function GET(
     }
 
     return NextResponse.json(task);
-  } catch {
+  } catch (error) {
+    console.error('❌ Server error:', error);
     return NextResponse.json(
       { error: 'サーバーエラーが発生しました' },
       { status: 500 }
@@ -45,7 +50,7 @@ export async function GET(
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+): Promise<NextResponse> {
   try {
     const { id: taskId } = await params;
     const userId = request.headers.get('X-User-Id');
@@ -64,6 +69,7 @@ export async function PATCH(
       priority,
       status,
       due_date,
+      tags,
     }: UpdateTaskRequest = await request.json();
 
     // タスクの存在確認
@@ -71,6 +77,9 @@ export async function PATCH(
       where: {
         id: taskId,
         userId: userId,
+      },
+      include: {
+        tags: true,
       },
     });
 
@@ -91,16 +100,23 @@ export async function PATCH(
         ...(description !== undefined && { description }),
         ...(priority !== undefined && { priority }),
         ...(status !== undefined && { status }),
-        ...(due_date !== undefined &&
-          due_date !== null && { due_date: new Date(due_date) }),
+        ...(due_date !== undefined && {
+          due_date: due_date ? new Date(due_date) : null,
+        }),
+        ...(tags && {
+          tags: {
+            set: tags.map((tag: { id: string }) => ({ id: tag.id })),
+          },
+        }),
+        updatedAt: new Date(),
+      },
+      include: {
+        tags: true,
       },
     });
 
     console.log('✅ Task updated:', taskId);
-    return NextResponse.json({
-      message: 'タスクが更新されました',
-      task: updatedTask,
-    });
+    return NextResponse.json(updatedTask);
   } catch (error) {
     console.error('❌ Server error:', error);
     return NextResponse.json(
@@ -114,7 +130,7 @@ export async function PATCH(
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+): Promise<NextResponse> {
   try {
     const { id: taskId } = await params;
     const userId = request.headers.get('X-User-Id');

@@ -1,4 +1,5 @@
 import { Flag } from 'lucide-react';
+
 import {
   Select,
   SelectContent,
@@ -18,12 +19,16 @@ export default function PrioritySelect({
   value,
   onValueChange,
   className,
-}: PrioritySelectProps) {
+}: PrioritySelectProps): JSX.Element {
   return (
     <Select value={value} onValueChange={onValueChange}>
       <SelectTrigger
         className={cn(
-          'h-7 w-7 bg-transparent border-none hover:bg-zinc-700 focus:ring-0 p-0',
+          'h-7 w-7 bg-transparent border-none focus:ring-0 p-0 flex items-center justify-center',
+          '[&>svg:last-child]:hidden',
+          'hover:bg-rose-400/10 data-[value=高]:hover:bg-rose-400/10',
+          'hover:bg-amber-400/10 data-[value=中]:hover:bg-amber-400/10',
+          'hover:bg-emerald-400/10 data-[value=低]:hover:bg-emerald-400/10',
           className
         )}
       >
@@ -32,9 +37,9 @@ export default function PrioritySelect({
             <Flag
               className={cn(
                 'h-4 w-4',
-                value === '高' && 'text-rose-400/70',
-                value === '中' && 'text-amber-400/70',
-                value === '低' && 'text-emerald-400/70'
+                value === '高' && 'text-rose-400/70 hover:text-rose-400',
+                value === '中' && 'text-amber-400/70 hover:text-amber-400',
+                value === '低' && 'text-emerald-400/70 hover:text-emerald-400'
               )}
             />
           )}

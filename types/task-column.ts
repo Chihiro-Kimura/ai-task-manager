@@ -1,5 +1,6 @@
 import { DroppableProvided } from '@hello-pangea/dnd';
-import { TaskWithExtras, CreateTaskData } from './task';
+
+import { CreateTaskData, TaskWithExtras } from './task';
 
 export interface TaskColumnContentProps {
   isAddingTask: boolean;

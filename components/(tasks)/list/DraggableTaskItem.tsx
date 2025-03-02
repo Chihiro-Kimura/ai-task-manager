@@ -1,10 +1,11 @@
 'use client';
 
-import TaskItem from '@/components/(tasks)/item/TaskItem';
-import { TaskWithExtras } from '@/types/task';
-import { useTaskStore } from '@/store/taskStore';
 import { Draggable } from '@hello-pangea/dnd';
+
 import { ErrorBoundary } from '@/components/(common)/error/ErrorBoundary';
+import TaskItem from '@/components/(tasks)/item/TaskItem';
+import { useTaskStore } from '@/store/taskStore';
+import { TaskWithExtras } from '@/types/task';
 
 interface DraggableTaskItemProps {
   task: TaskWithExtras;

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+
 import { prisma } from '@/lib/prisma';
 
 // タスク一覧用のエンドポイント
@@ -16,6 +17,9 @@ export async function GET(request: Request) {
     const tasks = await prisma.task.findMany({
       where: {
         userId: userId as string,
+      },
+      include: {
+        tags: true,
       },
       orderBy: {
         createdAt: 'desc',
@@ -49,11 +53,20 @@ export async function POST(request: Request) {
         ...(data.due_date !== undefined && {
           due_date: data.due_date ? new Date(data.due_date) : null,
         }),
+        ...(data.tags && {
+          tags: {
+            connect: data.tags.map((tag: { id: string }) => ({ id: tag.id })),
+          },
+        }),
+      },
+      include: {
+        tags: true,
       },
     });
 
     return NextResponse.json(task);
-  } catch {
+  } catch (error) {
+    console.error('[TASK_CREATE]', error);
     return NextResponse.json(
       { error: 'サーバーエラーが発生しました' },
       { status: 500 }
@@ -73,7 +86,7 @@ export async function PATCH(
   }
 
   try {
-    const { title, description, due_date, priority, status } =
+    const { title, description, due_date, priority, status, tags } =
       await request.json();
     const userId = request.headers.get('X-User-Id');
 
@@ -82,6 +95,9 @@ export async function PATCH(
       where: {
         id: id,
         userId: userId as string,
+      },
+      include: {
+        tags: true,
       },
     });
 
@@ -105,12 +121,21 @@ export async function PATCH(
         }),
         ...(priority && { priority }),
         ...(status && { status }),
+        ...(tags && {
+          tags: {
+            set: tags.map((tag: { id: string }) => ({ id: tag.id })),
+          },
+        }),
         updatedAt: new Date(),
+      },
+      include: {
+        tags: true,
       },
     });
 
     return NextResponse.json(updatedTask);
-  } catch {
+  } catch (error) {
+    console.error('[TASK_UPDATE]', error);
     return NextResponse.json(
       { error: 'サーバーエラーが発生しました' },
       { status: 500 }

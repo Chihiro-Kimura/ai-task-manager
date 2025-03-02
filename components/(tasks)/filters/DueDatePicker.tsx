@@ -1,3 +1,8 @@
+import { format } from 'date-fns';
+import { ja } from 'date-fns/locale';
+import { CalendarIcon } from 'lucide-react';
+import { useState } from 'react';
+
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -5,9 +10,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
-import { ja } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
 interface DueDatePickerProps {
@@ -22,7 +24,8 @@ export default function DueDatePicker({
   setDueDate,
   variant = 'full',
   className = '',
-}: DueDatePickerProps) {
+}: DueDatePickerProps): JSX.Element {
+  const [isOpen, setIsOpen] = useState(false);
   const isIcon = variant === 'icon';
 
   return (
@@ -32,20 +35,26 @@ export default function DueDatePicker({
           締切日
         </label>
       )}
-      <Popover>
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild>
           {isIcon ? (
             <Button
               variant="ghost"
               size="sm"
               className={cn(
-                'h-7 w-7 p-0',
-                dueDate
-                  ? 'text-zinc-300 hover:text-zinc-400'
-                  : 'text-zinc-500 hover:text-zinc-400'
+                'h-7 w-7 p-0 flex items-center justify-center',
+                'hover:bg-violet-400/10',
+                'data-[state=open]:bg-violet-400/10'
               )}
             >
-              <CalendarIcon className="h-4 w-4" />
+              <CalendarIcon
+                className={cn(
+                  'h-4 w-4',
+                  dueDate
+                    ? 'text-violet-400/70 hover:text-violet-400'
+                    : 'text-zinc-500 hover:text-violet-400'
+                )}
+              />
             </Button>
           ) : (
             <Button
@@ -68,7 +77,10 @@ export default function DueDatePicker({
           <Calendar
             mode="single"
             selected={dueDate}
-            onSelect={setDueDate}
+            onSelect={(date) => {
+              setDueDate(date);
+              setIsOpen(false);
+            }}
             className="rounded-md border border-zinc-800 bg-zinc-950 text-zinc-400"
             locale={ja}
           />

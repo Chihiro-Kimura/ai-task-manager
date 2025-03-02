@@ -1,6 +1,6 @@
 'use client';
 
-import { SlidersHorizontal, Plus } from 'lucide-react';
+import { ArrowDownAZ, Calendar, CheckCircle, Flag, GripVertical, Plus, SlidersHorizontal } from 'lucide-react';
 
 import TaskFilters from '@/components/(tasks)/filters/TaskFilters';
 import { AddButton } from '@/components/ui/action-button';
@@ -11,6 +11,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
 interface TaskColumnHeaderProps {
   title: string;
@@ -43,13 +44,41 @@ export function TaskColumnHeader({
   onDueDateFilterChange,
   onReset,
   onAddTask,
-  sortMode,
 }: TaskColumnHeaderProps) {
+  const getSortIcon = () => {
+    switch (sortBy) {
+      case 'custom':
+        return <GripVertical className="h-4 w-4" />;
+      case 'priority':
+        return <Flag className="h-4 w-4" />;
+      case 'dueDate':
+        return <Calendar className="h-4 w-4" />;
+      case 'createdAt':
+        return <ArrowDownAZ className="h-4 w-4" />;
+      default:
+        return <SlidersHorizontal className="h-4 w-4" />;
+    }
+  };
+
   return (
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-2">
         <h3 className="text-lg font-semibold text-zinc-200">{title}</h3>
-        <span className="text-sm text-zinc-400">({sortMode})</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn(
+            'h-7 w-7 p-0',
+            sortBy !== 'custom' && 'text-blue-400'
+          )}
+          onClick={() => {
+            const nextSort = sortBy === 'custom' ? 'priority' : 'custom';
+            onSortByChange(nextSort);
+          }}
+          title={sortBy === 'custom' ? 'カスタム順' : '優先度順に切り替え'}
+        >
+          {getSortIcon()}
+        </Button>
       </div>
       <div className="flex items-center gap-2">
         <Popover>

@@ -1,6 +1,17 @@
-import type { Task } from '@prisma/client';
-
-export type TaskWithExtras = Task;
+export interface TaskWithExtras {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string | null;
+  category: string;
+  due_date: Date | null;
+  task_order: number;
+  createdAt: Date;
+  updatedAt: Date;
+  userId: string;
+  tags?: { id: string; name: string }[];
+}
 
 export interface UpdateTaskRequest {
   title?: string;
@@ -8,6 +19,7 @@ export interface UpdateTaskRequest {
   priority?: string | null;
   status?: string;
   due_date?: string | null;
+  tags?: { id: string }[];
 }
 
 export interface UpdateTaskData {
@@ -24,7 +36,8 @@ export interface CreateTaskData {
   description: string;
   priority: string;
   status: string;
+  task_order: number;
   category: string;
-  task_order?: number;
-  due_date?: string | null;
+  due_date?: Date;
+  tags?: { id: string; name: string }[];
 }

@@ -1,12 +1,12 @@
 'use client';
 
 import { DroppableProvided } from '@hello-pangea/dnd';
-import { TaskWithExtras } from '@/types/task';
+import { Suspense } from 'react';
+
+import { TaskItemSkeleton } from '@/components/(common)/loading/TaskItemSkeleton';
 import AddTaskForm from '@/components/(tasks)/forms/AddTaskForm';
 import DraggableTaskItem from '@/components/(tasks)/list/DraggableTaskItem';
-import { CreateTaskData } from '@/types/task';
-import { Suspense } from 'react';
-import { TaskItemSkeleton } from '@/components/(common)/loading/TaskItemSkeleton';
+import { CreateTaskData, TaskWithExtras } from '@/types/task';
 
 interface TaskColumnContentProps {
   isAddingTask: boolean;

@@ -1,14 +1,22 @@
 'use client';
 
+import { Plus, X } from 'lucide-react';
 import { useState } from 'react';
+
+import TagSelect from '@/components/(common)/forms/TagSelect';
+import DueDatePicker from '@/components/(tasks)/filters/DueDatePicker';
+import PrioritySelect from '@/components/(tasks)/filters/PrioritySelect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { X, Plus } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import DueDatePicker from '@/components/(tasks)/filters/DueDatePicker';
-import PrioritySelect from '@/components/(tasks)/filters/PrioritySelect';
 import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+
+interface Tag {
+  id: string;
+  name: string;
+  color?: string;
+}
 
 interface AddTaskFormProps {
   onSubmit: (task: {
@@ -19,6 +27,7 @@ interface AddTaskFormProps {
     task_order: number;
     category: string;
     due_date?: string | null;
+    tags?: Tag[];
   }) => Promise<void>;
   onCancel: () => void;
   category: string;
@@ -28,22 +37,24 @@ export default function AddTaskForm({
   onSubmit,
   onCancel,
   category,
-}: AddTaskFormProps) {
+}: AddTaskFormProps): JSX.Element {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<string>('');
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [isEditing, setIsEditing] = useState(false);
 
-  const resetForm = () => {
+  const resetForm = (): void => {
     setTitle('');
     setDescription('');
     setPriority('');
     setDueDate(undefined);
+    setSelectedTags([]);
     setIsEditing(false);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (): Promise<void> => {
     if (!title) return;
 
     try {
@@ -55,6 +66,7 @@ export default function AddTaskForm({
         task_order: 0,
         category,
         due_date: dueDate ? dueDate.toISOString() : null,
+        tags: selectedTags,
       });
 
       resetForm();
@@ -69,12 +81,12 @@ export default function AddTaskForm({
     }
   };
 
-  const handleCancel = () => {
+  const handleCancel = (): void => {
     resetForm();
     onCancel();
   };
 
-  const handleInputFocus = () => {
+  const handleInputFocus = (): void => {
     setIsEditing(true);
   };
 
@@ -116,6 +128,12 @@ export default function AddTaskForm({
             <DueDatePicker
               dueDate={dueDate}
               setDueDate={setDueDate}
+              variant="icon"
+            />
+
+            <TagSelect
+              selectedTags={selectedTags}
+              onTagsChange={setSelectedTags}
               variant="icon"
             />
 

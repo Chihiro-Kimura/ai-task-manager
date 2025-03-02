@@ -1,16 +1,14 @@
 'use client';
 
 import { CheckIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
-import { format, isBefore, isToday, isAfter, startOfDay } from 'date-fns';
+import { format, isAfter, isToday } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { Pencil, Trash2, Flag, Sparkles } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { Flag, MoreVertical, Pencil, Sparkles, Trash2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { type ReactElement, useState } from 'react';
 
 import EditTaskForm from '@/components/(tasks)/forms/EditTaskForm';
-import { EditButton, DeleteButton } from '@/components/ui/action-button';
-import { Badge } from '@/components/ui/badge';
+import AITaskAnalysis from '@/components/(tasks)/item/AITaskAnalysis';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -19,12 +17,16 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useAISettings } from '@/hooks/use-ai-settings';
 import { useToast } from '@/hooks/use-toast';
+import { summaryCache } from '@/lib/ai/cache';
 import { Priority } from '@/lib/ai/types';
 import { cn } from '@/lib/utils';
 import { useTaskStore } from '@/store/taskStore';
@@ -39,10 +41,10 @@ interface AIFeature {
   id: string;
   title: string;
   description: string;
-  icon: keyof typeof Icons;
+  icon: keyof typeof iconMap;
 }
 
-const Icons = {
+const iconMap = {
   fileText: Pencil,
   tag: Flag,
   alertCircle: ExclamationTriangleIcon,
@@ -85,467 +87,415 @@ const AI_FEATURES: AIFeature[] = [
 ];
 
 export default function TaskItem({
-  task,
+  task: initialTask,
   onMutate,
 }: TaskItemProps): ReactElement {
-  const router = useRouter();
   const { data: session } = useSession();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const { setIsEditModalOpen } = useTaskStore();
-  const { settings, updateSettings } = useAISettings();
-  const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(
-    null
-  );
+  const { tasks, setTasks } = useTaskStore();
+  const { settings } = useAISettings();
+  const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
   const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
-  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>();
-  const [summary, setSummary] = useState<{
-    summary: string;
-    keywords: string[];
-  }>();
-  const [suggestedTags, setSuggestedTags] = useState<string[]>();
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [analyzedPriority, setAnalyzedPriority] = useState<Priority>();
-
-  const handleToggleStatus = async (): Promise<void> => {
-    const newStatus = task.status === '完了' ? '未完了' : '完了';
-    try {
-      const res = await fetch(`/api/tasks/${task.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': session?.user?.id || '',
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (res.ok) {
-        await onMutate();
-        toast({
-          title: 'ステータス更新',
-          description: `タスクを${newStatus}に変更しました`,
-          icon: <CheckIcon className="h-4 w-4 text-zinc-100" />,
-        });
-      } else {
-        throw new Error('ステータスの更新に失敗しました');
-      }
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : '不明なエラー';
-      toast({
-        title: 'エラー',
-        description: errorMessage,
-        variant: 'destructive',
-        icon: <ExclamationTriangleIcon className="h-4 w-4 text-red-400" />,
-      });
-    }
-  };
-
-  const handleDelete = async (): Promise<void> => {
-    try {
-      const response = await fetch(`/api/tasks/${task.id}`, {
-        method: 'DELETE',
-        headers: {
-          'X-User-Id': session?.user?.id || '',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('タスクの削除に失敗しました');
-      }
-
-      await onMutate(); // タスク一覧を更新
-    } catch (error) {
-      console.error('Failed to delete task:', error);
-      toast({
-        title: 'エラー',
-        description: 'タスクの削除に失敗しました',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleEdit = (): void => {
-    setIsEditing(true);
-    setIsEditModalOpen(true);
-  };
-
-  const handleCloseEdit = (): void => {
-    setIsEditing(false);
-    setIsEditModalOpen(false);
-  };
+  const [task, setTask] = useState<TaskWithExtras>(initialTask);
+  const [aiResults, setAIResults] = useState<{
+    summary?: { summary: string };
+    tags?: string[];
+    priority?: '高' | '中' | '低';
+    category?: { category: string; confidence: number };
+    nextTask?: {
+      title: string;
+      description: string;
+      priority: '高' | '中' | '低';
+    };
+  }>({});
 
   const handleFeatureSelect = async (featureId: string): Promise<void> => {
     setSelectedFeatureId(featureId);
-    setIsLoading(true);
     setError(undefined);
+    setIsLoading(true);
 
     try {
+      let requestBody;
+
+      switch (featureId) {
+        case 'summary': {
+          // キャッシュをチェック
+          const cachedSummary = summaryCache.get(
+            task.title,
+            task.description || ''
+          );
+          if (cachedSummary) {
+            setAIResults((prev) => ({ ...prev, summary: cachedSummary }));
+            setIsLoading(false);
+            return;
+          }
+
+          requestBody = {
+            title: task.title,
+            content: task.description || '',
+          };
+          break;
+        }
+        case 'classify':
+        case 'priority':
+          requestBody = {
+            title: task.title,
+            content: task.description || '',
+          };
+          break;
+        case 'tags':
+          requestBody = {
+            title: task.title,
+            content: task.description || '',
+            existingTags: task.tags || [],
+          };
+          break;
+        case 'suggest':
+          requestBody = {
+            tasks: [
+              {
+                title: task.title,
+                description: task.description || '',
+                priority: task.priority as Priority,
+                status: task.status,
+              },
+            ],
+          };
+          break;
+        default:
+          throw new Error('不明な機能が指定されました');
+      }
+
       const response = await fetch(`/api/ai/${featureId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(settings.apiKey && { 'x-api-key': settings.apiKey }),
         },
-        body: JSON.stringify({
-          engine: settings.provider,
-          title: task.title,
-          content: task.description || '',
-          ...(featureId === 'tags' && { existingTags: [] }),
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'エラーが発生しました');
+        throw new Error(error.message || 'AIの処理中にエラーが発生しました');
       }
 
-      const data = await response.json();
+      const result = await response.json();
+      setIsLoading(false);
+
       switch (featureId) {
         case 'summary':
-          setSummary(data);
+          summaryCache.set(task.title, task.description || '', result);
+          setAIResults((prev) => ({ ...prev, summary: result }));
           break;
         case 'tags':
-          setSuggestedTags(data);
-          setSelectedTags(data);
+          setAIResults((prev) => ({ ...prev, tags: result }));
           break;
         case 'priority':
-          setAnalyzedPriority(data);
+          setAIResults((prev) => ({ ...prev, priority: result }));
+          break;
+        case 'classify':
+          setAIResults((prev) => ({ ...prev, category: result }));
+          break;
+        case 'suggest':
+          setAIResults((prev) => ({ ...prev, nextTask: result }));
           break;
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'エラーが発生しました');
-    } finally {
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'AIの処理中にエラーが発生しました'
+      );
       setIsLoading(false);
     }
   };
 
-  const handleApplyTags = async (): Promise<void> => {
-    await handleUpdateTags(selectedTags);
-    setSelectedFeatureId(null);
-    setIsAIDialogOpen(false);
-  };
-
-  const handleApplyPriority = async (): Promise<void> => {
-    if (analyzedPriority) {
-      await handleUpdatePriority(analyzedPriority);
-      setSelectedFeatureId(null);
-      setIsAIDialogOpen(false);
-    }
-  };
-
-  const handleUpdatePriority = async (priority: Priority): Promise<void> => {
-    try {
-      const res = await fetch(`/api/tasks/${task.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': session?.user?.id || '',
-        },
-        body: JSON.stringify({ priority }),
-      });
-
-      if (res.ok) {
-        await onMutate();
-        toast({
-          title: '優先度更新',
-          description: `優先度を${priority}に変更しました`,
-          icon: <CheckIcon className="h-4 w-4 text-zinc-100" />,
-        });
-      } else {
-        throw new Error('優先度の更新に失敗しました');
-      }
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : '不明なエラー';
-      toast({
-        title: 'エラー',
-        description: errorMessage,
-        variant: 'destructive',
-        icon: <ExclamationTriangleIcon className="h-4 w-4 text-red-400" />,
-      });
-    }
-  };
-
-  const handleUpdateTags = async (tags: string[]): Promise<void> => {
-    try {
-      const res = await fetch(`/api/tasks/${task.id}/tags`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': session?.user?.id || '',
-        },
-        body: JSON.stringify({ tags }),
-      });
-
-      if (res.ok) {
-        await onMutate();
-        toast({
-          title: 'タグ更新',
-          description: 'タグを更新しました',
-          icon: <CheckIcon className="h-4 w-4 text-zinc-100" />,
-        });
-      } else {
-        throw new Error('タグの更新に失敗しました');
-      }
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : '不明なエラー';
-      toast({
-        title: 'エラー',
-        description: errorMessage,
-        variant: 'destructive',
-        icon: <ExclamationTriangleIcon className="h-4 w-4 text-red-400" />,
-      });
-    }
-  };
-
-  const getDueDateColor = (dueDate: Date | null): string => {
-    if (!dueDate) return 'text-zinc-400';
-
-    const today = startOfDay(new Date());
-
-    if (isBefore(dueDate, today)) return 'text-rose-400';
-    if (isToday(dueDate)) return 'text-amber-400';
-    if (isAfter(dueDate, today)) return 'text-blue-400';
-
-    return 'text-zinc-400';
-  };
-
-  const handleProviderChange = (value: string): void => {
-    if (value === 'gemini' && !settings.apiKey) {
-      setShowApiKeyDialog(true);
-      return;
-    }
-    updateSettings({ provider: value as 'gemini' | 'transformers' });
-  };
-
-  const handleNavigateToSettings = (): void => {
-    setIsAIDialogOpen(false);
-    setShowApiKeyDialog(false);
-    router.push('/settings');
-  };
-
   return (
     <>
-      {isEditing ? (
-        <EditTaskForm
-          taskId={task.id}
-          currentTitle={task.title}
-          currentDescription={task.description}
-          currentPriority={task.priority}
-          currentDueDate={task.due_date}
-          onClose={handleCloseEdit}
-        />
-      ) : (
-        <div className="group relative">
-          <div className="p-3 bg-zinc-800 rounded-lg">
-            <div className="flex items-start gap-3">
-              <Checkbox
-                checked={task.status === '完了'}
-                onCheckedChange={handleToggleStatus}
-                className={cn(
-                  'h-4 w-4 border transition-colors',
-                  task.status === '完了'
-                    ? 'border-blue-500 bg-blue-500/20 text-blue-500 hover:bg-blue-500/30 hover:border-blue-400'
-                    : 'border-zinc-600 bg-zinc-900/50 hover:border-zinc-500'
-                )}
-              />
-              <div className="flex-1 min-w-0">
-                <h3
+      <div className="group relative flex items-start gap-2 rounded-lg border border-zinc-800 bg-gradient-to-b from-slate-900 to-slate-900/80 p-2.5 md:min-h-[8.5rem] lg:min-h-[9rem] hover:from-slate-900/90 hover:to-slate-900/70 transition-colors w-full">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start gap-2 h-full">
+            <Checkbox
+              checked={task.status === '完了'}
+              onCheckedChange={async () => {
+                try {
+                  const res = await fetch(`/api/tasks/${task.id}/status`, {
+                    method: 'PUT',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-User-Id': session?.user?.id || '',
+                    },
+                    body: JSON.stringify({
+                      status: task.status === '完了' ? '未完了' : '完了',
+                    }),
+                  });
+
+                  if (res.ok) {
+                    await onMutate();
+                    toast({
+                      title: 'ステータス更新',
+                      description: 'タスクのステータスを更新しました',
+                      icon: <CheckIcon className="h-4 w-4 text-zinc-100" />,
+                    });
+                  } else {
+                    throw new Error('ステータスの更新に失敗しました');
+                  }
+                } catch (error: unknown) {
+                  const errorMessage =
+                    error instanceof Error ? error.message : '不明なエラー';
+                  toast({
+                    title: 'エラー',
+                    description: errorMessage,
+                    variant: 'destructive',
+                    icon: (
+                      <ExclamationTriangleIcon className="h-4 w-4 text-red-400" />
+                    ),
+                  });
+                }
+              }}
+              className="h-3.5 w-3.5 mt-0.5"
+            />
+            <div className="flex-1 min-w-0 overflow-hidden flex flex-col h-full">
+              <div className="flex items-center gap-3">
+                <span
                   className={cn(
-                    'text-sm font-medium',
-                    task.status === '完了'
-                      ? 'text-zinc-400 line-through'
-                      : 'text-zinc-100'
+                    'flex-1 font-medium truncate tracking-tight min-w-0 text-base',
+                    task.status === '完了' && 'line-through text-zinc-500'
                   )}
                 >
                   {task.title}
-                </h3>
-                {task.description && (
-                  <p
-                    className={cn(
-                      'mt-1 text-xs',
-                      task.status === '完了'
-                        ? 'text-zinc-500 line-through'
-                        : 'text-zinc-400'
-                    )}
-                  >
-                    {task.description}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {task.priority && (
-                  <Flag
-                    className={cn(
-                      'h-4 w-4',
-                      task.priority === '高' && 'text-rose-500',
-                      task.priority === '中' && 'text-amber-500',
-                      task.priority === '低' && 'text-emerald-500'
-                    )}
-                  />
-                )}
-                {task.due_date && (
-                  <span
-                    className={cn(
-                      'text-xs',
-                      task.status === '完了'
-                        ? 'text-zinc-500'
-                        : getDueDateColor(new Date(task.due_date))
-                    )}
-                  >
-                    {format(new Date(task.due_date), 'MM/dd', { locale: ja })}
-                  </span>
-                )}
-                <Dialog open={isAIDialogOpen} onOpenChange={setIsAIDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="icon" className="h-8 w-8">
-                      <Sparkles className="h-4 w-4" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl bg-zinc-950 border-zinc-800">
-                    <DialogHeader>
-                      <DialogTitle className="text-zinc-100">
-                        AIアシスタント
-                      </DialogTitle>
-                      <DialogDescription>
-                        AIを使用してタスクの分析と提案を行います
-                      </DialogDescription>
-                    </DialogHeader>
-                    <Tabs
-                      value={settings.provider}
-                      onValueChange={handleProviderChange}
-                      className="w-full"
+                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  {task.priority && (
+                    <Flag
+                      className={cn(
+                        'h-4 w-4',
+                        task.priority === '高' && 'text-rose-400',
+                        task.priority === '中' && 'text-amber-400',
+                        task.priority === '低' && 'text-emerald-400'
+                      )}
+                    />
+                  )}
+                  {task.due_date && (
+                    <time
+                      dateTime={typeof task.due_date === 'string' 
+                        ? task.due_date 
+                        : task.due_date.toISOString()
+                      }
+                      className={cn(
+                        'text-sm whitespace-nowrap font-medium transition-colors',
+                        isAfter(new Date(task.due_date), new Date())
+                          ? 'text-zinc-500'
+                          : 'text-rose-400'
+                      )}
                     >
-                      <TabsList className="w-full grid grid-cols-2 bg-zinc-900 border border-zinc-800">
-                        <TabsTrigger
-                          value="transformers"
-                          className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                        >
-                          Transformers
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="gemini"
-                          className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                        >
-                          Gemini AI
-                        </TabsTrigger>
-                      </TabsList>
-                      <div className="mt-4 space-y-4">
-                        {settings.provider === 'transformers' && (
-                          <div className="grid gap-4 md:grid-cols-2">
-                            {AI_FEATURES.map((feature) => {
-                              const Icon = Icons[feature.icon];
-                              return (
-                                <div
-                                  key={feature.id}
-                                  className="rounded-lg border border-zinc-800 p-4 hover:bg-zinc-900/50 cursor-pointer transition-colors"
-                                  onClick={() =>
-                                    handleFeatureSelect(feature.id)
-                                  }
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <Icon className="h-4 w-4" />
-                                    <h4 className="text-sm font-medium text-zinc-100">
-                                      {feature.title}
-                                    </h4>
-                                  </div>
-                                  <p className="mt-1 text-sm text-zinc-400">
-                                    {feature.description}
-                                  </p>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                        {settings.provider === 'gemini' && (
-                          <>
-                            {!settings.apiKey ? (
-                              <div className="rounded-lg border border-zinc-800 p-4">
-                                <h4 className="text-sm font-medium text-zinc-100">
-                                  APIキーが必要です
-                                </h4>
-                                <p className="mt-1 text-sm text-zinc-400">
-                                  Gemini
-                                  AIを使用するには、設定画面でAPIキーを設定してください
-                                </p>
-                                <Button
-                                  className="mt-4 w-full"
-                                  onClick={handleNavigateToSettings}
-                                >
-                                  設定ページへ移動
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="grid gap-4 md:grid-cols-2">
-                                {AI_FEATURES.map((feature) => {
-                                  const Icon = Icons[feature.icon];
-                                  return (
-                                    <div
-                                      key={feature.id}
-                                      className="rounded-lg border border-zinc-800 p-4 hover:bg-zinc-900/50 cursor-pointer transition-colors"
-                                      onClick={() =>
-                                        handleFeatureSelect(feature.id)
-                                      }
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <Icon className="h-4 w-4" />
-                                        <h4 className="text-sm font-medium text-zinc-100">
-                                          {feature.title}
-                                        </h4>
-                                      </div>
-                                      <p className="mt-1 text-sm text-zinc-400">
-                                        {feature.description}
-                                      </p>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </Tabs>
-                  </DialogContent>
-                </Dialog>
+                      {isToday(new Date(task.due_date))
+                        ? '今日まで'
+                        : format(new Date(task.due_date), 'M月d日(E)', {
+                            locale: ja,
+                          })}
+                    </time>
+                  )}
+                </div>
               </div>
+              {task.description && (
+                <p
+                  className={cn(
+                    'text-sm text-zinc-400 line-clamp-2 md:line-clamp-3 mt-1 flex-1 break-words min-h-[2.5em] md:min-h-[3.75em] pb-0.5',
+                    task.status === '完了' && 'line-through'
+                  )}
+                  title={task.description}
+                >
+                  {task.description}
+                </p>
+              )}
+              {task.tags && task.tags.length > 0 && (
+                <div className="mt-auto pt-1 flex flex-wrap gap-1">
+                  {task.tags.map((tag) => (
+                    <span
+                      key={tag.id}
+                      className="inline-flex h-5 max-w-[8rem] shrink-0 items-center rounded-full bg-zinc-800/50 px-2 text-xs text-zinc-300 ring-1 ring-inset ring-zinc-800"
+                      title={tag.name}
+                    >
+                      <span className="truncate">{tag.name}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-
-          <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-            <EditButton onClick={handleEdit}>
-              <Pencil className="h-4 w-4" />
-            </EditButton>
-            <DeleteButton onClick={handleDelete}>
-              <Trash2 className="h-4 w-4" />
-            </DeleteButton>
-          </div>
         </div>
-      )}
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 sm:relative sm:right-0 sm:top-0 sm:translate-y-0 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 hover:bg-zinc-800/50"
+              >
+                <MoreVertical className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-48 bg-zinc-950 border-zinc-800"
+            >
+              <DropdownMenuItem
+                className="flex items-center gap-2 text-zinc-300 focus:text-zinc-100 cursor-pointer"
+                onClick={() => {
+                  setIsAIDialogOpen(true);
+                  setSelectedFeatureId(null);
+                }}
+              >
+                <Sparkles className="h-4 w-4" />
+                <span>AIアシスタント</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex items-center gap-2 text-zinc-300 focus:text-zinc-100 cursor-pointer"
+                onClick={() => {
+                  setIsEditing(true);
+                  setIsEditModalOpen(true);
+                }}
+              >
+                <Pencil className="h-4 w-4" />
+                <span>編集</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex items-center gap-2 text-red-400 focus:text-red-400 cursor-pointer"
+                onClick={async () => {
+                  try {
+                    // 楽観的UI更新のために現在のタスクリストを保存
+                    const previousTasks = [...tasks];
+                    
+                    // 楽観的にストアから削除
+                    setTasks(tasks.filter((t) => t.id !== task.id));
 
-      <Dialog open={showApiKeyDialog} onOpenChange={setShowApiKeyDialog}>
-        <DialogContent className="sm:max-w-md">
+                    const res = await fetch(`/api/tasks/${task.id}`, {
+                      method: 'DELETE',
+                      headers: {
+                        'X-User-Id': session?.user?.id || '',
+                      },
+                    });
+
+                    if (res.ok) {
+                      await onMutate();
+                      toast({
+                        title: 'タスク削除',
+                        description: 'タスクを削除しました',
+                        icon: <CheckIcon className="h-4 w-4 text-zinc-100" />,
+                      });
+                    } else {
+                      // エラー時は元の状態に戻す
+                      setTasks(previousTasks);
+                      throw new Error('タスクの削除に失敗しました');
+                    }
+                  } catch (error: unknown) {
+                    const errorMessage =
+                      error instanceof Error ? error.message : '不明なエラー';
+                    toast({
+                      title: 'エラー',
+                      description: errorMessage,
+                      variant: 'destructive',
+                      icon: (
+                        <ExclamationTriangleIcon className="h-4 w-4 text-red-400" />
+                      ),
+                    });
+                  }
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>削除</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      <Dialog open={isAIDialogOpen} onOpenChange={setIsAIDialogOpen}>
+        <DialogContent className="max-w-2xl bg-zinc-950 border-zinc-800">
           <DialogHeader>
-            <DialogTitle>APIキーが必要です</DialogTitle>
+            <DialogTitle className="text-zinc-100">AIアシスタント</DialogTitle>
             <DialogDescription>
-              Gemini
-              AIを使用するには、APIキーの設定が必要です。設定ページでAPIキーを設定しますか？
+              AIを使用してタスクの分析と提案を行います
             </DialogDescription>
           </DialogHeader>
-          <div className="flex gap-2 justify-end">
-            <Button
-              variant="outline"
-              onClick={() => setShowApiKeyDialog(false)}
-            >
-              キャンセル
-            </Button>
-            <Button onClick={handleNavigateToSettings}>設定ページへ移動</Button>
-          </div>
+          {!settings.apiKey ? (
+            <div className="rounded-lg bg-yellow-500/10 p-4 text-sm text-yellow-500">
+              <p>
+                Gemini APIキーが設定されていません。
+                設定画面からAPIキーを設定してください。
+              </p>
+            </div>
+          ) : selectedFeatureId ? (
+            <AITaskAnalysis
+              selectedFeatureId={selectedFeatureId}
+              isLoading={isLoading}
+              error={error}
+              summary={aiResults.summary}
+              tags={aiResults.tags}
+              priority={aiResults.priority}
+              category={aiResults.category}
+              nextTask={aiResults.nextTask}
+              task={task}
+              onMutate={async () => {
+                await onMutate();
+                if (aiResults.summary?.summary) {
+                  // タスクの状態を更新
+                  const updatedTask: TaskWithExtras = {
+                    ...task,
+                    description: aiResults.summary.summary,
+                  };
+                  setTask(updatedTask);
+                  // タスクリストの更新
+                  setTasks(tasks.map((t) => 
+                    t.id === updatedTask.id ? updatedTask : t
+                  ));
+                }
+              }}
+              setSelectedFeatureId={setSelectedFeatureId}
+            />
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              {AI_FEATURES.map((feature) => {
+                const Icon = iconMap[feature.icon];
+                return (
+                  <button
+                    key={feature.id}
+                    onClick={() => handleFeatureSelect(feature.id)}
+                    className="flex flex-col gap-2 rounded-lg border border-zinc-800 p-4 text-left hover:bg-zinc-900"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon className="h-4 w-4 text-zinc-400" />
+                      <span className="font-medium text-zinc-100">{feature.title}</span>
+                    </div>
+                    <p className="text-sm text-zinc-400">{feature.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
+
+      {isEditing && (
+        <EditTaskForm
+          task={task}
+          onSuccess={async () => {
+            setIsEditing(false);
+            setIsEditModalOpen(false);
+            await onMutate();
+          }}
+          onCancel={() => {
+            setIsEditing(false);
+            setIsEditModalOpen(false);
+          }}
+        />
+      )}
     </>
   );
 }

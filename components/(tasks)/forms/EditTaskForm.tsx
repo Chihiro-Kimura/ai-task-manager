@@ -1,51 +1,82 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useSession } from 'next-auth/react';
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
+import { useForm, type SubmitHandler } from 'react-hook-form';
 import { mutate } from 'swr';
+import { z } from 'zod';
 
+import TagSelect from '@/components/(common)/forms/TagSelect';
 import DueDatePicker from '@/components/(tasks)/filters/DueDatePicker';
 import PrioritySelect from '@/components/(tasks)/filters/PrioritySelect';
 import { Button } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useTaskStore } from '@/store/taskStore';
+import { TaskWithExtras } from '@/types/task';
+
+interface Tag {
+  id: string;
+  name: string;
+  color?: string;
+}
+
+const formSchema = z.object({
+  title: z.string().min(1, 'タイトルは必須です'),
+  description: z.string().optional(),
+  priority: z.string().optional(),
+  due_date: z.string().optional(),
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 interface EditTaskFormProps {
-  taskId: string;
-  currentTitle: string;
-  currentDescription: string | null;
-  currentPriority: string | null;
-  currentDueDate?: Date | null;
-  onClose: () => void;
+  task: TaskWithExtras;
+  onSuccess: () => Promise<void>;
+  onCancel: () => void;
 }
 
 export default function EditTaskForm({
-  taskId,
-  currentTitle,
-  currentDescription = null,
-  currentPriority = null,
-  currentDueDate = null,
-  onClose,
-}: EditTaskFormProps) {
+  task,
+  onSuccess,
+  onCancel,
+}: EditTaskFormProps): ReactElement {
   const { data: session } = useSession();
   const { setIsEditModalOpen } = useTaskStore();
-  const [title, setTitle] = useState(currentTitle);
-  const [description, setDescription] = useState(currentDescription);
-  const [priority, setPriority] = useState(currentPriority);
-  const [dueDate, setDueDate] = useState<Date | undefined>(
-    currentDueDate ? new Date(currentDueDate) : undefined
-  );
+  const [selectedTags, setSelectedTags] = useState<Tag[]>(task.tags || []);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: task.title,
+      description: task.description || '',
+      priority: task.priority || undefined,
+      due_date: task.due_date 
+        ? typeof task.due_date === 'string'
+          ? task.due_date
+          : task.due_date.toISOString()
+        : undefined,
+    },
+  });
 
-  const handleClose = () => {
+  const handleClose = (): void => {
     setIsEditModalOpen(false);
-    onClose();
+    onCancel();
   };
 
-  const handleUpdate = async () => {
+  const onSubmit: SubmitHandler<FormValues> = async (values) => {
     if (!session?.user?.id) {
       toast({
         title: 'エラー',
@@ -55,44 +86,30 @@ export default function EditTaskForm({
       return;
     }
 
-    setIsLoading(true);
     try {
-      const updateData = {
-        title,
-        description,
-        priority,
-        due_date: dueDate?.toISOString(),
-      };
+      setIsLoading(true);
 
-      console.log('Updating task with data:', updateData);
-
-      const response = await fetch(`/api/tasks/${taskId}`, {
+      const response = await fetch(`/api/tasks/${task.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'X-User-Id': session.user.id,
         },
-        body: JSON.stringify(updateData),
+        body: JSON.stringify({
+          ...values,
+          due_date: values.due_date ? new Date(values.due_date) : null,
+          tags: selectedTags,
+        }),
       });
 
-      const data = await response.json();
-      console.log('Update response:', data);
-
-      if (response.ok) {
-        toast({
-          title: '更新成功',
-          description: 'タスクが更新されました！',
-          variant: 'default',
-        });
-        mutate('/api/tasks');
-        handleClose();
-      } else {
-        toast({
-          title: 'エラー',
-          description: data.error,
-          variant: 'destructive',
-        });
+      if (!response.ok) {
+        throw new Error('Failed to update task');
       }
+
+      await onSuccess();
+      form.reset();
+      mutate('/api/tasks');
+      handleClose();
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : '不明なエラー';
@@ -123,51 +140,103 @@ export default function EditTaskForm({
         <h2 className="text-xl font-bold mb-4 text-zinc-100 select-none cursor-default">
           タスクを編集
         </h2>
-        <Input
-          draggable="false"
-          value={title ?? ''}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="タイトル"
-          className="mb-3 bg-zinc-900/50 border-zinc-800 text-slate-100 placeholder:text-zinc-400 cursor-text"
-        />
-        <Textarea
-          draggable="false"
-          value={description ?? ''}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="詳細"
-          className="mb-4 bg-zinc-900/50 border-zinc-800 text-slate-100 placeholder:text-zinc-400 cursor-text"
-        />
-        <div className="mb-4">
-          <div className="text-zinc-400 mb-2">優先度 : </div>
-          <PrioritySelect
-            value={priority ?? undefined}
-            onValueChange={setPriority}
-          />
-        </div>
-        <DueDatePicker
-          dueDate={dueDate}
-          setDueDate={setDueDate}
-          className="mb-4"
-        />
-        <div className="flex justify-end gap-2">
-          <Button
-            onClick={handleClose}
-            variant="ghost"
-            size="sm"
-            className="hover:bg-red-900/20 hover:text-red-400 text-zinc-400"
-          >
-            キャンセル
-          </Button>
-          <Button
-            onClick={handleUpdate}
-            disabled={isLoading}
-            variant="ghost"
-            size="sm"
-            className="hover:bg-emerald-900/20 hover:text-emerald-400 text-zinc-400"
-          >
-            {isLoading ? '更新中...' : '更新'}
-          </Button>
-        </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      draggable="false"
+                      placeholder="タイトル"
+                      className="mb-3 bg-zinc-900/50 border-zinc-800 text-slate-100 placeholder:text-zinc-400 cursor-text"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Textarea
+                      {...field}
+                      draggable="false"
+                      placeholder="詳細"
+                      className="mb-4 bg-zinc-900/50 border-zinc-800 text-slate-100 placeholder:text-zinc-400 cursor-text"
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <div className="mb-4">
+              <div className="text-zinc-400 mb-2">優先度 : </div>
+              <FormField
+                control={form.control}
+                name="priority"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <PrioritySelect
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="due_date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <DueDatePicker
+                      dueDate={field.value ? new Date(field.value) : undefined}
+                      setDueDate={(date) =>
+                        field.onChange(date?.toISOString() || '')
+                      }
+                      className="mb-4"
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <div className="space-y-2">
+              <FormLabel>タグ</FormLabel>
+              <TagSelect
+                selectedTags={selectedTags}
+                onTagsChange={setSelectedTags}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                onClick={handleClose}
+                variant="ghost"
+                size="sm"
+                className="hover:bg-red-900/20 hover:text-red-400 text-zinc-400"
+              >
+                キャンセル
+              </Button>
+              <Button
+                type="submit"
+                disabled={isLoading}
+                variant="ghost"
+                size="sm"
+                className="hover:bg-emerald-900/20 hover:text-emerald-400 text-zinc-400"
+              >
+                {isLoading ? '更新中...' : '更新'}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </div>
     </div>
   );

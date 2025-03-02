@@ -1,12 +1,13 @@
 'use client';
 
 import { Droppable } from '@hello-pangea/dnd';
-import { useState, useMemo, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
-import { useToast } from '@/hooks/use-toast';
-import { TaskWithExtras, CreateTaskData } from '@/types/task';
-import { TaskColumnHeader } from '@/components/(tasks)/column/TaskColumnHeader';
+import { useCallback, useMemo, useState } from 'react';
+
 import { TaskColumnContent } from '@/components/(tasks)/column/TaskColumnContent';
+import { TaskColumnHeader } from '@/components/(tasks)/column/TaskColumnHeader';
+import { useToast } from '@/hooks/use-toast';
+import { CreateTaskData, TaskWithExtras } from '@/types/task';
 
 // 型定義
 interface TaskColumnProps {
@@ -43,7 +44,7 @@ export default function TaskColumn({
   sortMode,
   onReset,
   onAddTask,
-}: TaskColumnProps) {
+}: TaskColumnProps): JSX.Element {
   const { status } = useSession();
   const { toast } = useToast();
 
@@ -109,7 +110,7 @@ export default function TaskColumn({
 
   const handleAddTask = async (
     taskData: Omit<CreateTaskData, 'task_order'>
-  ) => {
+  ): Promise<void> => {
     try {
       await onAddTask({
         ...taskData,
@@ -146,7 +147,7 @@ export default function TaskColumn({
           {...provided.droppableProps}
           className={`p-4 border ${
             snapshot.isDraggingOver ? 'border-blue-500' : 'border-zinc-800'
-          } bg-zinc-900 rounded-lg min-h-[60vh] transition-colors duration-200`}
+          } rounded-lg min-h-[60vh] transition-colors duration-200`}
         >
           <TaskColumnHeader
             title={title}
