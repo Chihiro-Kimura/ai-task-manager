@@ -1,6 +1,7 @@
+
+import { PrismaClient } from '@prisma/client';
 import NextAuth, { type NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
-import { PrismaClient } from '@prisma/client';
 
 // グローバルで1つのPrismaClientインスタンスを保持
 const globalForPrisma = globalThis as unknown as {
