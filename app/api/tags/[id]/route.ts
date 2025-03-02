@@ -4,9 +4,15 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
+type Props = {
+  params: {
+    id: string;
+  };
+};
+
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: Props
 ): Promise<NextResponse<Tag>> {
   try {
     const session = await auth();
@@ -14,11 +20,12 @@ export async function PATCH(
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
+    const { id } = params;
     const data = await req.json();
 
     const tag = await prisma.tag.update({
       where: {
-        id: params.id,
+        id,
         userId: session.user.id,
       },
       data,
@@ -33,7 +40,7 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: Props
 ): Promise<NextResponse> {
   try {
     const session = await auth();
@@ -41,9 +48,10 @@ export async function DELETE(
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
+    const { id } = params;
     await prisma.tag.delete({
       where: {
-        id: params.id,
+        id,
         userId: session.user.id,
       },
     });
