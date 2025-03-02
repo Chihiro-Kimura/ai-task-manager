@@ -1,5 +1,6 @@
 'use client';
 
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { ButtonHTMLAttributes, type ReactElement } from 'react';
 
 import { cn } from '@/lib/utils';
@@ -22,7 +23,9 @@ export function EditButton({
         className
       )}
       {...props}
-    />
+    >
+      <Pencil className="h-4 w-4" />
+    </button>
   );
 }
 
@@ -40,7 +43,9 @@ export function DeleteButton({
         className
       )}
       {...props}
-    />
+    >
+      <Trash2 className="h-4 w-4" />
+    </button>
   );
 }
 
@@ -58,6 +63,8 @@ export function AddButton({
         className
       )}
       {...props}
-    />
+    >
+      <Plus className="h-4 w-4" />
+    </button>
   );
 }
