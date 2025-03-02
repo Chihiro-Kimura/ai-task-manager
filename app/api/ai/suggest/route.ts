@@ -1,24 +1,19 @@
+import { Task } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 
+
 import { geminiProvider } from '@/lib/ai/gemini';
-import { transformersProvider } from '@/lib/ai/transformers';
-import { Priority } from '@/lib/ai/types';
+import { llamaProvider } from '@/lib/ai/llama';
+import { Priority, TaskInput } from '@/lib/ai/types';
 import {
   validateApiKey,
   validateRequestBody,
   withErrorHandler,
 } from '@/lib/api/utils';
 
-interface TaskInput {
-  title: string;
-  description?: string;
-  priority?: Priority;
-  status: string;
-}
-
 interface SuggestRequest {
-  engine: 'gemini' | 'transformers';
-  tasks: TaskInput[];
+  engine: 'gemini' | 'llama';
+  tasks: Task[];
 }
 
 function isSuggestRequest(data: unknown): data is SuggestRequest {
@@ -26,20 +21,25 @@ function isSuggestRequest(data: unknown): data is SuggestRequest {
   return (
     typeof request === 'object' &&
     request !== null &&
-    (request.engine === 'gemini' || request.engine === 'transformers') &&
+    (request.engine === 'gemini' || request.engine === 'llama') &&
     Array.isArray(request.tasks) &&
     request.tasks.every(
       (task) =>
         typeof task === 'object' &&
         task !== null &&
         typeof task.title === 'string' &&
-        (task.description === undefined ||
-          typeof task.description === 'string') &&
-        (task.priority === undefined ||
-          ['高', '中', '低'].includes(task.priority)) &&
         typeof task.status === 'string'
     )
   );
+}
+
+function convertToTaskInput(task: Task): TaskInput {
+  return {
+    title: task.title,
+    description: task.description || undefined,
+    priority: task.priority as Priority | undefined,
+    status: task.status,
+  };
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -53,6 +53,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return await geminiProvider.suggestNextTask(tasks);
     }
 
-    return await transformersProvider.suggestNextTask(tasks);
+    const taskInputs = tasks.map(convertToTaskInput);
+    return await llamaProvider.suggestNextTask(taskInputs);
   });
 }
