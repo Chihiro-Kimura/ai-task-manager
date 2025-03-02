@@ -20,7 +20,8 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { getRandomColor } from '@/lib/utils';
+import { TAG_MESSAGES } from '@/lib/constants/messages';
+import { createTag } from '@/lib/utils/tag';
 import { useAIStore } from '@/store/aiStore';
 import { NoteWithTags } from '@/types/note';
 
@@ -138,30 +139,6 @@ export function AddNoteForm({
     form.setValue('tags', newTags, { shouldDirty: true });
   };
 
-  const createTag = async (name: string): Promise<string | null> => {
-    try {
-      const randomColor = getRandomColor();
-      const response = await fetch('/api/tags', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          color: JSON.stringify(randomColor),
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to create tag');
-
-      const newTag = await response.json();
-      setLocalTags((prev) => [...prev, newTag]);
-      return newTag.id;
-    } catch (error) {
-      console.error('Failed to create tag:', error);
-      toast.error('タグの作成に失敗しました');
-      return null;
-    }
-  };
-
   const handleSuggestedTagClick = async (tagName: string): Promise<void> => {
     const existingTag = localTags?.find(
       (t) => t.name.toLowerCase() === tagName.toLowerCase()
@@ -174,14 +151,16 @@ export function AddNoteForm({
 
     if (pendingTags[tagName]) return;
 
-    setPendingTags((prev) => ({ ...prev, [tagName]: true }));
-    const newTagId = await createTag(tagName);
-    setPendingTags((prev) => ({ ...prev, [tagName]: false }));
-
-    if (newTagId) {
-      toggleTag(newTagId);
+    try {
+      setPendingTags((prev) => ({ ...prev, [tagName]: true }));
+      const newTag = await createTag(tagName);
+      toggleTag(newTag.id);
       // タグリストの更新は非同期で行う
-      mutateTags().catch(console.error);
+      void mutateTags();
+    } catch {
+      toast.error(TAG_MESSAGES.CREATE_ERROR);
+    } finally {
+      setPendingTags((prev) => ({ ...prev, [tagName]: false }));
     }
   };
 

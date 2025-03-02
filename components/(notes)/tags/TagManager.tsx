@@ -1,8 +1,7 @@
 'use client';
 
-
 import { Tag } from '@prisma/client';
-import { Edit2, Plus, Trash, Trash2 } from 'lucide-react';
+import { Edit2, Plus, Trash } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { type JSX, useState } from 'react';
 import useSWR from 'swr';
@@ -18,7 +17,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { type TagColor, getTagOpacity } from '@/lib/constants/colors';
+import { TAG_MESSAGES } from '@/lib/constants/messages';
 import { getRandomColor } from '@/lib/utils';
+import { deleteTag, fetchTags } from '@/lib/utils/tag';
 
 import { TagFormModal } from './TagFormModal';
 
@@ -43,35 +44,15 @@ export function TagManager({
   const [selectedTag, setSelectedTag] = useState<Tag | undefined>();
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
 
-  // useSWRを使用してタグを取得
   const {
     data: tagsData,
     error,
     mutate: mutateTags,
   } = useSWR<(Tag & { _count?: { notes: number } })[]>(
     session?.user?.id ? '/api/tags' : null,
-    async (url: string) => {
+    async () => {
       if (!session?.user?.id) return [];
-
-      if (isDevelopment) {
-        console.log('🔍 Fetching tags for user:', session.user.id);
-      }
-
-      const response = await fetch(url, {
-        headers: {
-          'X-User-Id': session.user.id,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch tags');
-      }
-
-      const data = await response.json();
-      if (isDevelopment) {
-        console.log('✅ Tags fetched:', data.length);
-      }
-      return data;
+      return fetchTags();
     }
   );
 
@@ -94,24 +75,17 @@ export function TagManager({
       return;
 
     try {
-      const response = await fetch(`/api/tags/${tag.id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete tag');
-      }
+      await deleteTag(tag.id);
 
       toast({
-        title: 'タグを削除しました',
-        variant: 'default',
+        title: TAG_MESSAGES.DELETE_SUCCESS,
       });
 
       await mutateTags();
-    } catch (error) {
-      console.error('Failed to delete tag:', error);
+    } catch {
       toast({
-        title: 'タグの削除に失敗しました',
+        title: 'エラー',
+        description: TAG_MESSAGES.DELETE_ERROR,
         variant: 'destructive',
       });
     }
@@ -150,25 +124,20 @@ export function TagManager({
       return;
 
     try {
-      const promises = Array.from(selectedTags).map((tagId) =>
-        fetch(`/api/tags/${tagId}`, {
-          method: 'DELETE',
-        })
+      await Promise.all(
+        Array.from(selectedTags).map((tagId) => deleteTag(tagId))
       );
-
-      await Promise.all(promises);
 
       toast({
         title: `${selectedTags.size}個のタグを削除しました`,
-        variant: 'default',
       });
 
       setSelectedTags(new Set());
       await mutateTags();
-    } catch (error) {
-      console.error('Failed to delete tags:', error);
+    } catch {
       toast({
-        title: 'タグの削除に失敗しました',
+        title: 'エラー',
+        description: TAG_MESSAGES.DELETE_ERROR,
         variant: 'destructive',
       });
     }
@@ -287,7 +256,7 @@ export function TagManager({
                       onClick={() => handleDeleteTag(tag)}
                       size="sm"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash className="h-3 w-3" />
                     </DeleteButton>
                   </div>
                 </div>

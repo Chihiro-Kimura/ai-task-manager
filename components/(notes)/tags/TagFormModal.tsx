@@ -3,6 +3,7 @@
 import { Tag } from '@prisma/client';
 import { type JSX, useEffect, useState } from 'react';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -12,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { type TagColor } from '@/lib/constants/colors';
+import { type TagColor, TAG_COLOR_THEMES } from '@/lib/constants/colors';
 
 interface TagFormModalProps {
   isOpen: boolean;
@@ -21,6 +22,8 @@ interface TagFormModalProps {
   tag?: Tag;
   defaultColor: TagColor;
 }
+
+const PRESET_COLORS = Object.values(TAG_COLOR_THEMES);
 
 export function TagFormModal({
   isOpen,
@@ -53,7 +56,7 @@ export function TagFormModal({
     setIsLoading(true);
     try {
       const response = await fetch(tag ? `/api/tags/${tag.id}` : '/api/tags', {
-        method: tag ? 'PUT' : 'POST',
+        method: tag ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
@@ -85,25 +88,58 @@ export function TagFormModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
+      <DialogContent className="bg-zinc-950 border-zinc-800">
         <DialogHeader>
           <DialogTitle>{tag ? 'タグを編集' : 'タグを作成'}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-zinc-200">タグ名</label>
             <Input
               placeholder="タグ名"
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={isLoading}
+              className="bg-zinc-900 border-zinc-700"
             />
           </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-zinc-200">タグの色</label>
+            <div className="grid grid-cols-4 gap-2">
+              {PRESET_COLORS.map((presetColor, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => setColor(presetColor)}
+                  className={`p-2 rounded-md border-2 transition-all ${
+                    JSON.stringify(color) === JSON.stringify(presetColor)
+                      ? 'border-blue-500'
+                      : 'border-transparent hover:border-zinc-700'
+                  }`}
+                >
+                  <Badge
+                    variant="secondary"
+                    className="w-full"
+                    style={{
+                      backgroundColor: presetColor.bg,
+                      color: presetColor.color,
+                    }}
+                  >
+                    {presetColor.name}
+                  </Badge>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="flex justify-end gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
               disabled={isLoading}
+              className="bg-zinc-900 border-zinc-700 hover:bg-zinc-800"
             >
               キャンセル
             </Button>
