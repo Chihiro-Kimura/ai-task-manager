@@ -7,6 +7,7 @@ import { Flag, MoreVertical, Pencil, Sparkles, Trash2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { type ReactElement, useState } from 'react';
 
+import { ColoredTag } from '@/components/(common)/ColoredTag';
 import EditTaskForm from '@/components/(tasks)/forms/EditTaskForm';
 import AITaskAnalysis from '@/components/(tasks)/item/AITaskAnalysis';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useAISettings } from '@/hooks/use-ai-settings';
 import { useToast } from '@/hooks/use-toast';
 import { summaryCache } from '@/lib/ai/cache';
@@ -100,7 +107,8 @@ export default function TaskItem({
   const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>();
-  const [task, setTask] = useState<TaskWithExtras>(initialTask);
+  const [isTitleTruncated, setIsTitleTruncated] = useState(false);
+  const [isDescriptionTruncated, setIsDescriptionTruncated] = useState(false);
   const [aiResults, setAIResults] = useState<{
     summary?: { summary: string };
     tags?: string[];
@@ -112,6 +120,40 @@ export default function TaskItem({
       priority: '高' | '中' | '低';
     };
   }>({});
+
+  // グローバルストアから現在のタスクを取得
+  const task = tasks.find(t => t.id === initialTask.id) || initialTask;
+
+  // タスクの状態を更新する関数
+  const handleMutation = async (): Promise<void> => {
+    try {
+      // サーバーから最新のタスク情報を取得（タグ情報も含める）
+      const response = await fetch(`/api/tasks/${task.id}?include=tags`, {
+        headers: {
+          'X-User-Id': session?.user?.id || '',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('タスク情報の取得に失敗しました');
+      }
+
+      const updatedTask = await response.json();
+      
+      // グローバルストアを更新
+      setTasks(tasks.map(t => t.id === task.id ? updatedTask : t));
+      
+      // 親コンポーネントの更新処理を実行
+      await onMutate();
+    } catch (error) {
+      console.error('タスクの更新に失敗しました:', error);
+      toast({
+        title: 'エラー',
+        description: error instanceof Error ? error.message : '不明なエラーが発生しました',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const handleFeatureSelect = async (featureId: string): Promise<void> => {
     setSelectedFeatureId(featureId);
@@ -217,9 +259,9 @@ export default function TaskItem({
 
   return (
     <>
-      <div className="group relative flex items-start gap-2 rounded-lg border border-zinc-800 bg-gradient-to-b from-slate-900 to-slate-900/80 p-2.5 md:min-h-[8.5rem] lg:min-h-[9rem] hover:from-slate-900/90 hover:to-slate-900/70 transition-colors w-full">
+      <div className="group relative flex items-start gap-1 rounded-lg border border-zinc-800 bg-gradient-to-b from-slate-900 to-slate-900/80 px-1 py-2.5 md:min-h-[8.5rem] lg:min-h-[9rem] hover:from-slate-900/90 hover:to-slate-900/70 transition-colors w-full">
         <div className="flex-1 min-w-0">
-          <div className="flex items-start gap-2 h-full">
+          <div className="flex items-start gap-1 h-full">
             <Checkbox
               checked={task.status === '完了'}
               onCheckedChange={async () => {
@@ -236,7 +278,7 @@ export default function TaskItem({
                   });
 
                   if (res.ok) {
-                    await onMutate();
+                    await handleMutation();
                     toast({
                       title: 'ステータス更新',
                       description: 'タスクのステータスを更新しました',
@@ -260,16 +302,52 @@ export default function TaskItem({
               }}
               className="h-3.5 w-3.5 mt-0.5"
             />
-            <div className="flex-1 min-w-0 overflow-hidden flex flex-col h-full">
+            <div className="flex-1 min-w-0 flex flex-col h-full">
               <div className="flex items-center gap-3">
-                <span
-                  className={cn(
-                    'flex-1 font-medium truncate tracking-tight min-w-0 text-base',
-                    task.status === '完了' && 'line-through text-zinc-500'
-                  )}
-                >
-                  {task.title}
-                </span>
+                {isTitleTruncated ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span
+                          ref={(el) => {
+                            if (el) {
+                              const isTruncated = el.scrollWidth > el.offsetWidth;
+                              setIsTitleTruncated(isTruncated);
+                            }
+                          }}
+                          className={cn(
+                            'flex-1 font-medium truncate tracking-tight min-w-0 text-base',
+                            task.status === '完了' && 'line-through text-zinc-500'
+                          )}
+                        >
+                          {task.title}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="top"
+                        sideOffset={16}
+                        className="z-[60] translate-y-1"
+                      >
+                        <p className="max-w-xs break-words">{task.title}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <span
+                    ref={(el) => {
+                      if (el) {
+                        const isTruncated = el.scrollWidth > el.offsetWidth;
+                        setIsTitleTruncated(isTruncated);
+                      }
+                    }}
+                    className={cn(
+                      'flex-1 font-medium truncate tracking-tight min-w-0 text-base',
+                      task.status === '完了' && 'line-through text-zinc-500'
+                    )}
+                  >
+                    {task.title}
+                  </span>
+                )}
                 <div className="flex items-center gap-2 shrink-0">
                   {task.priority && (
                     <Flag
@@ -304,26 +382,55 @@ export default function TaskItem({
                 </div>
               </div>
               {task.description && (
-                <p
-                  className={cn(
-                    'text-sm text-zinc-400 line-clamp-2 md:line-clamp-3 mt-1 flex-1 break-words min-h-[2.5em] md:min-h-[3.75em] pb-0.5',
-                    task.status === '完了' && 'line-through'
-                  )}
-                  title={task.description}
-                >
-                  {task.description}
-                </p>
+                isDescriptionTruncated ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <p
+                          ref={(el) => {
+                            if (el) {
+                              const isTruncated = el.scrollHeight > el.clientHeight;
+                              setIsDescriptionTruncated(isTruncated);
+                            }
+                          }}
+                          className={cn(
+                            'text-sm text-zinc-400 line-clamp-2 md:line-clamp-3 mt-1 flex-1 break-words min-h-[2.5em] md:min-h-[3.75em] pb-0.5',
+                            task.status === '完了' && 'line-through'
+                          )}
+                        >
+                          {task.description}
+                        </p>
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="top"
+                        sideOffset={16}
+                        className="z-[60] -translate-y-6"
+                      >
+                        <p className="max-w-xs break-words whitespace-pre-wrap">{task.description}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <p
+                    ref={(el) => {
+                      if (el) {
+                        const isTruncated = el.scrollHeight > el.clientHeight;
+                        setIsDescriptionTruncated(isTruncated);
+                      }
+                    }}
+                    className={cn(
+                      'text-sm text-zinc-400 line-clamp-2 md:line-clamp-3 mt-1 flex-1 break-words min-h-[2.5em] md:min-h-[3.75em] pb-0.5',
+                      task.status === '完了' && 'line-through'
+                    )}
+                  >
+                    {task.description}
+                  </p>
+                )
               )}
               {task.tags && task.tags.length > 0 && (
                 <div className="mt-auto pt-1 flex flex-wrap gap-1">
                   {task.tags.map((tag) => (
-                    <span
-                      key={tag.id}
-                      className="inline-flex h-5 max-w-[8rem] shrink-0 items-center rounded-full bg-zinc-800/50 px-2 text-xs text-zinc-300 ring-1 ring-inset ring-zinc-800"
-                      title={tag.name}
-                    >
-                      <span className="truncate">{tag.name}</span>
-                    </span>
+                    <ColoredTag key={tag.id} tag={tag} />
                   ))}
                 </div>
               )}
@@ -369,12 +476,6 @@ export default function TaskItem({
                 className="flex items-center gap-2 text-red-400 focus:text-red-400 cursor-pointer"
                 onClick={async () => {
                   try {
-                    // 楽観的UI更新のために現在のタスクリストを保存
-                    const previousTasks = [...tasks];
-                    
-                    // 楽観的にストアから削除
-                    setTasks(tasks.filter((t) => t.id !== task.id));
-
                     const res = await fetch(`/api/tasks/${task.id}`, {
                       method: 'DELETE',
                       headers: {
@@ -383,6 +484,8 @@ export default function TaskItem({
                     });
 
                     if (res.ok) {
+                      // 削除成功時はグローバルストアから削除
+                      setTasks(tasks.filter((t) => t.id !== task.id));
                       await onMutate();
                       toast({
                         title: 'タスク削除',
@@ -390,8 +493,6 @@ export default function TaskItem({
                         icon: <CheckIcon className="h-4 w-4 text-zinc-100" />,
                       });
                     } else {
-                      // エラー時は元の状態に戻す
-                      setTasks(previousTasks);
                       throw new Error('タスクの削除に失敗しました');
                     }
                   } catch (error: unknown) {
@@ -442,21 +543,7 @@ export default function TaskItem({
               category={aiResults.category}
               nextTask={aiResults.nextTask}
               task={task}
-              onMutate={async () => {
-                await onMutate();
-                if (aiResults.summary?.summary) {
-                  // タスクの状態を更新
-                  const updatedTask: TaskWithExtras = {
-                    ...task,
-                    description: aiResults.summary.summary,
-                  };
-                  setTask(updatedTask);
-                  // タスクリストの更新
-                  setTasks(tasks.map((t) => 
-                    t.id === updatedTask.id ? updatedTask : t
-                  ));
-                }
-              }}
+              onMutate={handleMutation}
               setSelectedFeatureId={setSelectedFeatureId}
             />
           ) : (
@@ -488,7 +575,7 @@ export default function TaskItem({
           onSuccess={async () => {
             setIsEditing(false);
             setIsEditModalOpen(false);
-            await onMutate();
+            await handleMutation();
           }}
           onCancel={() => {
             setIsEditing(false);
