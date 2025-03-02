@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { Tag } from '@prisma/client';
+import { NextResponse } from 'next/server';
 
-import { authOptions } from '@/lib/auth';
+import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 // タグの作成・更新用のデータ型
@@ -10,24 +10,22 @@ interface TagData {
   color?: string;
 }
 
-export async function GET(_request: NextRequest): Promise<NextResponse> {
+export async function GET(): Promise<NextResponse<Tag[]>> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await auth();
+    if (!session?.user) {
+      return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const userId = session.user.id;
-
-    // タグと使用回数を取得
     const tags = await prisma.tag.findMany({
       where: {
-        userId,
+        userId: session.user.id,
       },
       include: {
         _count: {
           select: {
             notes: true,
+            tasks: true,
           },
         },
       },
@@ -38,39 +36,31 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json(tags);
   } catch (error) {
-    console.error('Failed to fetch tags:', error);
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    );
+    console.error('[TAGS_GET]', error);
+    return new NextResponse('Internal Error', { status: 500 });
   }
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function POST(req: Request): Promise<NextResponse<Tag>> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await auth();
+    if (!session?.user) {
+      return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const data = (await request.json()) as TagData;
-    const userId = session.user.id;
+    const data = (await req.json()) as TagData;
 
-    // タグを作成
     const tag = await prisma.tag.create({
       data: {
         name: data.name,
         color: data.color,
-        userId,
+        userId: session.user.id,
       },
     });
 
     return NextResponse.json(tag);
   } catch (error) {
-    console.error('Failed to create tag:', error);
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    );
+    console.error('[TAGS_CREATE]', error);
+    return new NextResponse('Internal Error', { status: 500 });
   }
 }

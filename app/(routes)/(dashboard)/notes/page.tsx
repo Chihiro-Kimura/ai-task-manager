@@ -2,7 +2,6 @@ import { Metadata } from 'next';
 import { type ReactElement } from 'react';
 
 import NoteList from '@/components/(notes)/list/NoteList';
-import { TagManager } from '@/components/(notes)/tags/TagManager';
 
 export const metadata: Metadata = {
   title: 'メモ一覧 | AI Task Manager',
@@ -12,15 +11,8 @@ export const metadata: Metadata = {
 
 export default function NotesPage(): ReactElement {
   return (
-    <div className="container mx-auto py-6">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-3">
-          <NoteList />
-        </div>
-        <div className="lg:col-span-1">
-          <TagManager />
-        </div>
-      </div>
+    <div className="container mx-auto ">
+      <NoteList />
     </div>
   );
 }

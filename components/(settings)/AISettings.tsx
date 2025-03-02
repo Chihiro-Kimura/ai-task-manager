@@ -1,9 +1,9 @@
 'use client';
 
-import { Pencil, Trash2 } from 'lucide-react';
-import { useState, type ReactElement } from 'react';
+import { type ReactElement, useState } from 'react';
 
-import { EditButton, DeleteButton } from '@/components/ui/action-button';
+import { DeleteButton, EditButton } from '@/components/ui/action-button';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -11,155 +11,108 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { geminiProvider } from '@/lib/ai/gemini';
-import { transformersProvider } from '@/lib/ai/transformers';
 import { useAIStore } from '@/store/aiStore';
 
 export function AISettings(): ReactElement {
   const { settings, updateSettings } = useAIStore();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [apiKey, setApiKey] = useState(settings.apiKey || '');
   const { toast } = useToast();
 
-  const handleProviderChange = (value: string): void => {
-    updateSettings({
-      provider: value as 'gemini' | 'transformers',
-      apiKey: value === 'transformers' ? undefined : apiKey,
-    });
-  };
-
-  const handleSaveApiKey = (): void => {
-    if (!apiKey.trim() && settings.provider === 'gemini') {
+  const handleSave = (): void => {
+    try {
+      if (apiKey) {
+        geminiProvider.initialize(apiKey);
+      }
+      updateSettings({ apiKey });
+      setIsDialogOpen(false);
       toast({
-        title: 'APIキーを入力してください',
+        title: '設定を保存しました',
+        description: 'AIの設定が正常に更新されました。',
+      });
+    } catch (error) {
+      toast({
+        title: 'エラーが発生しました',
+        description:
+          error instanceof Error ? error.message : '不明なエラーが発生しました',
         variant: 'destructive',
       });
-      return;
     }
-
-    updateSettings({
-      apiKey: apiKey.trim(),
-    });
-
-    toast({
-      title: 'APIキーを保存しました',
-    });
   };
 
-  const handleDeleteApiKey = (): void => {
+  const handleDelete = (): void => {
+    updateSettings({ apiKey: undefined });
     setApiKey('');
-    updateSettings({
-      apiKey: undefined,
-    });
-
     toast({
       title: 'APIキーを削除しました',
+      description: 'AIの設定が正常に更新されました。',
     });
   };
 
   return (
-    <Card className="bg-zinc-900/50 border-zinc-800">
+    <Card>
       <CardHeader>
-        <CardTitle className="text-zinc-100">AI設定</CardTitle>
+        <CardTitle>AI設定</CardTitle>
         <CardDescription>
-          タグ提案と優先度分析に使用するAIプロバイダーを設定します
+          タスク管理をサポートするAI機能の設定を行います。
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="provider" className="text-zinc-100">
-            AIプロバイダー
-          </Label>
-          <Select
-            value={settings.provider}
-            onValueChange={handleProviderChange}
-          >
-            <SelectTrigger
-              id="provider"
-              className="bg-zinc-900 border-zinc-800"
-            >
-              <SelectValue placeholder="プロバイダーを選択" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="transformers">
-                {transformersProvider.name}
-                <span className="text-xs text-zinc-400 ml-2">
-                  {transformersProvider.description}
-                </span>
-              </SelectItem>
-              <SelectItem value="gemini">
-                {geminiProvider.name}
-                <span className="text-xs text-zinc-400 ml-2">
-                  {geminiProvider.description}
-                </span>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-zinc-400">
-            {settings.provider === 'transformers'
-              ? 'ローカルで動作する軽量な日本語AIモデルです。APIキーは不要です。'
-              : 'Googleが提供する高性能なAIモデルです。APIキーが必要です。'}
-          </p>
+          <Label>Gemini APIキー</Label>
+          <div className="flex items-center space-x-2">
+            <div className="flex-1">
+              <Input
+                type="password"
+                value={settings.apiKey ? '********' : '未設定'}
+                disabled
+              />
+            </div>
+            <EditButton onClick={() => setIsDialogOpen(true)} />
+            {settings.apiKey && <DeleteButton onClick={handleDelete} />}
+          </div>
         </div>
+      </CardContent>
 
-        {settings.provider === 'gemini' && (
-          <div className="space-y-2">
-            <Label htmlFor="apiKey" className="text-zinc-100">
-              Gemini API Key
-            </Label>
-            <div className="flex gap-2 items-center">
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Gemini APIキーの設定</DialogTitle>
+            <DialogDescription>
+              Google AI StudioからGemini APIキーを取得して設定してください。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="apiKey">APIキー</Label>
               <Input
                 id="apiKey"
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                className="flex-1 bg-zinc-900 border-zinc-800"
-                placeholder="sk-..."
+                placeholder="AIzaS..."
               />
-              {(!settings.apiKey || apiKey !== settings.apiKey) && (
-                <EditButton className="h-9 w-9" onClick={handleSaveApiKey}>
-                  <Pencil className="h-4 w-4" />
-                </EditButton>
-              )}
-              {settings.apiKey && (
-                <DeleteButton className="h-9 w-9" onClick={handleDeleteApiKey}>
-                  <Trash2 className="h-4 w-4" />
-                </DeleteButton>
-              )}
             </div>
-            <p className="text-xs text-zinc-400">
-              Google AI StudioでAPIキーを取得できます
-            </p>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                キャンセル
+              </Button>
+              <Button onClick={handleSave}>保存</Button>
+            </div>
           </div>
-        )}
-
-        <div className="rounded-lg bg-zinc-900 p-4 text-sm text-zinc-400">
-          <h4 className="font-medium text-zinc-300 mb-2">現在の設定</h4>
-          <p>
-            プロバイダー:{' '}
-            {settings.provider === 'gemini'
-              ? geminiProvider.name
-              : transformersProvider.name}
-          </p>
-          <p>
-            ステータス:{' '}
-            {settings.provider === 'gemini' && !settings.apiKey ? (
-              <span className="text-yellow-500">APIキーが未設定です</span>
-            ) : (
-              <span className="text-emerald-500">使用可能</span>
-            )}
-          </p>
-        </div>
-      </CardContent>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

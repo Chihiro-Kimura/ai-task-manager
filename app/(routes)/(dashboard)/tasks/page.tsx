@@ -1,10 +1,12 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { type ReactElement } from 'react';
+
 import TaskList from '@/components/(tasks)/list/TaskList';
 
-export default function TasksPage() {
+export default function TasksPage(): ReactElement {
   const { data: session, status } = useSession();
 
   if (status === 'loading') {
@@ -23,7 +25,7 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-6">
+    <div className="container mx-auto ">
       <TaskList />
     </div>
   );

@@ -3,9 +3,9 @@ import {
   FileText,
   Folder,
   Lightbulb,
+  type LucideIcon,
   Sparkles,
   Tag,
-  type LucideIcon,
 } from 'lucide-react';
 
 export type Icon = LucideIcon;

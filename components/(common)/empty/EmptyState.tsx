@@ -1,5 +1,6 @@
-import { Button } from '@/components/ui/button';
 import { RotateCcw } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
 
 interface EmptyStateProps {
   hasFilters: boolean;

@@ -1,7 +1,7 @@
 'use client';
 
 import { Tag } from '@prisma/client';
-import { useEffect, useState, type JSX } from 'react';
+import { type JSX, useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -57,7 +57,7 @@ export function TagFormModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
-          color,
+          color: JSON.stringify(color),
         }),
       });
 

@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server';
 
 // Supabaseクライアント設定
 const supabase = createClient(
@@ -63,8 +64,8 @@ async function getTaskPriority(task: { title: string; description?: string }) {
     return priority.includes('高')
       ? '高'
       : priority.includes('低')
-      ? '低'
-      : '中';
+        ? '低'
+        : '中';
   } catch (error) {
     throw new Error(
       `AI応答の取得に失敗しました: ${

@@ -1,21 +1,23 @@
 'use client';
 
-import { useSession, signOut } from 'next-auth/react';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 import { Layout, LogOut } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import Link from 'next/link';
+import { signOut, useSession } from 'next-auth/react';
+import { type ReactElement } from 'react';
 
-export default function Header() {
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+
+export default function Header(): ReactElement {
   const { data: session, status } = useSession();
 
-  const handleLogout = async () => {
+  const handleLogout = async (): Promise<void> => {
     await signOut({ callbackUrl: '/auth/signin' });
   };
 
   return (
-    <header className="border-b border-zinc-800 bg-zinc-950 px-4 py-3">
-      <div className="mx-auto flex max-w-7xl items-center justify-between">
+    <header className="border-b border-zinc-800 bg-zinc-950">
+      <div className="flex h-14 items-center justify-between pl-4 pr-4">
         <Link
           href="/"
           className="flex items-center gap-2 text-xl font-bold text-zinc-100"

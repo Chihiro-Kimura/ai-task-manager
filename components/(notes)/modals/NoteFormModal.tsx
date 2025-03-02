@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, type ReactElement } from 'react';
+import { type ReactElement, useEffect } from 'react';
 
 import { AddNoteForm } from '@/components/(notes)/forms/AddNoteForm';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from '@/components/ui/dialog';
 import { NoteWithTags } from '@/types/note';
 

@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import { geminiProvider } from '@/lib/ai/gemini';
-import { transformersProvider } from '@/lib/ai/transformers';
 import { AIProvider, AISettings } from '@/lib/ai/types';
 
 interface AIState {
@@ -15,7 +14,7 @@ export const useAIStore = create<AIState>()(
   persist(
     (set, get) => ({
       settings: {
-        provider: 'transformers',
+        provider: 'gemini',
         isEnabled: true,
       },
       updateSettings: (newSettings) => {
@@ -25,8 +24,7 @@ export const useAIStore = create<AIState>()(
             ...newSettings,
           };
 
-          // APIキーが設定されている場合はGeminiプロバイダーを初期化
-          if (settings.provider === 'gemini' && settings.apiKey) {
+          if (settings.apiKey) {
             geminiProvider.initialize(settings.apiKey);
           }
 
@@ -35,10 +33,10 @@ export const useAIStore = create<AIState>()(
       },
       getActiveProvider: () => {
         const { settings } = get();
-        if (settings.provider === 'gemini' && settings.apiKey) {
-          return geminiProvider;
+        if (!settings.apiKey) {
+          throw new Error('APIキーが設定されていません');
         }
-        return transformersProvider;
+        return geminiProvider;
       },
     }),
     {

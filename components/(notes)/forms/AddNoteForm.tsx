@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
-import { useEffect, useState, type ReactElement } from 'react';
+import { type ReactElement, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import useSWR from 'swr';
@@ -318,8 +318,8 @@ export function AddNoteForm({
                           isPending
                             ? 'opacity-50'
                             : isSelected
-                            ? 'bg-emerald-500 hover:bg-emerald-600'
-                            : 'bg-zinc-800 hover:bg-zinc-700'
+                              ? 'bg-emerald-500 hover:bg-emerald-600'
+                              : 'bg-zinc-800 hover:bg-zinc-700'
                         }`}
                         onClick={() => handleSuggestedTagClick(tagName)}
                       >

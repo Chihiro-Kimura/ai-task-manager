@@ -2,13 +2,13 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Task } from '@prisma/client';
 
 import {
-  AIProvider,
-  TaskSummary,
-  TaskClassification,
-  NextTaskSuggestion,
-  Priority,
   AIError,
   AIErrorType,
+  AIProvider,
+  NextTaskSuggestion,
+  Priority,
+  TaskClassification,
+  TaskSummary,
 } from './types';
 
 const TIMEOUT_MS = 30000; // 30秒タイムアウト

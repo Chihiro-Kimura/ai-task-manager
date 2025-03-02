@@ -1,21 +1,23 @@
 'use client';
 
+
 import { Tag } from '@prisma/client';
-import { Plus, Edit2, Trash2, Trash } from 'lucide-react';
+import { Edit2, Plus, Trash, Trash2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import { useState, type JSX } from 'react';
+import { type JSX, useState } from 'react';
 import useSWR from 'swr';
 
+import LoadingState from '@/components/(common)/loading/LoadingState';
 import {
-  EditButton,
-  DeleteButton,
   AddButton,
+  DeleteButton,
+  EditButton,
 } from '@/components/ui/action-button';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { getTagOpacity, type TagColor } from '@/lib/constants/colors';
+import { type TagColor, getTagOpacity } from '@/lib/constants/colors';
 import { getRandomColor } from '@/lib/utils';
 
 import { TagFormModal } from './TagFormModal';
@@ -23,10 +25,10 @@ import { TagFormModal } from './TagFormModal';
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 interface TagManagerProps {
-  tags: Tag[];
-  onTagCreate: (tag: Tag) => void;
-  onTagUpdate: (tag: Tag) => void;
-  onTagDelete: (tagId: string) => void;
+  tags?: Tag[];
+  onTagCreate?: (tag: Tag) => void;
+  onTagUpdate?: (tag: Tag) => void;
+  onTagDelete?: (tagId: string) => void;
 }
 
 export function TagManager({
@@ -34,7 +36,7 @@ export function TagManager({
   onTagCreate: _onTagCreate,
   onTagUpdate: _onTagUpdate,
   onTagDelete: _onTagDelete,
-}: TagManagerProps): JSX.Element {
+}: TagManagerProps = {}): JSX.Element {
   const { data: session } = useSession();
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -180,11 +182,15 @@ export function TagManager({
     );
   }
 
+  if (!tagsData) {
+    return <LoadingState message="タグを読み込み中..." fullHeight={false} />;
+  }
+
   const hasSelectedTags = selectedTags.size > 0;
 
   return (
     <>
-      <Card className="bg-zinc-900/50 border-zinc-800">
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div className="flex items-center gap-2">
             <CardTitle className="text-xl font-semibold text-zinc-100">

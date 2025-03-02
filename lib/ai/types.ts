@@ -2,17 +2,12 @@ export type Priority = '高' | '中' | '低';
 
 export interface AIEndpoint {
   path: string;
-  geminiModel: string;
-  transformersModel: {
-    task: string;
-    model: string;
-  };
+  model: string;
   description: string;
 }
 
 export interface TaskSummary {
   summary: string;
-  keywords: string[];
 }
 
 export interface TaskClassification {
@@ -56,9 +51,10 @@ export interface AIProvider {
 }
 
 export interface AISettings {
-  provider: 'gemini' | 'transformers';
+  provider: 'gemini';
   isEnabled: boolean;
   apiKey?: string;
+  model?: string;
 }
 
 export type AIErrorType =

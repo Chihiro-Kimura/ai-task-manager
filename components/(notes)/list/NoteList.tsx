@@ -2,7 +2,7 @@
 
 import { Plus, StickyNote } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import { useState, type ReactElement } from 'react';
+import { type ReactElement, useState } from 'react';
 import useSWR from 'swr';
 
 import ErrorState from '@/components/(common)/error/ErrorState';
@@ -76,7 +76,7 @@ export default function NoteList(): ReactElement {
 
   return (
     <>
-      <div className="p-4 border border-zinc-800 bg-zinc-950 rounded-lg min-h-[80vh] max-h-[85vh] flex flex-col">
+      <div className="p-4 bg-zinc-950 rounded-lg min-h-[80vh] max-h-[85vh] flex flex-col">
         <div className="mb-6 flex justify-between items-center">
           <h2 className="flex items-center gap-2 text-xl font-semibold text-zinc-100">
             <StickyNote className="h-5 w-5" />

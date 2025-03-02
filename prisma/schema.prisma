@@ -21,6 +21,7 @@ model Task {
   updatedAt   DateTime  @updatedAt
   userId      String
   user        User      @relation(fields: [userId], references: [id])
+  tags        Tag[]     @relation("TaskToTag")
 
   @@index([userId])
 }
@@ -109,6 +110,7 @@ model Tag {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   notes     Note[]   @relation("NoteToTag")
+  tasks     Task[]   @relation("TaskToTag")
   createdAt DateTime @default(now())
 
   @@index([userId])

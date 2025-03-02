@@ -1,5 +1,6 @@
 'use client';
 
+
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { signIn, useSession } from 'next-auth/react';
@@ -9,9 +10,9 @@ import LoadingState from '@/components/(common)/loading/LoadingState';
 import { Button } from '@/components/ui/button';
 import {
   Card,
-  CardHeader,
   CardContent,
   CardFooter,
+  CardHeader,
 } from '@/components/ui/card';
 
 export default function SignIn(): JSX.Element {

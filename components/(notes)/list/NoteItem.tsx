@@ -3,15 +3,15 @@
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { Edit2, Trash2 } from 'lucide-react';
-import { useState, type JSX } from 'react';
+import { type JSX, useState } from 'react';
 
-import { EditButton, DeleteButton } from '@/components/ui/action-button';
+import { DeleteButton, EditButton } from '@/components/ui/action-button';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
-  CardHeader,
   CardContent,
   CardFooter,
+  CardHeader,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { type TagColor } from '@/lib/constants/colors';
@@ -76,8 +76,8 @@ export default function NoteItem({
                   note.priority === '高'
                     ? 'border-rose-500/50 text-rose-400'
                     : note.priority === '中'
-                    ? 'border-amber-500/50 text-amber-400'
-                    : 'border-emerald-500/50 text-emerald-400'
+                      ? 'border-amber-500/50 text-amber-400'
+                      : 'border-emerald-500/50 text-emerald-400'
                 }`}
               >
                 優先度: {note.priority}
