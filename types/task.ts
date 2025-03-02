@@ -10,7 +10,7 @@ export interface TaskWithExtras {
   createdAt: Date;
   updatedAt: Date;
   userId: string;
-  tags?: { id: string; name: string }[];
+  tags?: { id: string; name: string; color: string | null }[];
 }
 
 export interface UpdateTaskRequest {
@@ -39,5 +39,5 @@ export interface CreateTaskData {
   task_order: number;
   category: string;
   due_date?: Date;
-  tags?: { id: string; name: string }[];
+  tags?: { id: string; name: string; color: string | null }[];
 }
