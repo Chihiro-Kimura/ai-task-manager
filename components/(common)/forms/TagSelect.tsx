@@ -16,7 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { TAG_MESSAGES } from '@/lib/constants/messages';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/styles';
 import { createTag, fetchTags, updateTags } from '@/lib/utils/tag';
 
 interface TagSelectProps {

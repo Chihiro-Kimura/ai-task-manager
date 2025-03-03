@@ -35,7 +35,7 @@ import { useAISettings } from '@/hooks/use-ai-settings';
 import { useToast } from '@/hooks/use-toast';
 import { summaryCache } from '@/lib/ai/cache';
 import { Priority } from '@/lib/ai/types';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/styles';
 import { useTaskStore } from '@/store/taskStore';
 import { TaskWithExtras } from '@/types/task';
 

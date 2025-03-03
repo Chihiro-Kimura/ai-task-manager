@@ -18,12 +18,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { type TagColor, getTagOpacity } from '@/lib/constants/colors';
 import { TAG_MESSAGES } from '@/lib/constants/messages';
-import { getRandomColor } from '@/lib/utils';
+import { getRandomColor } from '@/lib/utils/styles';
 import { deleteTag, fetchTags } from '@/lib/utils/tag';
 
 import { TagFormModal } from './TagFormModal';
-
-const isDevelopment = process.env.NODE_ENV === 'development';
 
 interface TagManagerProps {
   tags?: Tag[];

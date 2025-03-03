@@ -1,14 +1,10 @@
-export interface Tag {
-  id: string;
-  name: string;
-  color?: string;
-}
+import { Priority, Tag } from './common';
 
 export interface Note {
   id: string;
   title: string;
   content: string;
-  priority?: '高' | '中' | '低';
+  priority?: Priority;
   tags: Tag[];
   createdAt: string;
   updatedAt: string;
@@ -18,14 +14,14 @@ export interface Note {
 export interface CreateNoteData {
   title: string;
   content: string;
-  priority?: '高' | '中' | '低';
+  priority?: Priority;
   tags: string[]; // タグのID配列
 }
 
 export interface UpdateNoteData {
   title?: string;
   content?: string;
-  priority?: '高' | '中' | '低';
+  priority?: Priority;
   tags?: string[]; // タグのID配列
 }
 

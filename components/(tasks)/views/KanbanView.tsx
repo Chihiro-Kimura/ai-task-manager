@@ -9,7 +9,7 @@ import ErrorState from '@/components/(common)/error/ErrorState';
 import LoadingState from '@/components/(common)/loading/LoadingState';
 import TaskColumn from '@/components/(tasks)/column/TaskColumn';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/styles';
 import { useTaskStore } from '@/store/taskStore';
 import { TaskWithExtras } from '@/types/task';
 
@@ -37,8 +37,9 @@ export default function KanbanView(): ReactElement {
       if (!session?.user?.id) return [];
 
       const response = await fetch(url, {
+        credentials: 'include',
         headers: {
-          'X-User-Id': session.user.id,
+          'Content-Type': 'application/json',
         },
       });
 

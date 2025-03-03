@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/styles';
 
 interface Tag {
   id: string;

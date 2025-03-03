@@ -26,8 +26,9 @@ export default function ListView(): ReactElement {
       if (!session?.user?.id) return [];
 
       const response = await fetch(url, {
+        credentials: 'include',
         headers: {
-          'X-User-Id': session.user.id,
+          'Content-Type': 'application/json',
         },
       });
 

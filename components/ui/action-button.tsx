@@ -3,7 +3,7 @@
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { ButtonHTMLAttributes, type ReactElement } from 'react';
 
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/styles';
 
 type ActionButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   size?: 'sm' | 'default' | 'lg';

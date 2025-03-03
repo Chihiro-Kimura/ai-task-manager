@@ -4,7 +4,7 @@ import { Flag } from 'lucide-react';
 import { type ReactElement } from 'react';
 
 import { Card } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/styles';
 
 import { AIFeatureProps } from '../types';
 

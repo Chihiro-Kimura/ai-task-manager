@@ -2,7 +2,7 @@ import { type ReactElement } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { type TagColor } from '@/lib/constants/colors';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils/styles';
 
 interface ColoredTagProps {
   tag: {
