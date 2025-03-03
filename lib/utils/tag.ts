@@ -1,7 +1,7 @@
 import { Tag } from '@prisma/client';
 
 import { TAG_MESSAGES } from '@/lib/constants/messages';
-import { getRandomColor } from '@/lib/utils';
+import { getRandomColor } from '@/lib/utils/styles';
 
 export interface TagUpdateParams {
   id?: string;
