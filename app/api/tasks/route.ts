@@ -1,42 +1,48 @@
 import { NextResponse } from 'next/server';
 
-import { prisma } from '@/lib/prisma';
+import { auth } from '@/lib/auth/config';
+import { prisma } from '@/lib/db/client';
 
 // タスク一覧用のエンドポイント
-export async function GET(request: Request) {
+export async function GET(_request: Request): Promise<NextResponse> {
   try {
-    const userId = request.headers.get('X-User-Id');
-
-    if (!userId) {
+    const session = await auth();
+    if (!session?.user) {
       return NextResponse.json(
-        { error: 'ユーザーIDは必須です' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       );
     }
 
     const tasks = await prisma.task.findMany({
       where: {
-        userId: userId as string,
+        userId: session.user.id,
       },
       include: {
         tags: true,
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: [
+        {
+          category: 'asc',
+        },
+        {
+          task_order: 'asc',
+        },
+      ],
     });
 
     return NextResponse.json(tasks);
-  } catch {
+  } catch (error) {
+    console.error('[TASKS_GET]', error);
     return NextResponse.json(
-      { error: 'サーバーエラーが発生しました' },
+      { error: 'Internal Server Error' },
       { status: 500 }
     );
   }
 }
 
 // タスクの新規作成
-export async function POST(request: Request) {
+export async function POST(request: Request): Promise<NextResponse> {
   try {
     const userId = request.headers.get('X-User-Id');
     const data = await request.json();
@@ -78,7 +84,7 @@ export async function POST(request: Request) {
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+): Promise<NextResponse> {
   const { id } = await params;
 
   if (!id) {
@@ -147,7 +153,7 @@ export async function PATCH(
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+): Promise<NextResponse> {
   const { id } = await params;
 
   if (!id) {

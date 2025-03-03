@@ -1,8 +1,8 @@
 import { Tag } from '@prisma/client';
 import { NextResponse } from 'next/server';
 
-import { auth } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { auth } from '@/lib/auth/config';
+import { prisma } from '@/lib/db/client';
 
 // タグの作成・更新用のデータ型
 interface TagData {

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { getRandomColor } from '@/lib/utils';
+import { authOptions } from '@/lib/auth/config';
+import { prisma } from '@/lib/db/client';
+import { getRandomColor } from '@/lib/utils/styles';
 
 interface TagsUpdateRequest {
   tags: string[];
@@ -47,7 +47,7 @@ export async function PUT(
     }
 
     const { tags } = data;
-    const taskId = params.id;
+    const { id: taskId } = await Promise.resolve(params);
 
     // タスクの所有者を確認
     const task = await prisma.task.findUnique({

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { prisma } from '@/lib/prisma';
+import { auth } from '@/lib/auth/config';
+import { prisma } from '@/lib/db/client';
 
 interface TaskUpdate {
   id: string;
@@ -10,15 +11,15 @@ interface TaskUpdate {
 
 export async function PATCH(request: Request): Promise<NextResponse> {
   try {
-    const { tasks } = (await request.json()) as { tasks: TaskUpdate[] };
-    const userId = request.headers.get('X-User-Id');
-
-    if (!userId) {
+    const session = await auth();
+    if (!session?.user) {
       return NextResponse.json(
-        { error: 'ユーザーIDは必須です' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       );
     }
+
+    const { tasks } = (await request.json()) as { tasks: TaskUpdate[] };
 
     if (!tasks || !Array.isArray(tasks)) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
@@ -47,7 +48,7 @@ export async function PATCH(request: Request): Promise<NextResponse> {
             tx.task.update({
               where: {
                 id: task.id,
-                userId,
+                userId: session.user.id,
               },
               data: {
                 category: task.category,
@@ -67,6 +68,7 @@ export async function PATCH(request: Request): Promise<NextResponse> {
 
     return NextResponse.json({ message: 'Order updated successfully' });
   } catch (error: unknown) {
+    console.error('[TASK_BATCH_ORDER]', error);
     const errorMessage = error instanceof Error ? error.message : 'タスクの並び順の更新に失敗しました';
     return NextResponse.json(
       { error: errorMessage },
