@@ -13,8 +13,6 @@ import { NoteWithTags } from '@/types/note';
 
 import NoteItem from './NoteItem';
 
-const isDevelopment = process.env.NODE_ENV === 'development';
-
 export default function NoteList(): ReactElement {
   const { data: session } = useSession();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -31,10 +29,6 @@ export default function NoteList(): ReactElement {
     async (url: string) => {
       if (!session?.user?.id) return [];
 
-      if (isDevelopment) {
-        console.log('🔍 Fetching notes for user:', session.user.id);
-      }
-
       const response = await fetch(url, {
         headers: {
           'X-User-Id': session.user.id,
@@ -46,9 +40,6 @@ export default function NoteList(): ReactElement {
       }
 
       const data = await response.json();
-      if (isDevelopment) {
-        console.log('✅ Notes fetched:', data.length);
-      }
       return data;
     }
   );

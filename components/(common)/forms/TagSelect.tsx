@@ -47,6 +47,13 @@ export default function TagSelect({
   const [newTagName, setNewTagName] = useState('');
   const [showNewTagInput, setShowNewTagInput] = useState(false);
 
+  // 提案されたタグがある場合は自動的にポップオーバーを開く
+  useEffect(() => {
+    if (suggestedTags?.length > 0) {
+      setIsOpen(true);
+    }
+  }, [suggestedTags]);
+
   const currentSelectedTags = selectedTags ?? [];
 
   const loadTags = async (): Promise<void> => {
@@ -125,23 +132,89 @@ export default function TagSelect({
         tag.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    // 検索クエリがない場合は、提案されたタグを優先的に表示
-    return [
-      ...tags.filter(tag => suggestedTags.includes(tag.name.toLowerCase())),
-      ...tags.filter(tag => !suggestedTags.includes(tag.name.toLowerCase()))
-    ];
+
+    // 提案されたタグが存在しない場合は全てのタグを表示
+    if (!suggestedTags?.length) {
+      return tags;
+    }
+
+    // 提案されたタグを優先的に表示
+    const suggestedTagsLower = suggestedTags.map(tag => tag.toLowerCase());
+    
+    // 既存のタグから提案されたタグと一致するものを探す
+    const existingSuggested = tags.filter(tag => 
+      suggestedTagsLower.includes(tag.name.toLowerCase())
+    );
+
+    // 既存のタグに存在しない提案タグを仮想的なタグとして作成
+    const newSuggestedTags = suggestedTags
+      .filter(suggestedName => 
+        !tags.some(tag => tag.name.toLowerCase() === suggestedName.toLowerCase())
+      )
+      .map(name => ({
+        id: `suggested-${name}`,
+        name,
+        color: null,
+        userId: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }));
+
+    // その他の既存のタグ
+    const others = tags.filter(tag => 
+      !suggestedTagsLower.includes(tag.name.toLowerCase())
+    );
+
+    return [...newSuggestedTags, ...existingSuggested, ...others];
   }, [tags, searchQuery, suggestedTags]);
 
-  const handleSelect = (tagId: string): void => {
-    const selectedTag = tags.find((tag) => tag.id === tagId);
-    if (!selectedTag) return;
+  const handleSelect = async (tagId: string): Promise<void> => {
+    try {
+      if (tagId.startsWith('suggested-')) {
+        const tagName = tagId.replace('suggested-', '');
+        const response = await fetch('/api/tags', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: tagName,
+            color: '#3B82F6', // デフォルトの色を設定
+          }),
+        });
 
-    const isAlreadySelected = currentSelectedTags.some((tag) => tag.id === tagId);
-    const newTags = isAlreadySelected
-      ? currentSelectedTags.filter((tag) => tag.id !== tagId)
-      : [...currentSelectedTags, selectedTag];
+        if (!response.ok) {
+          throw new Error('Failed to create tag');
+        }
 
-    void handleUpdateTags(newTags);
+        const newTag = await response.json();
+
+        // 新しく作成したタグをタグリストに追加
+        setTags((prev) => [...prev, newTag]);
+        
+        // 新しく作成したタグを選択状態に追加
+        const updatedTags = [...currentSelectedTags, newTag];
+        onTagsChange(updatedTags);
+        return;
+      }
+
+      // 既存のタグの選択/解除
+      const selectedTag = tags.find((tag) => tag.id === tagId);
+      if (!selectedTag) return;
+
+      const isSelected = currentSelectedTags.some((tag) => tag.id === tagId);
+      const updatedTags = isSelected
+        ? currentSelectedTags.filter((tag) => tag.id !== tagId)
+        : [...currentSelectedTags, selectedTag];
+      onTagsChange(updatedTags);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'タグの作成に失敗しました';
+      toast({
+        title: 'エラー',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -268,16 +341,10 @@ export default function TagSelect({
                       onClick={() => handleSelect(tag.id)}
                       className={cn(
                         "w-full flex items-center justify-between px-2 py-1.5 text-sm rounded hover:bg-zinc-800",
-                        currentSelectedTags.some((selected) => selected.id === tag.id) && "bg-zinc-800",
-                        suggestedTags.includes(tag.name.toLowerCase()) && "border border-blue-500/30"
+                        currentSelectedTags.some((selected) => selected.id === tag.id) && "bg-zinc-800"
                       )}
                     >
-                      <span className="flex items-center gap-1.5">
-                        <ColoredTag tag={tag} className="text-sm" />
-                        {suggestedTags.includes(tag.name.toLowerCase()) && (
-                          <span className="text-xs text-blue-400">推奨</span>
-                        )}
-                      </span>
+                      <ColoredTag tag={tag} className="text-sm" />
                       {currentSelectedTags.some(
                         (selected) => selected.id === tag.id
                       ) && (

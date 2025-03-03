@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactElement } from 'react';
+import { type ReactElement, useEffect } from 'react';
 
 import { AILoading } from '@/components/(common)/loading/AILoading';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,12 @@ export default function AITaskAnalysis({
   onMutate,
   setSelectedFeatureId,
 }: AITaskAnalysisProps): ReactElement {
+  useEffect(() => {
+    if (selectedFeatureId === 'tags') {
+      console.log('AITaskAnalysis: Tags prop:', tags);
+    }
+  }, [selectedFeatureId, tags]);
+
   if (error) {
     return (
       <div className="rounded-lg bg-red-500/10 p-4 text-sm text-red-500">

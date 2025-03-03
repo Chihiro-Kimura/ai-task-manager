@@ -2,6 +2,7 @@ import { type ReactElement } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { type TagColor } from '@/lib/constants/colors';
+import { cn } from '@/lib/utils';
 
 interface ColoredTagProps {
   tag: {
@@ -22,13 +23,31 @@ export function ColoredTag({ tag, className }: ColoredTagProps): ReactElement {
     console.error('Failed to parse tag color:', e);
   }
 
+  // 提案されたタグの場合のデフォルトスタイル
+  const isSuggestedTag = tag.id.startsWith('suggested-');
+  const defaultStyle = isSuggestedTag
+    ? {
+        backgroundColor: 'rgb(59 130 246 / 0.1)',
+        color: 'rgb(96 165 250)',
+        borderColor: 'rgb(59 130 246 / 0.2)',
+      }
+    : {
+        backgroundColor: 'rgb(63 63 70 / 0.5)',
+        color: 'rgb(161 161 170)',
+        borderColor: 'rgb(63 63 70 / 0.2)',
+      };
+
   return (
     <Badge
       variant="secondary"
-      className={`bg-zinc-800 text-zinc-300 ${className || ''}`}
+      className={cn(
+        'border transition-colors duration-200',
+        className
+      )}
       style={{
-        backgroundColor: tagColor?.bg || 'rgba(55, 65, 81, 0.15)',
-        color: tagColor?.color || 'rgb(156, 163, 175)',
+        backgroundColor: tagColor?.bg || defaultStyle.backgroundColor,
+        color: tagColor?.color || defaultStyle.color,
+        borderColor: tagColor ? `${tagColor.color}20` : defaultStyle.borderColor,
       }}
     >
       {tag.name}

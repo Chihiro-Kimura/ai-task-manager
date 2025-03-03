@@ -50,11 +50,36 @@ export async function POST(req: Request): Promise<NextResponse<Tag>> {
 
     const data = (await req.json()) as TagData;
 
+    // 既存のタグを検索
+    const existingTag = await prisma.tag.findFirst({
+      where: {
+        name: {
+          equals: data.name,
+          mode: 'insensitive', // 大文字小文字を区別しない
+        },
+        userId: session.user.id,
+      },
+    });
+
+    // 既存のタグがある場合はそれを返す
+    if (existingTag) {
+      return NextResponse.json(existingTag);
+    }
+
+    // 新しいタグを作成
     const tag = await prisma.tag.create({
       data: {
         name: data.name,
         color: data.color,
         userId: session.user.id,
+      },
+      include: {
+        _count: {
+          select: {
+            notes: true,
+            tasks: true,
+          },
+        },
       },
     });
 

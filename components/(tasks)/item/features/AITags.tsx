@@ -2,18 +2,24 @@
 
 import { Tag } from '@prisma/client';
 import { useSession } from 'next-auth/react';
-import { type ReactElement, useState } from 'react';
+import { type ReactElement, useState, useEffect } from 'react';
 
 import { ColoredTag } from '@/components/(common)/ColoredTag';
 import TagSelect from '@/components/(common)/forms/TagSelect';
 import { AILoading } from '@/components/(common)/loading/AILoading';
 import { useToast } from '@/hooks/use-toast';
 import { TAG_MESSAGES } from '@/lib/constants/messages';
-import { updateTags } from '@/lib/utils/tag';
 import { useTaskStore } from '@/store/taskStore';
 import { TaskWithExtras } from '@/types/task';
 
 import { AIFeatureProps } from '../types';
+
+// Tag型を拡張
+interface TaskTag {
+  id: string;
+  name: string;
+  color: string | null;
+}
 
 interface AITagsProps extends AIFeatureProps {
   suggestedTags: string[];
@@ -24,34 +30,113 @@ export function AITags({ task, suggestedTags, onMutate }: AITagsProps): ReactEle
   const { toast } = useToast();
   const [localTask, setLocalTask] = useState<TaskWithExtras>(task);
   const [isApplying, setIsApplying] = useState(false);
+  const [pendingTags, setPendingTags] = useState<{ [key: string]: boolean }>({});
+  const [processingUpdate, setProcessingUpdate] = useState(false);
   const { tasks, setTasks } = useTaskStore();
 
-  const updateTaskWithTags = async (selectedTags: Tag[]): Promise<void> => {
+  // デバッグ用のログを追加
+  useEffect(() => {
+    console.log('AITags: Received suggestedTags:', suggestedTags);
+  }, [suggestedTags]);
+
+  const handleSuggestedTagClick = async (tagName: string): Promise<void> => {
+    if (pendingTags[tagName] || processingUpdate) return;
+
     try {
-      setIsApplying(true);
-      await updateTags({
-        id: task.id,
-        type: 'task',
-        tags: selectedTags.map(tag => tag.id),
-      });
+      setPendingTags((prev) => ({ ...prev, [tagName]: true }));
+      setProcessingUpdate(true);
 
-      // 更新されたタスク情報を取得
-      const taskResponse = await fetch(`/api/tasks/${task.id}?include=tags`, {
+      // オプティミスティックな更新
+      const optimisticTag = {
+        id: `suggested-${tagName}`,
+        name: tagName,
+        color: null,
+      };
+
+      const optimisticTags = [...(localTask.tags || [])];
+      if (!optimisticTags.some(tag => tag.name.toLowerCase() === tagName.toLowerCase())) {
+        optimisticTags.push(optimisticTag);
+        setLocalTask(prev => ({
+          ...prev,
+          tags: optimisticTags,
+        }));
+      }
+      
+      // タグの更新を実行
+      const response = await fetch(`/api/tasks/${task.id}/tags`, {
+        method: 'PUT',
         headers: {
-          'X-User-Id': session?.user?.id || '',
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          tags: [...(localTask.tags?.map(tag => tag.name) || []), tagName],
+        }),
       });
 
-      if (!taskResponse.ok) {
-        throw new Error(TAG_MESSAGES.FETCH_ERROR);
+      if (!response.ok) {
+        throw new Error(TAG_MESSAGES.UPDATE_ERROR);
       }
 
-      const updatedTaskData = await taskResponse.json();
+      const updatedTags = await response.json();
+
+      // サーバーからの応答で状態を更新
+      const updatedTask = {
+        ...task,
+        tags: updatedTags,
+      };
+      setLocalTask(updatedTask);
+      setTasks(tasks.map(t => t.id === task.id ? updatedTask : t));
+
+      // 親コンポーネントの状態を更新
+      await onMutate();
+
+      toast({
+        title: TAG_MESSAGES.UPDATE_SUCCESS,
+        description: TAG_MESSAGES.APPLY_SUCCESS,
+      });
+    } catch (error: unknown) {
+      // エラー時は元の状態に戻す
+      setLocalTask(task);
+      toast({
+        title: 'エラー',
+        description: TAG_MESSAGES.CREATE_ERROR,
+        variant: 'destructive',
+      });
+    } finally {
+      setPendingTags((prev) => ({ ...prev, [tagName]: false }));
+      setProcessingUpdate(false);
+    }
+  };
+
+  const updateTaskWithTags = async (selectedTags: TaskTag[]): Promise<void> => {
+    if (processingUpdate) return;
+
+    try {
+      setProcessingUpdate(true);
+      setIsApplying(true);
+
+      // タグの更新を実行
+      const response = await fetch(`/api/tasks/${task.id}/tags`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': session?.user?.id || '',
+        },
+        body: JSON.stringify({
+          tags: selectedTags.map(tag => tag.name),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(TAG_MESSAGES.UPDATE_ERROR);
+      }
+
+      const updatedTags = await response.json();
 
       // ローカルタスクの状態を更新
       const updatedTask = {
         ...task,
-        ...updatedTaskData,
+        tags: updatedTags,
       };
       setLocalTask(updatedTask);
 
@@ -67,7 +152,7 @@ export function AITags({ task, suggestedTags, onMutate }: AITagsProps): ReactEle
         title: TAG_MESSAGES.UPDATE_SUCCESS,
         description: TAG_MESSAGES.APPLY_SUCCESS,
       });
-    } catch (error) {
+    } catch (error: unknown) {
       toast({
         title: 'エラー',
         description: error instanceof Error ? error.message : TAG_MESSAGES.UPDATE_ERROR,
@@ -75,47 +160,63 @@ export function AITags({ task, suggestedTags, onMutate }: AITagsProps): ReactEle
       });
     } finally {
       setIsApplying(false);
+      setProcessingUpdate(false);
     }
   };
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-medium text-zinc-200">タグの提案</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-zinc-200">タグの提案</h3>
+        {isApplying && <AILoading size="sm" text="適用中..." />}
+      </div>
 
-      {/* 現在のタグ */}
-      {localTask.tags && localTask.tags.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium text-zinc-400">現在のタグ</h4>
-          <div className="flex flex-wrap gap-2">
-            {localTask.tags.map((tag) => (
+      {/* 提案されたタグを横一列で表示 */}
+      <div className="flex flex-wrap gap-2">
+        {suggestedTags.map((tagName) => {
+          const isSelected = localTask.tags?.some(
+            (tag) => tag.name.toLowerCase() === tagName.toLowerCase()
+          );
+          const isPending = pendingTags[tagName];
+
+          return (
+            <button
+              key={tagName}
+              onClick={() => void handleSuggestedTagClick(tagName)}
+              disabled={isSelected || isPending}
+              className="group relative"
+            >
               <ColoredTag
-                key={tag.id}
-                tag={tag}
-                className="text-sm"
+                tag={{
+                  id: `suggested-${tagName}`,
+                  name: tagName,
+                  color: null,
+                }}
+                className={`text-sm transition-opacity ${
+                  isSelected ? 'opacity-50' : 'hover:opacity-80'
+                }`}
               />
-            ))}
-          </div>
-        </div>
-      )}
+              {isPending && (
+                <div className="absolute inset-0 flex items-center justify-center bg-zinc-900/50 rounded">
+                  <AILoading size="sm" text="" />
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
-      {/* タグの選択と作成 */}
-      <div className="space-y-2">
-        <h4 className="text-sm font-medium text-zinc-400">タグを選択または作成</h4>
+      {/* 既存のタグ選択 */}
+      <div className="pt-2">
         <TagSelect
           id={task.id}
           type="task"
           selectedTags={localTask.tags as Tag[]}
           onTagsChange={updateTaskWithTags}
-          suggestedTags={suggestedTags}
           className="w-full"
+          variant="default"
         />
       </div>
-
-      {isApplying && (
-        <div className="flex justify-center">
-          <AILoading size="sm" text="適用中..." />
-        </div>
-      )}
     </div>
   );
 } 

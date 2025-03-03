@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getRandomColor } from '@/lib/utils';
 
 interface TagsUpdateRequest {
   tags: string[];
@@ -60,43 +61,59 @@ export async function PUT(
       );
     }
 
-    // 既存のタグを取得
-    const existingTags = await prisma.tag.findMany({
-      where: {
-        name: {
-          in: tags,
-        },
-        userId: session.user.id,
-      },
-    });
-
-    // 新しいタグを作成
-    const newTags = tags.filter(
-      (tag) => !existingTags.some((existing) => existing.name === tag)
-    );
-    const createdTags = await Promise.all(
-      newTags.map((tag) =>
-        prisma.tag.create({
-          data: {
-            name: tag,
-            userId: session.user.id,
+    // タグの作成と更新を1つのトランザクションで処理
+    const result = await prisma.$transaction(async (tx) => {
+      // 既存のタグをキャッシュとして保持
+      const existingTags = await tx.tag.findMany({
+        where: {
+          name: {
+            in: tags,
+            mode: 'insensitive', // 大文字小文字を区別しない
           },
-        })
-      )
-    );
-
-    // タスクのタグを更新
-    const allTags = [...existingTags, ...createdTags];
-    await prisma.task.update({
-      where: { id: taskId },
-      data: {
-        tags: {
-          set: allTags.map((tag) => ({ id: tag.id })),
+          userId: session.user.id,
         },
-      },
+      });
+
+      // 既存のタグ名をマップとして保持（大文字小文字を区別しない）
+      const existingTagsMap = new Map(
+        existingTags.map(tag => [tag.name.toLowerCase(), tag])
+      );
+
+      // 新しいタグを作成（存在しないものだけ）
+      const newTags = await Promise.all(
+        tags
+          .filter(tag => !existingTagsMap.has(tag.toLowerCase()))
+          .map(name =>
+            tx.tag.create({
+              data: {
+                name,
+                userId: session.user.id,
+                color: JSON.stringify(getRandomColor()),
+              },
+            })
+          )
+      );
+
+      // すべてのタグを結合（既存のタグと新規作成したタグ）
+      const allTags = [...existingTags, ...newTags];
+
+      // タスクのタグを更新
+      const updatedTask = await tx.task.update({
+        where: { id: taskId },
+        data: {
+          tags: {
+            set: allTags.map(tag => ({ id: tag.id })),
+          },
+        },
+        include: {
+          tags: true,
+        },
+      });
+
+      return updatedTask.tags;
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error updating task tags:', error);
     return NextResponse.json(

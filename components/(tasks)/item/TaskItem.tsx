@@ -261,7 +261,7 @@ export default function TaskItem({
     <>
       <div className="group relative flex items-start gap-1 rounded-lg border border-zinc-800 bg-gradient-to-b from-slate-900 to-slate-900/80 px-1 py-2.5 md:min-h-[8.5rem] lg:min-h-[9rem] hover:from-slate-900/90 hover:to-slate-900/70 transition-colors w-full">
         <div className="flex-1 min-w-0">
-          <div className="flex items-start gap-1 h-full">
+          <div className="flex items-start gap-2 h-full">
             <Checkbox
               checked={task.status === '完了'}
               onCheckedChange={async () => {
@@ -316,7 +316,7 @@ export default function TaskItem({
                             }
                           }}
                           className={cn(
-                            'flex-1 font-medium truncate tracking-tight min-w-0 text-base',
+                            'flex-1 font-medium truncate tracking-tight min-w-0 text-sm',
                             task.status === '完了' && 'line-through text-zinc-500'
                           )}
                         >
@@ -341,7 +341,7 @@ export default function TaskItem({
                       }
                     }}
                     className={cn(
-                      'flex-1 font-medium truncate tracking-tight min-w-0 text-base',
+                      'flex-1 font-medium truncate tracking-tight min-w-0 text-sm',
                       task.status === '完了' && 'line-through text-zinc-500'
                     )}
                   >
@@ -394,7 +394,7 @@ export default function TaskItem({
                             }
                           }}
                           className={cn(
-                            'text-sm text-zinc-400 line-clamp-2 md:line-clamp-3 mt-1 flex-1 break-words min-h-[2.5em] md:min-h-[3.75em] pb-0.5',
+                            'text-xs text-zinc-400 line-clamp-2 md:line-clamp-3 mt-1 flex-1 break-words min-h-[2.5em] md:min-h-[3.75em] pb-0.5',
                             task.status === '完了' && 'line-through'
                           )}
                         >
@@ -419,7 +419,7 @@ export default function TaskItem({
                       }
                     }}
                     className={cn(
-                      'text-sm text-zinc-400 line-clamp-2 md:line-clamp-3 mt-1 flex-1 break-words min-h-[2.5em] md:min-h-[3.75em] pb-0.5',
+                      'text-xs text-zinc-400 line-clamp-2 md:line-clamp-3 mt-1 flex-1 break-words min-h-[2.5em] md:min-h-[3.75em] pb-0.5',
                       task.status === '完了' && 'line-through'
                     )}
                   >
@@ -430,7 +430,7 @@ export default function TaskItem({
               {task.tags && task.tags.length > 0 && (
                 <div className="mt-auto pt-1 flex flex-wrap gap-1">
                   {task.tags.map((tag) => (
-                    <ColoredTag key={tag.id} tag={tag} />
+                    <ColoredTag key={tag.id} tag={tag} className="text-xs" />
                   ))}
                 </div>
               )}

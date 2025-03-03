@@ -2,17 +2,10 @@ import { NextResponse } from 'next/server';
 
 import { prisma } from '@/lib/prisma';
 
-interface TaskUpdate {
-  id: string;
-  category: string;
-  task_order: number;
-}
-
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ): Promise<NextResponse> {
-  console.log('=== Task Order Update API Start ===');
   try {
     const taskId = params.id;
     const { category, task_order } = await request.json();
@@ -39,17 +32,11 @@ export async function PATCH(
       },
     });
 
-    console.log('=== Task Order Update API End ===');
     return NextResponse.json(updatedTask);
-  } catch (error) {
-    console.error('=== Task Order Update API Error ===');
-    console.error('Error details:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      timestamp: new Date().toISOString(),
-    });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'タスクの並び順の更新に失敗しました';
     return NextResponse.json(
-      { error: 'タスクの並び順の更新に失敗しました' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

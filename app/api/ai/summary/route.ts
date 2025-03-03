@@ -4,7 +4,6 @@ import { NextResponse } from 'next/server';
 export async function POST(request: Request): Promise<NextResponse> {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
-    console.log('API Key check:', apiKey ? '設定されています' : '設定されていません');
 
     if (!apiKey) {
       return NextResponse.json(
@@ -14,10 +13,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     const { title, content } = await request.json();
-    console.log('Request payload:', { 
-      titleReceived: !!title, 
-      contentReceived: !!content 
-    });
 
     if (!title || !content) {
       return NextResponse.json(
@@ -36,7 +31,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
 
     try {
-      console.log('Generating content with model...');
       const prompt = `
 以下のタスクの内容を3行程度で簡潔に要約してください。
 重要なポイントを漏らさず、具体的にまとめてください。
@@ -52,7 +46,6 @@ export async function POST(request: Request): Promise<NextResponse> {
       const result = await model.generateContent(prompt);
       const response = result.response;
       const text = await response.text(); // ✅ `await` を追加
-      console.log('Content generated successfully:', text);
 
       // JSON 形式かどうかをチェック
       const jsonMatch = text.match(/\{[^}]*"summary"[^}]*\}/);
