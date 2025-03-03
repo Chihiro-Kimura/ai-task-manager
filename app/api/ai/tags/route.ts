@@ -1,15 +1,29 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse, NextRequest } from 'next/server';
-import { getServerSession } from 'next-auth/next';
+import { getServerSession } from 'next-auth';
 
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { getRandomColor } from '@/lib/utils';
+import { GeminiClient } from '@/lib/ai/gemini/client';
+import { AITaskAnalysis } from '@/lib/ai/gemini/types';
+import { withErrorHandler } from '@/lib/api/middleware/error-handler';
+import { validateRequestBody } from '@/lib/api/middleware/validation';
+import { authOptions } from '@/lib/auth/config';
+import { prisma } from '@/lib/db/client';
+import { getRandomColor } from '@/lib/utils/styles';
 
-interface Props {
-  params: {
-    id: string;
-  };
+interface TagsRequest {
+  title: string;
+  content: string;
+  existingTags?: { name: string }[];
+}
+
+function isTagsRequest(data: unknown): data is TagsRequest {
+  const request = data as TagsRequest;
+  return (
+    typeof request === 'object' &&
+    request !== null &&
+    typeof request.title === 'string' &&
+    typeof request.content === 'string' &&
+    (!request.existingTags || Array.isArray(request.existingTags))
+  );
 }
 
 interface TagsUpdateRequest {
@@ -26,27 +40,11 @@ function isTagsUpdateRequest(data: unknown): data is TagsUpdateRequest {
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
-  try {
-    const apiKey = process.env.GEMINI_API_KEY;
+  return withErrorHandler(async () => {
+    const data = await request.json();
+    const validatedData = validateRequestBody(data, isTagsRequest);
 
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'APIキーが設定されていません' },
-        { status: 401 }
-      );
-    }
-
-    const { title, content, existingTags } = await request.json();
-
-    if (!title || !content) {
-      return NextResponse.json(
-        { error: 'タイトルと内容は必須です' },
-        { status: 400 }
-      );
-    }
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
+    const model = GeminiClient.getInstance().getClient().getGenerativeModel({
       model: "gemini-1.5-pro",
       generationConfig: {
         temperature: 0.3,
@@ -54,14 +52,13 @@ export async function POST(request: Request): Promise<NextResponse> {
       },
     });
 
-    try {
-      const existingTagNames = existingTags?.map((tag: { name: string }) => tag.name).join(', ') || '';
-      const prompt = `
+    const existingTagNames = validatedData.existingTags?.map(tag => tag.name).join(', ') || '';
+    const prompt = `
 以下のテキストに適したタグを5つ以内で提案してください。
 既存のタグ: ${existingTagNames}
 
-タイトル: ${title}
-内容: ${content}
+タイトル: ${validatedData.title}
+内容: ${validatedData.content}
 
 タグの条件:
 - 短く簡潔な単語やフレーズ
@@ -70,47 +67,38 @@ export async function POST(request: Request): Promise<NextResponse> {
 - 新しいタグは必要な場合のみ提案
 
 出力形式：
-カンマ区切りのタグリスト（例: "タグ1, タグ2, タグ3"）`;
+{
+  "suggestedTags": ["タグ1", "タグ2", "タグ3"]
+}`;
 
-      const result = await model.generateContent(prompt);
-      const response = result.response;
-      const text = await response.text();
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const text = await response.text();
 
-      // カンマで区切られたタグを配列に変換
+    try {
+      const jsonResponse = JSON.parse(text) as AITaskAnalysis;
+      if (jsonResponse.suggestedTags) {
+        return { suggestedTags: jsonResponse.suggestedTags };
+      }
+      throw new Error('Invalid response format');
+    } catch {
+      // JSON形式でない場合は、テキストをカンマで分割してタグとして使用
       const tags = text
         .split(',')
         .map(tag => tag.trim())
-        .filter(tag => tag.length > 0);
+        .filter(tag => tag.length > 0)
+        .slice(0, 5); // 最大5つのタグに制限
 
-      if (tags.length === 0) {
-        return NextResponse.json(
-          { error: 'タグの生成に失敗しました' },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json(tags);
-
-    } catch (error) {
-      return NextResponse.json(
-        { 
-          error: 'タグの生成に失敗しました',
-          details: error instanceof Error ? error.message : 'Unknown error'
-        },
-        { status: 500 }
-      );
+      return {
+        suggestedTags: tags,
+      };
     }
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'リクエストの処理に失敗しました' },
-      { status: 500 }
-    );
-  }
+  });
 }
 
 export async function PUT(
   req: NextRequest,
-  { params }: Props
+  { params }: { params: { id: string } }
 ): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions);
@@ -130,7 +118,6 @@ export async function PUT(
     }
 
     const { tags } = data;
-    // paramsをawaitして使用
     const { id: taskId } = await Promise.resolve(params);
 
     // タスクの所有者を確認
@@ -160,7 +147,7 @@ export async function PUT(
 
       // 既存のタグ名をマップとして保持
       const existingTagsMap = new Map(
-        existingTags.map(tag => [tag.name.toLowerCase(), tag])
+        existingTags.map((tag) => [tag.name.toLowerCase(), tag])
       );
 
       // 新しいタグを作成（存在しないものだけ）
@@ -198,7 +185,8 @@ export async function PUT(
     });
 
     return NextResponse.json(result);
-  } catch (error) {
+  } catch (error: unknown) {
+    console.error('Failed to update task tags:', error);
     return NextResponse.json(
       { error: 'Failed to update task tags' },
       { status: 500 }
