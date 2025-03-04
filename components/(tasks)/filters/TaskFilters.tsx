@@ -1,6 +1,7 @@
 'use client';
 
-import { ArrowDownAZ, ArrowUpDown, Calendar, CheckCircle, Flag, GripVertical } from 'lucide-react';
+import { ArrowDownAZ, Calendar, CheckCircle, Flag, GripVertical } from 'lucide-react';
+import { type ReactElement } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -34,7 +35,7 @@ export default function TaskFilters({
   dueDateFilter,
   onDueDateFilterChange,
   onReset,
-}: TaskFiltersProps) {
+}: TaskFiltersProps): ReactElement {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4">

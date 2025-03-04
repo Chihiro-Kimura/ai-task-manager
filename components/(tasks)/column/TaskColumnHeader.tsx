@@ -1,6 +1,7 @@
 'use client';
 
-import { ArrowDownAZ, Calendar, CheckCircle, Flag, GripVertical, Plus, SlidersHorizontal } from 'lucide-react';
+import { ArrowDownAZ, Calendar, Flag, GripVertical, Plus, SlidersHorizontal } from 'lucide-react';
+import { type ReactElement } from 'react';
 
 import TaskFilters from '@/components/(tasks)/filters/TaskFilters';
 import { AddButton } from '@/components/ui/action-button';
@@ -44,8 +45,8 @@ export function TaskColumnHeader({
   onDueDateFilterChange,
   onReset,
   onAddTask,
-}: TaskColumnHeaderProps) {
-  const getSortIcon = () => {
+}: TaskColumnHeaderProps): ReactElement {
+  const getSortIcon = (): ReactElement => {
     switch (sortBy) {
       case 'custom':
         return <GripVertical className="h-4 w-4" />;

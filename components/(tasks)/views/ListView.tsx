@@ -9,7 +9,15 @@ import LoadingState from '@/components/(common)/loading/LoadingState';
 import TaskItem from '@/components/(tasks)/item/TaskItem';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useTaskStore } from '@/store/taskStore';
-import { TaskWithExtras } from '@/types/task';
+import { type TaskWithExtras } from '@/types/task';
+
+const fetcher = async (url: string): Promise<TaskWithExtras[]> => {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error('Failed to fetch tasks');
+  }
+  return response.json();
+};
 
 export default function ListView(): ReactElement {
   const { data: session } = useSession();
@@ -22,32 +30,15 @@ export default function ListView(): ReactElement {
     mutate: mutateTasks,
   } = useSWR<TaskWithExtras[]>(
     session?.user?.id ? '/api/tasks' : null,
-    async (url: string) => {
-      if (!session?.user?.id) return [];
-
-      const response = await fetch(url, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch tasks');
-      }
-
-      return response.json();
-    }
+    fetcher
   );
 
-  // fetchedTasksが更新されたらstateを更新
   useEffect(() => {
     if (fetchedTasks) {
       setTasks(fetchedTasks);
     }
   }, [fetchedTasks, setTasks]);
 
-  // ソートモードの日本語名を取得
   const getSortModeName = (
     mode: 'custom' | 'priority' | 'createdAt' | 'dueDate'
   ): string => {
@@ -65,17 +56,17 @@ export default function ListView(): ReactElement {
 
   const categories = useMemo(
     () => ({
-      box: {
-        tasks: getFilteredAndSortedTasks('box'),
-        sortMode: getSortModeName(sortBy.box),
+      inbox: {
+        tasks: getFilteredAndSortedTasks('inbox'),
+        sortMode: getSortModeName(sortBy.inbox),
       },
-      now: {
-        tasks: getFilteredAndSortedTasks('now'),
-        sortMode: getSortModeName(sortBy.now),
+      doing: {
+        tasks: getFilteredAndSortedTasks('doing'),
+        sortMode: getSortModeName(sortBy.doing),
       },
-      next: {
-        tasks: getFilteredAndSortedTasks('next'),
-        sortMode: getSortModeName(sortBy.next),
+      todo: {
+        tasks: getFilteredAndSortedTasks('todo'),
+        sortMode: getSortModeName(sortBy.todo),
       },
     }),
     [tasks, sortBy, getFilteredAndSortedTasks]
@@ -85,45 +76,49 @@ export default function ListView(): ReactElement {
   if (error) return <ErrorState />;
 
   return (
-    <ScrollArea className="flex-1 -mx-4">
-      <div className="px-4 space-y-6">
-        {[
-          { id: 'box', title: 'ボックス', tasks: categories.box.tasks },
-          { id: 'now', title: '今やる', tasks: categories.now.tasks },
-          { id: 'next', title: '次やる', tasks: categories.next.tasks },
-        ].map((category) => (
-          <div key={category.id} className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-zinc-400">
-                {category.title}
-              </h3>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500">
-                  {category.tasks.length}件
-                </span>
+    <div className="h-[calc(100vh-8rem)] flex flex-col">
+      <ScrollArea className="flex-1">
+        <div className="px-4 py-6 space-y-6">
+          {[
+            { id: 'inbox', title: 'Inbox', tasks: categories.inbox.tasks },
+            { id: 'doing', title: 'Doing', tasks: categories.doing.tasks },
+            { id: 'todo', title: 'To Do', tasks: categories.todo.tasks },
+          ].map((category) => (
+            <div key={category.id} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-zinc-400">
+                  {category.title}
+                </h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-500">
+                    {category.tasks.length}件
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {category.tasks.map((task) => (
+                  <TaskItem
+                    key={task.id}
+                    task={task}
+                    onMutate={async () => {
+                      setTasks(tasks.filter((t) => t.id !== task.id));
+                      await mutateTasks();
+                    }}
+                  />
+                ))}
+                {category.tasks.length === 0 && (
+                  <div className="rounded-lg border border-dashed border-zinc-800 p-4">
+                    <p className="text-sm text-zinc-500 text-center">
+                      タスクがありません
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="space-y-2">
-              {category.tasks.map((task) => (
-                <TaskItem
-                  key={task.id}
-                  task={task}
-                  onMutate={async () => {
-                    await mutateTasks();
-                  }}
-                />
-              ))}
-              {category.tasks.length === 0 && (
-                <div className="rounded-lg border border-dashed border-zinc-800 p-4">
-                  <p className="text-sm text-zinc-500 text-center">
-                    タスクがありません
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </ScrollArea>
+          ))}
+          <div className="h-6" />
+        </div>
+      </ScrollArea>
+    </div>
   );
 }

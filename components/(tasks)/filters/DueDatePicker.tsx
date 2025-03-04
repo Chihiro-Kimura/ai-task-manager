@@ -1,10 +1,17 @@
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { CalendarIcon } from 'lucide-react';
+import { type ReactElement, type ReactNode } from 'react';
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import {
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Popover,
   PopoverContent,
@@ -15,8 +22,25 @@ import { cn } from '@/lib/utils/styles';
 interface DueDatePickerProps {
   dueDate: Date | undefined;
   setDueDate: (date: Date | undefined) => void;
-  variant?: 'icon' | 'full';
+  variant?: 'icon' | 'full' | 'menuItem';
   className?: string;
+  children?: ReactNode;
+}
+
+function CalendarContent({
+  dueDate,
+  setDueDate,
+}: {
+  dueDate: Date | undefined;
+  setDueDate: (date: Date | undefined) => void;
+}): ReactElement {
+  return <Calendar
+    mode="single"
+    selected={dueDate}
+    onSelect={setDueDate}
+    className="rounded-md border border-zinc-800 bg-zinc-950 text-zinc-400"
+    locale={ja}
+  />
 }
 
 export default function DueDatePicker({
@@ -24,9 +48,29 @@ export default function DueDatePicker({
   setDueDate,
   variant = 'full',
   className = '',
-}: DueDatePickerProps): JSX.Element {
+  children,
+}: DueDatePickerProps): ReactElement {
   const [isOpen, setIsOpen] = useState(false);
   const isIcon = variant === 'icon';
+  const isMenuItem = variant === 'menuItem';
+
+  if (isMenuItem) {
+    return (
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger className={className}>
+          {children}
+        </DropdownMenuSubTrigger>
+        <DropdownMenuPortal>
+          <DropdownMenuSubContent className="p-0">
+            <CalendarContent
+              dueDate={dueDate}
+              setDueDate={setDueDate}
+            />
+          </DropdownMenuSubContent>
+        </DropdownMenuPortal>
+      </DropdownMenuSub>
+    );
+  }
 
   return (
     <div className={className}>
@@ -43,7 +87,6 @@ export default function DueDatePicker({
               size="sm"
               className={cn(
                 'h-7 w-7 p-0 flex items-center justify-center',
-                'hover:bg-violet-400/10',
                 'data-[state=open]:bg-violet-400/10'
               )}
             >
@@ -52,7 +95,7 @@ export default function DueDatePicker({
                   'h-4 w-4',
                   dueDate
                     ? 'text-violet-400/70 hover:text-violet-400'
-                    : 'text-zinc-500 hover:text-violet-400'
+                    : className || 'text-zinc-500 hover:text-violet-400'
                 )}
               />
             </Button>
@@ -74,15 +117,12 @@ export default function DueDatePicker({
           className="w-auto p-0 bg-zinc-950 border border-zinc-800"
           align="start"
         >
-          <Calendar
-            mode="single"
-            selected={dueDate}
-            onSelect={(date) => {
+          <CalendarContent
+            dueDate={dueDate}
+            setDueDate={(date) => {
               setDueDate(date);
               setIsOpen(false);
             }}
-            className="rounded-md border border-zinc-800 bg-zinc-950 text-zinc-400"
-            locale={ja}
           />
         </PopoverContent>
       </Popover>

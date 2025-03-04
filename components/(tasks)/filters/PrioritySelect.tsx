@@ -1,67 +1,102 @@
 import { Flag } from 'lucide-react';
+import { type ReactElement, type ReactNode } from 'react';
 
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils/styles';
+import { Priority } from '@/types/common';
 
 interface PrioritySelectProps {
-  value: string | undefined;
-  onValueChange: (value: string) => void;
+  value: Priority | null;
+  onValueChange: (value: Priority) => void;
   className?: string;
+  variant?: 'icon' | 'menuItem';
+  children?: ReactNode;
+}
+
+function PriorityItems({
+  onValueChange,
+}: {
+  onValueChange: (value: Priority) => void;
+}): ReactElement {
+  return <>
+    <DropdownMenuItem
+      onClick={() => onValueChange('高')}
+      className="text-rose-400"
+    >
+      <Flag className="h-4 w-4" />
+      高
+    </DropdownMenuItem>
+    <DropdownMenuItem
+      onClick={() => onValueChange('中')}
+      className="text-amber-400"
+    >
+      <Flag className="h-4 w-4" />
+      中
+    </DropdownMenuItem>
+    <DropdownMenuItem
+      onClick={() => onValueChange('低')}
+      className="text-emerald-400"
+    >
+      <Flag className="h-4 w-4" />
+      低
+    </DropdownMenuItem>
+  </>
 }
 
 export default function PrioritySelect({
   value,
   onValueChange,
   className,
-}: PrioritySelectProps): JSX.Element {
+  variant = 'icon',
+  children,
+}: PrioritySelectProps): ReactElement {
+  if (variant === 'menuItem') {
+    return (
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger className={className}>
+          {children}
+        </DropdownMenuSubTrigger>
+        <DropdownMenuPortal>
+          <DropdownMenuSubContent className="w-[140px]">
+            <PriorityItems onValueChange={onValueChange} />
+          </DropdownMenuSubContent>
+        </DropdownMenuPortal>
+      </DropdownMenuSub>
+    );
+  }
+
   return (
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger
-        className={cn(
-          'h-7 w-7 bg-transparent border-none focus:ring-0 p-0 flex items-center justify-center',
-          '[&>svg:last-child]:hidden',
-          'hover:bg-rose-400/10 data-[value=高]:hover:bg-rose-400/10',
-          'hover:bg-amber-400/10 data-[value=中]:hover:bg-amber-400/10',
-          'hover:bg-emerald-400/10 data-[value=低]:hover:bg-emerald-400/10',
-          className
-        )}
-      >
-        <SelectValue placeholder={<Flag className="h-4 w-4 text-zinc-500" />}>
-          {value && (
-            <Flag
-              className={cn(
-                'h-4 w-4',
-                value === '高' && 'text-rose-400/70 hover:text-rose-400',
-                value === '中' && 'text-amber-400/70 hover:text-amber-400',
-                value === '低' && 'text-emerald-400/70 hover:text-emerald-400'
-              )}
-            />
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className={cn(
+            'flex h-7 w-7 items-center justify-center rounded-md hover:bg-accent',
+            className
           )}
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent className="bg-zinc-900 border-zinc-700">
-        <SelectItem value="高" className="text-rose-500 hover:bg-zinc-800">
-          <span className="flex items-center gap-2">
-            <Flag className="h-4 w-4" />高
-          </span>
-        </SelectItem>
-        <SelectItem value="中" className="text-amber-500 hover:bg-zinc-800">
-          <span className="flex items-center gap-2">
-            <Flag className="h-4 w-4" />中
-          </span>
-        </SelectItem>
-        <SelectItem value="低" className="text-emerald-500 hover:bg-zinc-800">
-          <span className="flex items-center gap-2">
-            <Flag className="h-4 w-4" />低
-          </span>
-        </SelectItem>
-      </SelectContent>
-    </Select>
+        >
+          <Flag
+            className={cn(
+              'h-4 w-4',
+              !value && 'text-zinc-200',
+              value === '高' && 'text-rose-400',
+              value === '中' && 'text-amber-400',
+              value === '低' && 'text-emerald-400'
+            )}
+          />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[140px]">
+        <PriorityItems onValueChange={onValueChange} />
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
