@@ -1,5 +1,5 @@
-import { AISettings } from '@/lib/ai/types';
 import { useAIStore } from '@/store/aiStore';
+import { AISettings } from '@/types/common';
 
 interface AISettingsHook {
   settings: AISettings;

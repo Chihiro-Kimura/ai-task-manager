@@ -1,7 +1,7 @@
-import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
+import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
 
-import { AIRequestValidation, AIError } from './types';
+import { AIRequestValidation } from './types';
 
 const DEFAULT_CONFIG = {
   model: "gemini-1.5-pro",
@@ -15,15 +15,6 @@ export async function handleAIRequest<T, R>(
   processor: (data: T, model: GenerativeModel) => Promise<R>
 ): Promise<NextResponse> {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'APIキーが設定されていません' },
-        { status: 401 }
-      );
-    }
-
     const data = await request.json();
     if (!validation.validator(data)) {
       return NextResponse.json(
@@ -32,8 +23,15 @@ export async function handleAIRequest<T, R>(
       );
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'APIキーが設定されていません' },
+        { status: 400 }
+      );
+    }
+
+    const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({
       model: DEFAULT_CONFIG.model,
       generationConfig: {
         temperature: DEFAULT_CONFIG.temperature,

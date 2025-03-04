@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import { geminiProvider } from '@/lib/ai/gemini';
-import { AIProvider, AISettings } from '@/lib/ai/types';
+import { AIProvider } from '@/lib/ai/types';
+import { AISettings } from '@/types/common';
 
 interface AIState {
   settings: AISettings;
@@ -15,32 +16,25 @@ export const useAIStore = create<AIState>()(
     (set, get) => ({
       settings: {
         provider: 'gemini',
-        isEnabled: true,
+        apiKey: undefined,
+        isEnabled: false,
+        useAI: true
       },
       updateSettings: (newSettings) => {
-        set((state) => {
-          const settings = {
-            ...state.settings,
-            ...newSettings,
-          };
-
-          if (settings.apiKey) {
-            geminiProvider.initialize(settings.apiKey);
-          }
-
-          return { settings };
-        });
+        const currentSettings = get().settings;
+        set({ settings: { ...currentSettings, ...newSettings } });
       },
       getActiveProvider: () => {
         const { settings } = get();
-        if (!settings.apiKey) {
-          throw new Error('APIキーが設定されていません');
+        if (!settings.apiKey || !settings.isEnabled) {
+          throw new Error('AI機能が利用できません');
         }
         return geminiProvider;
       },
     }),
     {
       name: 'ai-settings',
+      skipHydration: true,
     }
   )
 );

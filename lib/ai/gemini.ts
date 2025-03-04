@@ -1,12 +1,15 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Task } from '@prisma/client';
 
+import { Priority } from '@/types/common';
+
 import {
   AIError,
   AIErrorType,
   AIProvider,
-  NextTaskSuggestion,
-  Priority,
+  AIRequestBase,
+  AITaskAnalysis,
+  AITaskSuggestion as NextTaskSuggestion,
   TaskClassification,
   TaskSummary,
 } from './types';
@@ -435,6 +438,30 @@ ${text}
         error
       );
     }
+  }
+
+  async analyzeTask(input: AIRequestBase): Promise<AITaskAnalysis> {
+    const summary = await this.summarizeTask(input.title, input.content);
+    const priority = await this.analyzePriority(input.title, input.content);
+    const category = await this.classifyTask(input.title, input.content);
+    const tags = await this.getTagSuggestions(input.title, input.content, []);
+
+    return {
+      summary: summary.summary,
+      category: category.category,
+      confidence: category.confidence,
+      suggestedPriority: priority,
+      suggestedTags: tags,
+    };
+  }
+
+  async generateTags(input: AIRequestBase): Promise<string[]> {
+    return this.getTagSuggestions(input.title, input.content, []);
+  }
+
+  async classifyCategory(input: AIRequestBase): Promise<string> {
+    const result = await this.classifyTask(input.title, input.content);
+    return result.category;
   }
 }
 
