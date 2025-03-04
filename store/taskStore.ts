@@ -7,16 +7,16 @@ interface TaskState {
   setTasks: (tasks: TaskWithExtras[]) => void;
   updateTaskOrder: (updatedTasks: TaskWithExtras[]) => void;
   sortBy: {
-    box: 'custom' | 'priority' | 'createdAt' | 'dueDate';
-    now: 'custom' | 'priority' | 'createdAt' | 'dueDate';
-    next: 'custom' | 'priority' | 'createdAt' | 'dueDate';
+    inbox: 'custom' | 'priority' | 'createdAt' | 'dueDate';
+    doing: 'custom' | 'priority' | 'createdAt' | 'dueDate';
+    todo: 'custom' | 'priority' | 'createdAt' | 'dueDate';
   };
   setSortBy: (
-    category: 'box' | 'now' | 'next',
+    category: 'inbox' | 'doing' | 'todo',
     value: 'custom' | 'priority' | 'createdAt' | 'dueDate'
   ) => void;
   getFilteredAndSortedTasks: (
-    category: 'box' | 'now' | 'next'
+    category: 'inbox' | 'doing' | 'todo'
   ) => TaskWithExtras[];
   isEditModalOpen: boolean;
   setIsEditModalOpen: (isOpen: boolean) => void;
@@ -27,9 +27,9 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   setTasks: (tasks) => set({ tasks }),
   updateTaskOrder: (updatedTasks) => set({ tasks: updatedTasks }),
   sortBy: {
-    box: 'custom',
-    now: 'custom',
-    next: 'custom',
+    inbox: 'custom',
+    doing: 'custom',
+    todo: 'custom',
   },
   setSortBy: (category, value) =>
     set((state) => ({
