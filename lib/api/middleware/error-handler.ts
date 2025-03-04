@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { AIError } from '@/lib/ai/gemini/types';
+import { AIError } from '@/lib/ai/types';
 
 export async function withErrorHandler<T>(
   handler: () => Promise<T>

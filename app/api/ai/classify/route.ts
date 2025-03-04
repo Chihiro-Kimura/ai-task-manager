@@ -1,92 +1,93 @@
 import { NextResponse } from 'next/server';
 
-import { GeminiClient } from '@/lib/ai/gemini/client';
-import { AITaskAnalysis } from '@/lib/ai/gemini/types';
-import { withErrorHandler } from '@/lib/api/middleware/error-handler';
-import { validateRequestBody } from '@/lib/api/middleware/validation';
+import { handleAIRequest, parseJSONResponse } from '@/lib/ai/gemini/request-handler';
+import { AIRequestBase } from '@/lib/ai/types';
 
-interface ClassifyRequest {
-  title: string;
-  content: string;
+type ClassifyRequest = AIRequestBase;
+
+const VALID_CATEGORIES = ['inbox', 'doing', 'todo'] as const;
+type Category = typeof VALID_CATEGORIES[number];
+
+interface ClassifyResponse {
+  category: Category;
+  confidence: number;
+  reason: string;
 }
 
-function isClassifyRequest(data: unknown): data is ClassifyRequest {
-  const request = data as ClassifyRequest;
-  return (
-    typeof request === 'object' &&
-    request !== null &&
-    typeof request.title === 'string' &&
-    typeof request.content === 'string'
-  );
-}
+const validation = {
+  validator: (data: unknown): data is ClassifyRequest => {
+    const request = data as ClassifyRequest;
+    return (
+      typeof request === 'object' &&
+      request !== null &&
+      typeof request.title === 'string' &&
+      typeof request.content === 'string'
+    );
+  },
+  errorMessage: 'タイトルと内容は必須です',
+};
 
 export async function POST(request: Request): Promise<NextResponse> {
-  return withErrorHandler(async () => {
-    const data = await request.json();
-    const validatedData = validateRequestBody(data, isClassifyRequest);
+  return handleAIRequest<ClassifyRequest, ClassifyResponse>(
+    request,
+    validation,
+    async (data, model) => {
+      const prompt = `
+以下のタスクを最適なカテゴリーに分類してください。
 
-    const model = GeminiClient.getInstance().getClient().getGenerativeModel({
-      model: "gemini-1.5-pro",
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 1024,
-      },
-    });
+タイトル: ${data.title}
+内容: ${data.content}
 
-    const prompt = `
-以下のタスクの内容から、最も適切なカテゴリーを判断してください。
-カテゴリーは以下から選択してください：
-- 開発
-- デザイン
-- 企画
-- 運用
-- その他
-
-タイトル: ${validatedData.title}
-内容: ${validatedData.content}
-
-以下の基準で判断してください：
-- タスクの主な目的
-- 必要なスキルや知識
-- 作業の性質
+カテゴリーの説明:
+- inbox: 未整理のタスク。まだ優先度や実行時期が決まっていないもの
+- doing: 現在進行中または今すぐ着手すべきタスク
+- todo: 次に実行予定のタスク。優先度は決まっているが、今すぐには着手しないもの
 
 出力形式：
 {
-  "category": "カテゴリー名",
-  "confidence": 0.8  // 確信度（0.0 ~ 1.0）
-}`;
+  "category": "inbox" または "doing" または "todo",
+  "confidence": 分類の確信度（0.0から1.0の数値）,
+  "reason": "このカテゴリーに分類した理由の説明"
+}
 
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = await response.text();
+注意：
+- タスクの緊急性、重要性、依存関係を考慮してください
+- 確信度は分類の確実性を表す数値で、1.0が最も確実です
+- 理由は具体的に説明してください`;
 
-    try {
-      const jsonResponse = JSON.parse(text) as AITaskAnalysis;
-      if (jsonResponse.category) {
+      const result = await model.generateContent(prompt);
+      const text = await result.response.text();
+      const jsonResponse = parseJSONResponse<ClassifyResponse>(text);
+
+      if (jsonResponse?.category && isValidCategory(jsonResponse.category)) {
         return {
           category: jsonResponse.category,
-          confidence: jsonResponse.confidence || 1.0,
+          confidence: jsonResponse.confidence || 0.7,
+          reason: jsonResponse.reason || '理由が提供されませんでした',
         };
       }
-      throw new Error('Invalid category value');
-    } catch {
-      // JSON形式でない場合は、テキストからカテゴリを抽出
+
+      // JSON形式でない場合は、テキストから分類を抽出
       const category = extractCategory(text);
       return {
         category,
-        confidence: 1.0,
+        confidence: 0.5,
+        reason: '自動抽出された分類です',
       };
     }
-  });
+  );
 }
 
-const VALID_CATEGORIES = ['開発', 'デザイン', '企画', '運用', 'その他'] as const;
-type Category = typeof VALID_CATEGORIES[number];
+function isValidCategory(value: unknown): value is Category {
+  return typeof value === 'string' && VALID_CATEGORIES.includes(value as Category);
+}
 
 function extractCategory(text: string): Category {
-  const normalized = text.trim();
-  if (VALID_CATEGORIES.includes(normalized as Category)) {
-    return normalized as Category;
+  const normalized = text.toLowerCase();
+  for (const category of VALID_CATEGORIES) {
+    if (normalized.includes(category)) {
+      return category;
+    }
   }
-  return 'その他'; // デフォルト値
+  return 'inbox'; // デフォルト値
 }

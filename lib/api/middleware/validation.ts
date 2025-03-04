@@ -1,4 +1,4 @@
-import { AIError } from '@/lib/ai/gemini/types';
+import { AIError } from '@/lib/ai/types';
 
 export function validateApiKey(headers: Headers): string {
   const apiKey = headers.get('x-api-key');
