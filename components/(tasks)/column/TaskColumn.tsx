@@ -2,12 +2,13 @@
 
 import { Droppable } from '@hello-pangea/dnd';
 import { useSession } from 'next-auth/react';
-import { useCallback, useMemo, useState } from 'react';
+import { type ReactElement, useCallback, useMemo, useState } from 'react';
 
 import { TaskColumnContent } from '@/components/(tasks)/column/TaskColumnContent';
 import { TaskColumnHeader } from '@/components/(tasks)/column/TaskColumnHeader';
 import { useToast } from '@/hooks/use-toast';
-import { CreateTaskData, TaskWithExtras } from '@/types/task';
+import { TaskInput } from '@/lib/ai/types';
+import { TaskWithExtras } from '@/types/task';
 
 // 型定義
 interface TaskColumnProps {
@@ -21,13 +22,11 @@ interface TaskColumnProps {
   ) => void;
   sortMode: string;
   onReset: () => void;
-  onAddTask: (task: {
-    title: string;
-    description: string;
-    priority: string;
+  onAddTask: (task: TaskInput & {
     status: string;
     task_order: number;
     category: string;
+    due_date?: string | null;
   }) => Promise<void>;
 }
 
@@ -44,7 +43,7 @@ export default function TaskColumn({
   sortMode,
   onReset,
   onAddTask,
-}: TaskColumnProps): JSX.Element {
+}: TaskColumnProps): ReactElement {
   const { status } = useSession();
   const { toast } = useToast();
 
@@ -109,14 +108,14 @@ export default function TaskColumn({
   }, [onReset]);
 
   const handleAddTask = async (
-    taskData: Omit<CreateTaskData, 'task_order'>
+    taskData: TaskInput
   ): Promise<void> => {
     try {
       await onAddTask({
         ...taskData,
         status: 'pending',
         task_order: 0,
-        category: droppableId,
+        category: droppableId === 'todo' ? 'todo' : droppableId,
       });
       setIsAddingTask(false);
     } catch (error) {

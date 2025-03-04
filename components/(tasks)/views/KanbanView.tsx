@@ -9,6 +9,7 @@ import ErrorState from '@/components/(common)/error/ErrorState';
 import LoadingState from '@/components/(common)/loading/LoadingState';
 import TaskColumn from '@/components/(tasks)/column/TaskColumn';
 import { useToast } from '@/hooks/use-toast';
+import { TaskInput } from '@/lib/ai/types';
 import { cn } from '@/lib/utils/styles';
 import { useTaskStore } from '@/store/taskStore';
 import { TaskWithExtras } from '@/types/task';
@@ -80,13 +81,13 @@ export default function KanbanView(): ReactElement {
     ) {
       // 現在の表示順でtask_orderを更新
       const sourceCategoryTasks = getFilteredAndSortedTasks(
-        sourceCategory as 'box' | 'now' | 'next'
+        sourceCategory as 'inbox' | 'doing' | 'todo'
       );
       const destinationCategoryTasks =
         sourceCategory === destinationCategory
           ? sourceCategoryTasks
           : getFilteredAndSortedTasks(
-              destinationCategory as 'box' | 'now' | 'next'
+              destinationCategory as 'inbox' | 'doing' | 'todo'
             );
 
       const updatedTasks = [...tasks];
@@ -110,9 +111,9 @@ export default function KanbanView(): ReactElement {
       }
 
       updateTaskOrder(updatedTasks);
-      setSortBy(sourceCategory as 'box' | 'now' | 'next', 'custom');
+      setSortBy(sourceCategory as 'inbox' | 'doing' | 'todo', 'custom');
       if (sourceCategory !== destinationCategory) {
-        setSortBy(destinationCategory as 'box' | 'now' | 'next', 'custom');
+        setSortBy(destinationCategory as 'inbox' | 'doing' | 'todo', 'custom');
       }
     }
 
@@ -227,13 +228,11 @@ export default function KanbanView(): ReactElement {
     }
   };
 
-  const handleAddTask = async (task: {
-    title: string;
-    description: string;
-    priority: string;
+  const handleAddTask = async (task: TaskInput & {
     status: string;
     task_order: number;
     category: string;
+    due_date?: string | null;
   }): Promise<void> => {
     try {
       const response = await fetch('/api/tasks', {
@@ -242,7 +241,10 @@ export default function KanbanView(): ReactElement {
           'Content-Type': 'application/json',
           'X-User-Id': session?.user?.id || '',
         },
-        body: JSON.stringify(task),
+        body: JSON.stringify({
+          ...task,
+          category: task.category === 'todo' ? 'todo' : task.category,
+        }),
       });
 
       if (!response.ok) {
@@ -280,17 +282,17 @@ export default function KanbanView(): ReactElement {
 
   const categories = useMemo(
     () => ({
-      box: {
-        tasks: getFilteredAndSortedTasks('box'),
-        sortMode: getSortModeName(sortBy.box),
+      inbox: {
+        tasks: getFilteredAndSortedTasks('inbox'),
+        sortMode: getSortModeName(sortBy.inbox),
       },
-      now: {
-        tasks: getFilteredAndSortedTasks('now'),
-        sortMode: getSortModeName(sortBy.now),
+      doing: {
+        tasks: getFilteredAndSortedTasks('doing'),
+        sortMode: getSortModeName(sortBy.doing),
       },
-      next: {
-        tasks: getFilteredAndSortedTasks('next'),
-        sortMode: getSortModeName(sortBy.next),
+      todo: {
+        tasks: getFilteredAndSortedTasks('todo'),
+        sortMode: getSortModeName(sortBy.todo),
       },
     }),
     [tasks, sortBy, getFilteredAndSortedTasks]
@@ -298,7 +300,7 @@ export default function KanbanView(): ReactElement {
 
   // ソート方法の変更ハンドラー
   const handleSortChange =
-    (category: 'box' | 'now' | 'next') =>
+    (category: 'inbox' | 'doing' | 'todo') =>
     (value: 'custom' | 'priority' | 'createdAt' | 'dueDate'): void => {
       // カスタム順に切り替える場合、現在の表示順でtask_orderを更新
       if (value === 'custom') {
@@ -320,7 +322,7 @@ export default function KanbanView(): ReactElement {
     };
 
   // リセットハンドラー
-  const handleReset = (category: 'box' | 'now' | 'next') => (): void => {
+  const handleReset = (category: 'inbox' | 'doing' | 'todo') => (): void => {
     // カスタム順に戻す際、現在の表示順でtask_orderを更新
     const categoryTasks = getFilteredAndSortedTasks(category);
     const updatedTasks = [...tasks];
@@ -349,51 +351,54 @@ export default function KanbanView(): ReactElement {
         )}
       >
         <TaskColumn
-          key="box"
-          droppableId="box"
-          title="ボックス"
-          tasks={categories.box.tasks}
+          key="inbox"
+          droppableId="inbox"
+          title="Inbox"
+          tasks={categories.inbox.tasks}
           onTasksChange={async () => {
-            if (sortBy.box !== 'custom') {
+            await mutateTasks();
+            if (sortBy.inbox !== 'custom') {
               await mutateTasks();
             }
           }}
-          sortBy={sortBy.box}
-          onSortByChange={handleSortChange('box')}
-          sortMode={categories.box.sortMode}
-          onReset={handleReset('box')}
+          sortBy={sortBy.inbox}
+          onSortByChange={handleSortChange('inbox')}
+          sortMode={categories.inbox.sortMode}
+          onReset={handleReset('inbox')}
           onAddTask={handleAddTask}
         />
         <TaskColumn
-          key="now"
-          droppableId="now"
-          title="今やる"
-          tasks={categories.now.tasks}
+          key="doing"
+          droppableId="doing"
+          title="Doing"
+          tasks={categories.doing.tasks}
           onTasksChange={async () => {
-            if (sortBy.now !== 'custom') {
+            await mutateTasks();
+            if (sortBy.doing !== 'custom') {
               await mutateTasks();
             }
           }}
-          sortBy={sortBy.now}
-          onSortByChange={handleSortChange('now')}
-          sortMode={categories.now.sortMode}
-          onReset={handleReset('now')}
+          sortBy={sortBy.doing}
+          onSortByChange={handleSortChange('doing')}
+          sortMode={categories.doing.sortMode}
+          onReset={handleReset('doing')}
           onAddTask={handleAddTask}
         />
         <TaskColumn
-          key="next"
-          droppableId="next"
-          title="次やる"
-          tasks={categories.next.tasks}
+          key="todo"
+          droppableId="todo"
+          title="To Do"
+          tasks={categories.todo.tasks}
           onTasksChange={async () => {
-            if (sortBy.next !== 'custom') {
+            await mutateTasks();
+            if (sortBy.todo !== 'custom') {
               await mutateTasks();
             }
           }}
-          sortBy={sortBy.next}
-          onSortByChange={handleSortChange('next')}
-          sortMode={categories.next.sortMode}
-          onReset={handleReset('next')}
+          sortBy={sortBy.todo}
+          onSortByChange={handleSortChange('todo')}
+          sortMode={categories.todo.sortMode}
+          onReset={handleReset('todo')}
           onAddTask={handleAddTask}
         />
       </div>
