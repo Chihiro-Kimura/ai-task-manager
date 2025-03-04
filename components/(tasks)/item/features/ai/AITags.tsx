@@ -32,9 +32,28 @@ export function AITags({
     console.log('AITags: Received suggestedTags:', suggestedTags);
   }, [suggestedTags]);
 
-  // suggestedTagsが配列でない場合は空配列を使用
-  const validSuggestedTags = Array.isArray(suggestedTags) ? suggestedTags : [];
+  // suggestedTagsがオブジェクトの場合は中身の配列を取り出す
+  let tagsToProcess = suggestedTags;
+  if (suggestedTags && typeof suggestedTags === 'object' && 'suggestedTags' in suggestedTags) {
+    tagsToProcess = suggestedTags.suggestedTags as typeof suggestedTags;
+  }
 
+  // 配列でない場合は空配列を使用
+  const validSuggestedTags = Array.isArray(tagsToProcess) 
+    ? tagsToProcess.map(tag => {
+        if (typeof tag === 'string') return tag;
+        if (typeof tag === 'object' && tag !== null && 'name' in tag) {
+          return tag.name;
+        }
+        return String(tag);
+      })
+    : [];
+
+  // デバッグ用のログを追加
+  useEffect(() => {
+    console.log('AITags: Processed tags:', validSuggestedTags);
+  }, [validSuggestedTags]);
+  
   const handleSuggestedTagClick = async (tagName: string): Promise<void> => {
     if (pendingTags[tagName] || processingUpdate) return;
 

@@ -16,18 +16,23 @@ export interface AISummaryProps extends AIFeatureProps {
 }
 
 export interface AITagsProps extends AIFeatureProps {
-  suggestedTags: string[];
+  suggestedTags: string[] | Array<{
+    name: string;
+    color: string;
+  }>;
 }
 
 export interface AIPriorityProps extends AIFeatureProps {
   priority: '高' | '中' | '低';
 }
 
-export interface AICategoryProps extends AIFeatureProps {
+export interface AICategoryProps {
   category: {
     category: string;
     confidence: number;
+    reason?: string;
   };
+  onMutate: () => Promise<void>;
 }
 
 export interface AINextTaskProps extends AIFeatureProps {
@@ -42,10 +47,18 @@ export interface AIAnalysisResult {
   summary?: { summary: string };
   tags?: string[];
   priority?: '高' | '中' | '低';
-  category?: { category: string; confidence: number };
-  nextTask?: {
+  classify?: {
+    category: string;
+    confidence: number;
+    reason?: string;
+  };
+  suggest?: {
     title: string;
     description: string;
     priority: '高' | '中' | '低';
   };
+  suggestedTags?: Array<{
+    name: string;
+    color: string;
+  }>;
 } 

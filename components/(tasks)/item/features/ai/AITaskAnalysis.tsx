@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactElement, useState } from 'react';
+import { type ReactElement, useState, useEffect } from 'react';
 
 import { AILoading } from '@/components/(common)/loading/AILoading';
 import { Button } from '@/components/ui/button';
@@ -18,11 +18,17 @@ export default function AITaskAnalysis({
   onMutate,
   onClose,
 }: AITaskAnalysisProps): ReactElement {
-  const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
   const [result, setResult] = useState<AIAnalysisResult>({});
   const { toast } = useToast();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+    return () => setIsMounted(false);
+  }, []);
 
   const analyzeTask = async (featureId: string): Promise<void> => {
     setIsLoading(true);
@@ -45,10 +51,17 @@ export default function AITaskAnalysis({
       }
 
       const data = await response.json();
-      setResult((prev) => ({ ...prev, [featureId]: data }));
+      const resultData = data.data || data;
+      
+      // タグ提案の場合、レスポンスの詳細をログに出力
+      if (featureId === 'tags') {
+        console.log('Tags API response:', data);
+        console.log('Tags resultData:', resultData);
+      }
+      
+      setResult((prev) => ({ ...prev, [featureId]: resultData }));
       setSelectedFeatureId(featureId);
     } catch (err) {
-      console.error('AI analysis error:', err);
       setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました');
       toast({
         title: 'エラー',
@@ -57,6 +70,39 @@ export default function AITaskAnalysis({
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleApplyCategory = async (): Promise<void> => {
+    if (!result.classify) return;
+
+    try {
+      const response = await fetch(`/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          category: result.classify.category,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('カテゴリの更新に失敗しました');
+      }
+
+      await onMutate();
+      toast({
+        title: '更新しました',
+        description: 'タスクのカテゴリを更新しました',
+      });
+    } catch (err) {
+      console.error('Category update error:', err);
+      toast({
+        title: 'エラー',
+        description: err instanceof Error ? err.message : '予期せぬエラーが発生しました',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -77,52 +123,38 @@ export default function AITaskAnalysis({
   }
 
   const renderContent = (): ReactElement | null => {
+    if (!result) return null;
+
     switch (selectedFeatureId) {
       case 'summary':
         return result.summary ? (
-          <AISummary
-            task={task}
-            summary={result.summary.summary}
-            onMutate={onMutate}
-          />
+          <AISummary task={task} summary={result.summary.summary} onMutate={onMutate} />
         ) : null;
-
       case 'tags':
-        return result.tags ? (
-          <AITags
-            task={task}
-            suggestedTags={result.tags}
-            onMutate={onMutate}
+        // タグ提案の結果をログに出力
+        console.log('Tags API response:', result);
+        console.log('Tags resultData:', result);
+        
+        // 修正: suggestedTagsが直接配列として渡されるようにする
+        return (
+          <AITags 
+            task={task} 
+            suggestedTags={result.suggestedTags || result.tags || []} 
+            onMutate={onMutate} 
           />
-        ) : null;
-
+        );
       case 'priority':
         return result.priority ? (
-          <AIPriority
-            task={task}
-            priority={result.priority}
-            onMutate={onMutate}
-          />
+          <AIPriority task={task} priority={result.priority} onMutate={onMutate} />
         ) : null;
-
       case 'classify':
-        return result.category ? (
-          <AICategory
-            task={task}
-            category={result.category}
-            onMutate={onMutate}
-          />
+        return result.classify ? (
+          <AICategory category={result.classify} onMutate={handleApplyCategory} />
         ) : null;
-
       case 'suggest':
-        return result.nextTask ? (
-          <AINextTask
-            task={task}
-            nextTask={result.nextTask}
-            onMutate={onMutate}
-          />
+        return result.suggest ? (
+          <AINextTask task={task} nextTask={result.suggest} onMutate={onMutate} />
         ) : null;
-
       default:
         return (
           <div className="grid grid-cols-2 gap-4">
@@ -182,7 +214,7 @@ export default function AITaskAnalysis({
           閉じる
         </Button>
       )}
-      {renderContent()}
+      {isMounted && renderContent()}
     </div>
   );
 } 

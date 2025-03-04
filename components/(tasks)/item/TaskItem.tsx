@@ -2,9 +2,8 @@
 
 import { type ReactElement, useState } from 'react';
 
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useTaskStore } from '@/store/taskStore';
 import { TaskWithExtras } from '@/types/task';
 
 import EditTaskForm from '../forms/EditTaskForm';
@@ -25,39 +24,33 @@ export default function TaskItem({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAIOpen, setIsAIOpen] = useState(false);
   const { toast } = useToast();
-  const { tasks, setTasks } = useTaskStore();
 
   const handleMutation = async (): Promise<void> => {
-    await onMutate();
+    try {
+      await onMutate();
+    } catch {
+      toast({
+        title: 'エラー',
+        description: '更新に失敗しました',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleDelete = async (): Promise<void> => {
     try {
-      // 楽観的更新
-      setTasks(tasks.filter((t) => t.id !== task.id));
-
-      const response = await fetch(`/api/tasks/${task.id}`, {
+      await fetch(`/api/tasks/${task.id}`, {
         method: 'DELETE',
       });
-
-      if (!response.ok) {
-        // エラー時は状態を元に戻す
-        setTasks(tasks);
-        throw new Error('タスクの削除に失敗しました');
-      }
-
-      // サーバーとの同期
       await handleMutation();
-      
       toast({
-        title: '成功',
+        title: '削除しました',
         description: 'タスクを削除しました',
       });
-    } catch (error) {
-      console.error('Failed to delete task:', error);
+    } catch {
       toast({
         title: 'エラー',
-        description: error instanceof Error ? error.message : '不明なエラーが発生しました',
+        description: '削除に失敗しました',
         variant: 'destructive',
       });
     }
@@ -79,6 +72,9 @@ export default function TaskItem({
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent>
           <DialogTitle>タスクの編集</DialogTitle>
+          <DialogDescription>
+            タスクの内容を編集できます。
+          </DialogDescription>
           <EditTaskForm
             task={task}
             onSuccess={handleMutation}
@@ -90,6 +86,9 @@ export default function TaskItem({
       <Dialog open={isAIOpen} onOpenChange={setIsAIOpen}>
         <DialogContent>
           <DialogTitle>AI分析</DialogTitle>
+          <DialogDescription>
+            AIによるタスクの分析結果を表示します。
+          </DialogDescription>
           <AITaskAnalysis
             task={task}
             onMutate={handleMutation}
