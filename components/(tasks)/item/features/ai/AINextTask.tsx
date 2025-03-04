@@ -6,17 +6,13 @@ import { type ReactElement } from 'react';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils/styles';
 
-import { AIFeatureProps } from '../types';
+import { AINextTaskProps } from './types';
 
-interface AINextTaskProps extends AIFeatureProps {
-  nextTask: {
-    title: string;
-    description: string;
-    priority: '高' | '中' | '低';
-  };
-}
-
-export function AINextTask({ nextTask }: AINextTaskProps): ReactElement {
+export function AINextTask({
+  task,
+  nextTask,
+  onMutate,
+}: AINextTaskProps): ReactElement {
   return (
     <div className="space-y-4">
       <h3 className="text-sm font-medium text-zinc-200">次のタスクの提案</h3>

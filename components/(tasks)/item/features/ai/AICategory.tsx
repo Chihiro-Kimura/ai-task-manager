@@ -2,16 +2,13 @@
 
 import { type ReactElement } from 'react';
 
-import { AIFeatureProps } from '../types';
+import { AICategoryProps } from './types';
 
-interface AICategoryProps extends AIFeatureProps {
-  category: {
-    category: string;
-    confidence: number;
-  };
-}
-
-export function AICategory({ category }: AICategoryProps): ReactElement {
+export function AICategory({
+  task,
+  category,
+  onMutate,
+}: AICategoryProps): ReactElement {
   return (
     <div className="space-y-2">
       <h3 className="text-sm font-medium text-zinc-200">タスクの分類</h3>

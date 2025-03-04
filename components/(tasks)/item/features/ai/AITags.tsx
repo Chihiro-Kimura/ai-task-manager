@@ -12,20 +12,13 @@ import { TAG_MESSAGES } from '@/lib/constants/messages';
 import { useTaskStore } from '@/store/taskStore';
 import { TaskWithExtras } from '@/types/task';
 
-import { AIFeatureProps } from '../types';
+import { AITagsProps } from './types';
 
-// Tag型を拡張
-interface TaskTag {
-  id: string;
-  name: string;
-  color: string | null;
-}
-
-interface AITagsProps extends AIFeatureProps {
-  suggestedTags: string[];
-}
-
-export function AITags({ task, suggestedTags, onMutate }: AITagsProps): ReactElement {
+export function AITags({
+  task,
+  suggestedTags,
+  onMutate,
+}: AITagsProps): ReactElement {
   const { data: session } = useSession();
   const { toast } = useToast();
   const [localTask, setLocalTask] = useState<TaskWithExtras>(task);
@@ -39,6 +32,9 @@ export function AITags({ task, suggestedTags, onMutate }: AITagsProps): ReactEle
     console.log('AITags: Received suggestedTags:', suggestedTags);
   }, [suggestedTags]);
 
+  // suggestedTagsが配列でない場合は空配列を使用
+  const validSuggestedTags = Array.isArray(suggestedTags) ? suggestedTags : [];
+
   const handleSuggestedTagClick = async (tagName: string): Promise<void> => {
     if (pendingTags[tagName] || processingUpdate) return;
 
@@ -51,7 +47,10 @@ export function AITags({ task, suggestedTags, onMutate }: AITagsProps): ReactEle
         id: `suggested-${tagName}`,
         name: tagName,
         color: null,
-      };
+        userId: session?.user?.id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as Tag;
 
       const optimisticTags = [...(localTask.tags || [])];
       if (!optimisticTags.some(tag => tag.name.toLowerCase() === tagName.toLowerCase())) {
@@ -61,10 +60,10 @@ export function AITags({ task, suggestedTags, onMutate }: AITagsProps): ReactEle
           tags: optimisticTags,
         }));
       }
-      
+
       // タグの更新を実行
-      const response = await fetch(`/api/tasks/${task.id}/tags`, {
-        method: 'PUT',
+      const response = await fetch(`/api/tasks/${task.id}/${task.id}/tags`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -94,12 +93,12 @@ export function AITags({ task, suggestedTags, onMutate }: AITagsProps): ReactEle
         title: TAG_MESSAGES.UPDATE_SUCCESS,
         description: TAG_MESSAGES.APPLY_SUCCESS,
       });
-    } catch (error: unknown) {
+    } catch (error) {
       // エラー時は元の状態に戻す
       setLocalTask(task);
       toast({
         title: 'エラー',
-        description: TAG_MESSAGES.CREATE_ERROR,
+        description: error instanceof Error ? error.message : TAG_MESSAGES.CREATE_ERROR,
         variant: 'destructive',
       });
     } finally {
@@ -108,7 +107,7 @@ export function AITags({ task, suggestedTags, onMutate }: AITagsProps): ReactEle
     }
   };
 
-  const updateTaskWithTags = async (selectedTags: TaskTag[]): Promise<void> => {
+  const updateTaskWithTags = async (selectedTags: Tag[]): Promise<void> => {
     if (processingUpdate) return;
 
     try {
@@ -116,8 +115,8 @@ export function AITags({ task, suggestedTags, onMutate }: AITagsProps): ReactEle
       setIsApplying(true);
 
       // タグの更新を実行
-      const response = await fetch(`/api/tasks/${task.id}/tags`, {
-        method: 'PUT',
+      const response = await fetch(`/api/tasks/${task.id}/${task.id}/tags`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'X-User-Id': session?.user?.id || '',
@@ -152,7 +151,8 @@ export function AITags({ task, suggestedTags, onMutate }: AITagsProps): ReactEle
         title: TAG_MESSAGES.UPDATE_SUCCESS,
         description: TAG_MESSAGES.APPLY_SUCCESS,
       });
-    } catch (error: unknown) {
+    } catch (error) {
+      console.error('Failed to update tags:', error);
       toast({
         title: 'エラー',
         description: error instanceof Error ? error.message : TAG_MESSAGES.UPDATE_ERROR,
@@ -173,7 +173,7 @@ export function AITags({ task, suggestedTags, onMutate }: AITagsProps): ReactEle
 
       {/* 提案されたタグを横一列で表示 */}
       <div className="flex flex-wrap gap-2">
-        {suggestedTags.map((tagName) => {
+        {validSuggestedTags.map((tagName) => {
           const isSelected = localTask.tags?.some(
             (tag) => tag.name.toLowerCase() === tagName.toLowerCase()
           );
@@ -191,7 +191,7 @@ export function AITags({ task, suggestedTags, onMutate }: AITagsProps): ReactEle
                   id: `suggested-${tagName}`,
                   name: tagName,
                   color: null,
-                }}
+                } as Tag}
                 className={`text-sm transition-opacity ${
                   isSelected ? 'opacity-50' : 'hover:opacity-80'
                 }`}
@@ -211,8 +211,8 @@ export function AITags({ task, suggestedTags, onMutate }: AITagsProps): ReactEle
         <TagSelect
           id={task.id}
           type="task"
-          selectedTags={localTask.tags as Tag[]}
-          onTagsChange={updateTaskWithTags}
+          selectedTags={localTask.tags || []}
+          onTagsChange={(tags) => void updateTaskWithTags(tags as Tag[])}
           className="w-full"
           variant="default"
         />

@@ -6,13 +6,13 @@ import { type ReactElement, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
-import { AIFeatureProps } from '../types';
+import { AISummaryProps } from './types';
 
-interface AISummaryProps extends AIFeatureProps {
-  summary: string;
-}
-
-export function AISummary({ task, summary, onMutate }: AISummaryProps): ReactElement {
+export function AISummary({
+  task,
+  summary,
+  onMutate,
+}: AISummaryProps): ReactElement {
   const { data: session } = useSession();
   const { toast } = useToast();
   const [localTask, setLocalTask] = useState(task);

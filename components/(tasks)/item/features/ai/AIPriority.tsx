@@ -5,13 +5,13 @@ import { type ReactElement } from 'react';
 
 import { cn } from '@/lib/utils/styles';
 
-import { AIFeatureProps } from '../types';
+import { AIPriorityProps } from './types';
 
-interface AIPriorityProps extends AIFeatureProps {
-  priority: '高' | '中' | '低';
-}
-
-export function AIPriority({ priority }: AIPriorityProps): ReactElement {
+export function AIPriority({
+  task,
+  priority,
+  onMutate,
+}: AIPriorityProps): ReactElement {
   return (
     <div className="space-y-2">
       <h3 className="text-sm font-medium text-zinc-200">提案された優先度</h3>
