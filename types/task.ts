@@ -35,7 +35,7 @@ export interface UpdateTaskData {
 
 export interface CreateTaskData {
   title: string;
-  description: string;
+  description: string | null;
   priority: Priority;
   status: string;
   task_order: number;
