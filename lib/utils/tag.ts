@@ -1,6 +1,8 @@
 import { Tag } from '@prisma/client';
 
+import { getRandomTagColor } from '@/lib/constants/colors';
 import { TAG_MESSAGES } from '@/lib/constants/messages';
+import { prisma } from '@/lib/db/client';
 import { getRandomColor } from '@/lib/utils/styles';
 
 export interface TagUpdateParams {
@@ -9,10 +11,108 @@ export interface TagUpdateParams {
   tags: string[];
 }
 
+export interface TagInput {
+  name: string;
+  color?: string | null;
+}
+
 export class TagError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'TagError';
+  }
+}
+
+// 共通のタグ更新ロジック
+export async function updateOrCreateTags(
+  userId: string,
+  tags: (string | TagInput)[]
+): Promise<Tag[]> {
+  // タグ入力を正規化
+  const normalizedTags = tags.map(tag => {
+    if (typeof tag === 'string') {
+      return { name: tag, color: null };
+    }
+    return tag;
+  });
+
+  // 既存のタグを検索
+  const existingTags = await prisma.tag.findMany({
+    where: {
+      name: {
+        in: normalizedTags.map(tag => tag.name),
+        mode: 'insensitive', // 大文字小文字を区別しない
+      },
+      userId
+    }
+  });
+
+  // 既存のタグ名のセット（大文字小文字を区別しない）
+  const existingTagNames = new Set(
+    existingTags.map(tag => tag.name.toLowerCase())
+  );
+
+  // 新規タグを作成
+  const newTags = await Promise.all(
+    normalizedTags
+      .filter(tag => !existingTagNames.has(tag.name.toLowerCase()))
+      .map(tag => {
+        const randomColor = getRandomTagColor();
+        return prisma.tag.create({
+          data: {
+            name: tag.name,
+            color: JSON.stringify(randomColor),
+            userId
+          }
+        });
+      })
+  );
+
+  // 既存のタグと新規タグを組み合わせる
+  return [...existingTags, ...newTags];
+}
+
+// タグの更新と接続を行う共通ロジック
+export async function updateAndConnectTags(
+  userId: string,
+  itemId: string,
+  tags: (string | TagInput)[],
+  type: 'task' | 'note'
+): Promise<Tag[]> {
+  const allTags = await updateOrCreateTags(userId, tags);
+
+  if (type === 'task') {
+    const task = await prisma.task.update({
+      where: {
+        id: itemId,
+        userId
+      },
+      data: {
+        tags: {
+          connect: allTags.map(tag => ({ id: tag.id }))
+        }
+      },
+      include: {
+        tags: true
+      }
+    });
+    return task.tags;
+  } else {
+    const note = await prisma.note.update({
+      where: {
+        id: itemId,
+        userId
+      },
+      data: {
+        tags: {
+          connect: allTags.map(tag => ({ id: tag.id }))
+        }
+      },
+      include: {
+        tags: true
+      }
+    });
+    return note.tags;
   }
 }
 

@@ -1,40 +1,27 @@
 import { NextResponse } from 'next/server';
 
 import { auth } from '@/lib/auth/config';
-import { db } from '@/lib/db';
+import { TagInput, updateAndConnectTags } from '@/lib/utils/tag';
 
 export async function PATCH(
   req: Request,
   { params }: { params: { noteId: string } }
-) {
+): Promise<NextResponse> {
   try {
     const session = await auth();
     if (!session?.user) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const { tags } = (await req.json()) as { tags: string[] };
+    const { tags } = (await req.json()) as { tags: (string | TagInput)[] };
+    const { noteId } = await params;
 
     if (!tags) {
       return new NextResponse('Missing tags', { status: 400 });
     }
 
-    const note = await db.note.update({
-      where: {
-        id: params.noteId,
-        userId: session.user.id,
-      },
-      data: {
-        tags: {
-          set: tags.map((tagId) => ({ id: tagId })),
-        },
-      },
-      include: {
-        tags: true,
-      },
-    });
-
-    return NextResponse.json(note.tags);
+    const updatedTags = await updateAndConnectTags(session.user.id, noteId, tags, 'note');
+    return NextResponse.json(updatedTags);
   } catch (error) {
     console.error('[NOTE_TAGS_UPDATE]', error);
     return new NextResponse('Internal Error', { status: 500 });
