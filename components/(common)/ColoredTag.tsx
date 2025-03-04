@@ -3,13 +3,10 @@ import { type ReactElement } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { type TagColor } from '@/lib/constants/colors';
 import { cn } from '@/lib/utils/styles';
+import { Tag } from '@/types/common';
 
 interface ColoredTagProps {
-  tag: {
-    id: string;
-    name: string;
-    color: string | null;
-  };
+  tag: Tag;
   className?: string;
 }
 
@@ -41,7 +38,7 @@ export function ColoredTag({ tag, className }: ColoredTagProps): ReactElement {
     <Badge
       variant="secondary"
       className={cn(
-        'border transition-colors duration-200',
+        'border text-xs px-1.5 py-0 min-h-[18px] transition-colors duration-200',
         className
       )}
       style={{

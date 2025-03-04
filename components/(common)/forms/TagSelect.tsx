@@ -1,6 +1,5 @@
 'use client';
 
-import { Tag } from '@prisma/client';
 import { Loader2, Plus, Search, Tag as TagIcon } from 'lucide-react';
 import { type ReactElement, useEffect, useState, useMemo } from 'react';
 
@@ -18,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { TAG_MESSAGES } from '@/lib/constants/messages';
 import { cn } from '@/lib/utils/styles';
 import { createTag, fetchTags, updateTags } from '@/lib/utils/tag';
+import { Tag } from '@/types/common';
 
 interface TagSelectProps {
   id?: string;
@@ -155,10 +155,7 @@ export default function TagSelect({
         id: `suggested-${name}`,
         name,
         color: null,
-        userId: '',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }));
+      } as Tag));
 
     // その他の既存のタグ
     const others = tags.filter(tag => 

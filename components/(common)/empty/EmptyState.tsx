@@ -1,4 +1,5 @@
 import { RotateCcw } from 'lucide-react';
+import { type ReactElement } from 'react';
 
 import { Button } from '@/components/ui/button';
 
@@ -10,7 +11,7 @@ interface EmptyStateProps {
 export default function EmptyState({
   hasFilters,
   onResetFilters,
-}: EmptyStateProps) {
+}: EmptyStateProps): ReactElement {
   return (
     <div className="flex flex-col items-center justify-center h-[80vh] text-zinc-400">
       <p className="mb-4">

@@ -2,16 +2,16 @@
 
 import { useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-
+import { type ReactElement } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
-export default function ErrorPage() {
+export default function ErrorPage(): ReactElement {
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
 
-  const getErrorMessage = (error: string) => {
+  const getErrorMessage = (error: string): string => {
     switch (error) {
       case 'AccessDenied':
         return 'アクセスが拒否されました。再度ログインをお試しください。';

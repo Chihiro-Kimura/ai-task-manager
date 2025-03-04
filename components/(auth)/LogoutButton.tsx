@@ -2,15 +2,16 @@
 
 import { LogOut } from 'lucide-react';
 import { signOut } from 'next-auth/react';
+import { type ReactElement } from 'react';
 import { useState } from 'react';
 
-import LoadingState from '@/components/LoadingState';
+import LoadingState from '@/components/(common)/loading/LoadingState';
 import { Button } from '@/components/ui/button';
 
-export default function LogoutButton() {
+export default function LogoutButton(): ReactElement {
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogout = async () => {
+  const handleLogout = async (): Promise<void> => {
     setIsLoading(true);
     await signOut({ callbackUrl: '/auth/signin' });
   };
