@@ -1,10 +1,24 @@
+import { Task } from '@prisma/client';
 import { NextResponse } from 'next/server';
 
 import { auth } from '@/lib/auth/config';
 import { prisma } from '@/lib/db/client';
+import { BaseResponse, Tag } from '@/types/common';
+import { CreateTaskData, TaskWithExtras, UpdateTaskRequest } from '@/types/task';
+
+// PrismaのTaskをTaskWithExtrasに変換する関数
+function convertToTaskWithExtras(task: Task & { tags: Tag[] }): TaskWithExtras {
+  return {
+    ...task,
+    priority: task.priority as TaskWithExtras['priority'],
+    createdAt: new Date(task.createdAt),
+    updatedAt: new Date(task.updatedAt),
+    due_date: task.due_date ? new Date(task.due_date) : null,
+  };
+}
 
 // タスク一覧用のエンドポイント
-export async function GET(_request: Request): Promise<NextResponse> {
+export async function GET(_request: Request): Promise<NextResponse<TaskWithExtras[] | BaseResponse>> {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -31,7 +45,7 @@ export async function GET(_request: Request): Promise<NextResponse> {
       ],
     });
 
-    return NextResponse.json(tasks);
+    return NextResponse.json(tasks.map(convertToTaskWithExtras));
   } catch (error) {
     console.error('[TASKS_GET]', error);
     return NextResponse.json(
@@ -42,10 +56,10 @@ export async function GET(_request: Request): Promise<NextResponse> {
 }
 
 // タスクの新規作成
-export async function POST(request: Request): Promise<NextResponse> {
+export async function POST(request: Request): Promise<NextResponse<TaskWithExtras | BaseResponse>> {
   try {
     const userId = request.headers.get('X-User-Id');
-    const data = await request.json();
+    const data = await request.json() as CreateTaskData;
 
     const task = await prisma.task.create({
       data: {
@@ -61,7 +75,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         }),
         ...(data.tags && {
           tags: {
-            connect: data.tags.map((tag: { id: string }) => ({ id: tag.id })),
+            connect: data.tags.map((tag) => ({ id: tag.id })),
           },
         }),
       },
@@ -70,7 +84,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       },
     });
 
-    return NextResponse.json(task);
+    return NextResponse.json(convertToTaskWithExtras(task));
   } catch (error) {
     console.error('[TASK_CREATE]', error);
     return NextResponse.json(
@@ -84,7 +98,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse> {
+): Promise<NextResponse<TaskWithExtras | BaseResponse>> {
   const { id } = await params;
 
   if (!id) {
@@ -92,8 +106,7 @@ export async function PATCH(
   }
 
   try {
-    const { title, description, due_date, priority, status, tags } =
-      await request.json();
+    const data = await request.json() as UpdateTaskRequest;
     const userId = request.headers.get('X-User-Id');
 
     // タスクの存在確認
@@ -120,16 +133,16 @@ export async function PATCH(
         userId: userId as string,
       },
       data: {
-        ...(title && { title }),
-        ...(description !== undefined && { description }),
-        ...(due_date !== undefined && {
-          due_date: due_date ? new Date(due_date) : null,
+        ...(data.title && { title: data.title }),
+        ...(data.description !== undefined && { description: data.description }),
+        ...(data.due_date !== undefined && {
+          due_date: data.due_date ? new Date(data.due_date) : null,
         }),
-        ...(priority && { priority }),
-        ...(status && { status }),
-        ...(tags && {
+        ...(data.priority && { priority: data.priority }),
+        ...(data.status && { status: data.status }),
+        ...(data.tags && {
           tags: {
-            set: tags.map((tag: { id: string }) => ({ id: tag.id })),
+            set: data.tags.map((tag) => ({ id: tag.id })),
           },
         }),
         updatedAt: new Date(),
@@ -139,7 +152,7 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json(updatedTask);
+    return NextResponse.json(convertToTaskWithExtras(updatedTask));
   } catch (error) {
     console.error('[TASK_UPDATE]', error);
     return NextResponse.json(
@@ -153,7 +166,7 @@ export async function PATCH(
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse> {
+): Promise<NextResponse<Task | BaseResponse>> {
   const { id } = await params;
 
   if (!id) {

@@ -1,102 +1,82 @@
-import { Task } from '@prisma/client';
 import { NextResponse } from 'next/server';
 
-import { GeminiClient } from '@/lib/ai/gemini/client';
-import { AITaskSuggestion } from '@/lib/ai/gemini/types';
-import { withErrorHandler } from '@/lib/api/middleware/error-handler';
-import { validateRequestBody } from '@/lib/api/middleware/validation';
-import { Priority } from '@/types/common';
+import { handleAIRequest, parseJSONResponse } from '@/lib/ai/gemini/request-handler';
+import { AITaskSuggestion, TaskOutput } from '@/lib/ai/types';
 
 interface SuggestRequest {
-  tasks: Task[];
+  tasks: TaskOutput[];
 }
 
-function isSuggestRequest(data: unknown): data is SuggestRequest {
-  const request = data as SuggestRequest;
-  return (
-    typeof request === 'object' &&
-    request !== null &&
-    Array.isArray(request.tasks) &&
-    request.tasks.every(
-      (task) =>
-        typeof task === 'object' &&
-        task !== null &&
-        typeof task.title === 'string' &&
-        typeof task.status === 'string'
-    )
-  );
-}
+const validation = {
+  validator: (data: unknown): data is SuggestRequest => {
+    const request = data as SuggestRequest;
+    return (
+      typeof request === 'object' &&
+      request !== null &&
+      Array.isArray(request.tasks) &&
+      request.tasks.every((task) => typeof task === 'object' && task !== null)
+    );
+  },
+  errorMessage: 'タスクリストは必須です',
+};
 
 export async function POST(request: Request): Promise<NextResponse> {
-  return withErrorHandler(async () => {
-    const data = await request.json();
-    const validatedData = validateRequestBody(data, isSuggestRequest);
+  return handleAIRequest<SuggestRequest, { nextTask: AITaskSuggestion }>(
+    request,
+    validation,
+    async (data, model) => {
+      const tasksText = data.tasks
+        .map(
+          (task) => `
+タイトル: ${task.title}
+説明: ${task.description || '説明なし'}
+優先度: ${task.priority || '未設定'}
+ステータス: ${task.status}
+カテゴリー: ${task.category}
+`
+        )
+        .join('\n');
 
-    const model = GeminiClient.getInstance().getClient().getGenerativeModel({
-      model: "gemini-1.5-pro",
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 1024,
-      },
-    });
+      const prompt = `
+以下の既存のタスクリストを分析し、次に取り組むべきタスクを提案してください。
+既存のタスクの内容や優先度、依存関係を考慮して提案してください。
 
-    const tasksInfo = validatedData.tasks.map(task => ({
-      title: task.title,
-      status: task.status,
-      priority: task.priority,
-    }));
-
-    const prompt = `
-現在のタスクリストを分析し、次に取り組むべきタスクを提案してください。
-以下は現在のタスクリストです：
-
-${JSON.stringify(tasksInfo, null, 2)}
-
-以下の点を考慮して提案してください：
-- タスクの優先度
-- タスクの依存関係
-- 作業の効率性
-- リソースの有効活用
+既存のタスク：
+${tasksText}
 
 出力形式：
 {
-  "title": "提案するタスクのタイトル",
-  "description": "タスクの詳細な説明",
-  "priority": "高" | "中" | "低",
-  "estimatedDuration": "予想される所要時間（例：2時間）",
-  "dependencies": ["依存するタスクのタイトル"]
-}`;
+  "nextTask": {
+    "title": "タスクのタイトル",
+    "description": "タスクの詳細な説明",
+    "priority": "高" または "中" または "低",
+    "estimatedDuration": "予想所要時間（例：30分、2時間）",
+    "dependencies": ["依存するタスクのタイトル"]
+  }
+}
 
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = await response.text();
+注意：
+- タスクは具体的で実行可能な内容にしてください
+- 優先度は既存のタスクとの関連性を考慮して設定してください
+- 予想所要時間は現実的な見積もりにしてください
+- 依存関係は既存のタスクの中から選んでください`;
 
-    try {
-      const jsonResponse = JSON.parse(text) as AITaskSuggestion;
-      if (isValidSuggestion(jsonResponse)) {
-        return jsonResponse;
+      const result = await model.generateContent(prompt);
+      const text = await result.response.text();
+      const jsonResponse = parseJSONResponse<{ nextTask: AITaskSuggestion }>(text);
+
+      if (jsonResponse?.nextTask) {
+        return { nextTask: jsonResponse.nextTask };
       }
-      throw new Error('Invalid suggestion format');
-    } catch {
-      // JSON形式でない場合は、エラーを返す
-      throw new Error('Failed to generate task suggestion');
+
+      // エラー時のデフォルト値
+      return {
+        nextTask: {
+          title: '新規タスク',
+          description: 'タスクの提案に失敗しました',
+          priority: '中',
+        },
+      };
     }
-  });
-}
-
-function isValidSuggestion(data: unknown): data is AITaskSuggestion {
-  const suggestion = data as AITaskSuggestion;
-  return (
-    typeof suggestion === 'object' &&
-    suggestion !== null &&
-    typeof suggestion.title === 'string' &&
-    typeof suggestion.description === 'string' &&
-    isPriority(suggestion.priority) &&
-    (!suggestion.estimatedDuration || typeof suggestion.estimatedDuration === 'string') &&
-    (!suggestion.dependencies || Array.isArray(suggestion.dependencies))
   );
-}
-
-function isPriority(value: unknown): value is Priority {
-  return typeof value === 'string' && ['高', '中', '低'].includes(value);
 }

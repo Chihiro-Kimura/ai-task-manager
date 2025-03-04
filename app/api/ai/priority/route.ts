@@ -1,45 +1,35 @@
 import { NextResponse } from 'next/server';
 
-import { GeminiClient } from '@/lib/ai/gemini/client';
-import { AITaskAnalysis } from '@/lib/ai/gemini/types';
-import { withErrorHandler } from '@/lib/api/middleware/error-handler';
-import { validateRequestBody } from '@/lib/api/middleware/validation';
+import { handleAIRequest, parseJSONResponse } from '@/lib/ai/gemini/request-handler';
+import { AIRequestBase, AITaskAnalysis } from '@/lib/ai/types';
 import { Priority } from '@/types/common';
 
-interface PriorityRequest {
-  title: string;
-  content: string;
-}
+type PriorityRequest = AIRequestBase;
 
-function isPriorityRequest(data: unknown): data is PriorityRequest {
-  const request = data as PriorityRequest;
-  return (
-    typeof request === 'object' &&
-    request !== null &&
-    typeof request.title === 'string' &&
-    typeof request.content === 'string'
-  );
-}
+const validation = {
+  validator: (data: unknown): data is PriorityRequest => {
+    const request = data as PriorityRequest;
+    return (
+      typeof request === 'object' &&
+      request !== null &&
+      typeof request.title === 'string' &&
+      typeof request.content === 'string'
+    );
+  },
+  errorMessage: 'タイトルと内容は必須です',
+};
 
 export async function POST(request: Request): Promise<NextResponse> {
-  return withErrorHandler(async () => {
-    const data = await request.json();
-    const validatedData = validateRequestBody(data, isPriorityRequest);
-
-    const model = GeminiClient.getInstance().getClient().getGenerativeModel({
-      model: "gemini-1.5-pro",
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 1024,
-      },
-    });
-
-    const prompt = `
+  return handleAIRequest<PriorityRequest, { suggestedPriority: Priority }>(
+    request,
+    validation,
+    async (data, model) => {
+      const prompt = `
 以下のタスクの内容から、優先度を判断してください。
 優先度は「高」「中」「低」の3段階で評価してください。
 
-タイトル: ${validatedData.title}
-内容: ${validatedData.content}
+タイトル: ${data.title}
+内容: ${data.content}
 
 以下の基準で判断してください：
 - 緊急性（期限や時間的制約）
@@ -51,22 +41,19 @@ export async function POST(request: Request): Promise<NextResponse> {
   "suggestedPriority": "高" または "中" または "低"
 }`;
 
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = await response.text();
+      const result = await model.generateContent(prompt);
+      const text = await result.response.text();
+      const jsonResponse = parseJSONResponse<AITaskAnalysis>(text);
 
-    try {
-      const jsonResponse = JSON.parse(text) as AITaskAnalysis;
-      if (jsonResponse.suggestedPriority && isPriority(jsonResponse.suggestedPriority)) {
+      if (jsonResponse?.suggestedPriority && isPriority(jsonResponse.suggestedPriority)) {
         return { suggestedPriority: jsonResponse.suggestedPriority };
       }
-      throw new Error('Invalid priority value');
-    } catch {
+
       // JSON形式でない場合は、テキストから優先度を抽出
       const priority = extractPriority(text);
       return { suggestedPriority: priority };
     }
-  });
+  );
 }
 
 function isPriority(value: unknown): value is Priority {
