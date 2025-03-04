@@ -62,12 +62,20 @@ export async function handleAIRequest<T, R>(
 }
 
 export function parseJSONResponse<T>(text: string): T | null {
-  const jsonMatch = text.match(/\{[^}]*\}/);
+  // 配列またはオブジェクトのJSONを検出する正規表現
+  const jsonMatch = text.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
   if (jsonMatch) {
     try {
       return JSON.parse(jsonMatch[0]) as T;
     } catch (error) {
       console.warn('JSON parse error:', error);
+      // エラーの詳細をログに出力
+      if (error instanceof Error) {
+        console.warn('Error details:', {
+          message: error.message,
+          match: jsonMatch[0],
+        });
+      }
       return null;
     }
   }

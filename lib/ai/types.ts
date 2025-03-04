@@ -18,6 +18,7 @@ export interface TaskSummary {
 export interface TaskClassification {
   category: string;
   confidence: number;
+  reason?: string;
 }
 
 // 基本リクエスト型
@@ -52,7 +53,11 @@ export interface TaskOutput extends TaskInput {
 
 export interface AITaskAnalysis {
   summary?: string;
-  category?: string;
+  category?: {
+    category: string;
+    confidence: number;
+    reason?: string;
+  };
   confidence?: number;
   suggestedPriority?: Priority;
   suggestedTags?: string[];

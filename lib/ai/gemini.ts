@@ -241,34 +241,63 @@ export class GeminiProvider implements AIProvider {
   ): Promise<TaskClassification> {
     try {
       const prompt = `
-以下のタスクを「今すぐ」「次に」「いつか」のいずれかに分類してください。
+以下のタスクを「inbox」「doing」「todo」のいずれかに分類してください。より正確な分類のため、複数の要因を総合的に判断してください。
 
+タスクの情報:
 タイトル: ${title}
 内容: ${content}
 
 分類基準:
-- 今すぐ: 緊急性が高く、すぐに着手すべきタスク（24時間以内に着手）
-- 次に: 重要だが即時性はないタスク（1週間以内に着手）
-- いつか: 優先度が低く、余裕があるときに実施するタスク
+1. doing（今すぐ実行）:
+   - 24時間以内に着手が必要なタスク
+   - 緊急性が高く、遅延が重大な影響を及ぼすもの
+   - 他のタスクの依存関係で優先すべきもの
+   - "緊急" "至急" "今日中" などの表現を含むもの
 
-以下の形式でJSON形式で返してください:
+2. todo（次に実行）:
+   - 1週間以内に着手すべきタスク
+   - 重要だが即時性はないもの
+   - プロジェクトの進行に影響するが余裕があるもの
+   - "今週中" "次の" などの表現を含むもの
+
+3. inbox（未分類）:
+   - 具体的な期限がないタスク
+   - 優先度が低く、時間に余裕があるもの
+   - 将来的な検討事項や改善案
+   - "可能なら" "余裕があれば" などの表現を含むもの
+
+以下の形式で回答してください。必ず有効なJSON形式で返してください:
+
 {
-  "category": "分類結果",
-  "confidence": 0.0から1.0の確信度（小数点第2位まで）
+  "category": "inbox" または "doing" または "todo",
+  "confidence": 0.0から1.0の確信度（小数点第2位まで）,
+  "reason": "分類理由の詳細な説明（100文字以内）"
 }
 
 注意事項:
-- 期限や締切が明示されている場合は優先的に考慮
-- タスクの依存関係も考慮
-- プロジェクトの重要度も加味
-`;
+- 期限や締切が明示されている場合は最優先で考慮
+- タスクの依存関係も重要な判断要素
+- プロジェクト全体における重要度も加味
+- タスクの複雑さや実行時間も考慮
+- 不確実な場合は、より優先度の高いカテゴリに分類
+- 必ず上記のJSON形式で返してください。追加のテキストは含めないでください。`;
 
       const response = await this.generateResponse(prompt);
-      let result: TaskClassification;
+      
+      // JSONの抽出（余分なテキストがある場合に対応）
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw createAIError(
+          'INVALID_RESPONSE',
+          'タスクの分類結果がJSON形式ではありません。'
+        );
+      }
 
+      let result: TaskClassification & { reason?: string };
       try {
-        result = JSON.parse(response);
-      } catch {
+        result = JSON.parse(jsonMatch[0]);
+      } catch (error) {
+        console.error('JSON parse error:', error, 'Response:', response);
         throw createAIError(
           'INVALID_RESPONSE',
           'タスクの分類結果が不正なJSON形式です。'
@@ -276,22 +305,33 @@ export class GeminiProvider implements AIProvider {
       }
 
       if (
-        !['今すぐ', '次に', 'いつか'].includes(result.category) ||
+        !['inbox', 'doing', 'todo'].includes(result.category) ||
         typeof result.confidence !== 'number' ||
         result.confidence < 0 ||
         result.confidence > 1
       ) {
+        console.error('Invalid classification result:', result);
         throw createAIError(
           'INVALID_RESPONSE',
           'タスクの分類結果が不正な形式です。'
         );
       }
 
-      return result;
+      // 分類理由をログに記録（デバッグ用）
+      if (result.reason) {
+        console.debug('Task Classification Reason:', result.reason);
+      }
+
+      return {
+        category: result.category,
+        confidence: result.confidence,
+        reason: result.reason
+      };
     } catch (error) {
       if ((error as AIError).type) {
         throw error;
       }
+      console.error('Classification error:', error);
       throw createAIError(
         'UNKNOWN_ERROR',
         'タスクの分類中にエラーが発生しました。',
@@ -448,8 +488,11 @@ ${text}
 
     return {
       summary: summary.summary,
-      category: category.category,
-      confidence: category.confidence,
+      category: {
+        category: category.category,
+        confidence: category.confidence,
+        reason: category.reason
+      },
       suggestedPriority: priority,
       suggestedTags: tags,
     };
