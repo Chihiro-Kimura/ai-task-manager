@@ -1,7 +1,8 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type ReactElement, useState, useEffect } from 'react';
+import { useCallback } from 'react';
+import { type ReactElement } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -21,19 +22,30 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useTaskStore } from '@/store/taskStore';
-import { type Tag } from '@/types/common';
 import { type TaskWithExtras } from '@/types/task';
 
 const formSchema = z.object({
-  title: z.string().min(1, { message: 'タイトルを入力してください' }),
-  description: z.string().optional(),
-  priority: z.enum(['高', '中', '低']).nullable(),
-  dueDate: z.date().nullable(),
-  tags: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-    color: z.string().nullable().optional(),
-  })),
+  title: z.string()
+    .min(1, { message: 'タイトルを入力してください' })
+    .max(100, { message: 'タイトルは100文字以内で入力してください' })
+    .trim(),
+  description: z.string()
+    .max(1000, { message: '説明は1000文字以内で入力してください' })
+    .optional()
+    .transform(v => v === '' ? undefined : v),
+  priority: z.enum(['高', '中', '低'], {
+    errorMap: () => ({ message: '優先度は「高」「中」「低」のいずれかを選択してください' })
+  }).nullable(),
+  dueDate: z.date({
+    errorMap: () => ({ message: '有効な日付を選択してください' })
+  }).nullable(),
+  tags: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      color: z.string().nullable().optional(),
+    })
+  ).default([]),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -46,8 +58,6 @@ interface EditTaskFormProps {
 
 export function EditTaskForm({ task, onClose, onSubmit }: EditTaskFormProps): ReactElement {
   const { setIsEditModalOpen } = useTaskStore();
-  const [title, setTitle] = useState(task.title);
-  const [description, setDescription] = useState(task.description ?? '');
   const { toast } = useToast();
   
   const form = useForm<FormValues>({
@@ -72,34 +82,27 @@ export function EditTaskForm({ task, onClose, onSubmit }: EditTaskFormProps): Re
 
   const handleSubmit = async (values: FormValues): Promise<void> => {
     try {
-      console.log('Form values before submit:', values);
-      
-      const submitData = {
-        ...values,
-        priority: values.priority ?? null,
-        dueDate: values.dueDate,
-        tags: values.tags.map(tag => ({
-          id: tag.id,
-          name: tag.name,
-          color: tag.color,
-        }))
-      };
-      
-      console.log('Submitting data:', submitData);
-      await onSubmit(submitData);
-      
+      await onSubmit(values);
       toast({
         title: 'タスクを更新しました',
+        variant: 'default',
       });
       handleClose();
     } catch (error) {
       console.error('Error updating task:', error);
       toast({
         title: 'エラーが発生しました',
+        description: error instanceof Error ? error.message : 'タスクの更新に失敗しました',
         variant: 'destructive',
       });
     }
   };
+
+  const handleTextAreaResize = useCallback((e: React.FormEvent<HTMLTextAreaElement>) => {
+    const target = e.currentTarget;
+    target.style.height = 'auto';
+    target.style.height = `${target.scrollHeight}px`;
+  }, []);
 
   return (
     <div
@@ -133,11 +136,6 @@ export function EditTaskForm({ task, onClose, onSubmit }: EditTaskFormProps): Re
                         draggable="false"
                         placeholder="タイトル"
                         className="mb-3 bg-zinc-900/50 border-zinc-800 text-slate-100 placeholder:text-zinc-400 cursor-text"
-                        value={title}
-                        onChange={(e) => {
-                          field.onChange(e.target.value);
-                          setTitle(e.target.value);
-                        }}
                       />
                     </FormControl>
                     <FormMessage />
@@ -196,11 +194,7 @@ export function EditTaskForm({ task, onClose, onSubmit }: EditTaskFormProps): Re
                       <Textarea
                         {...field}
                         className="min-h-[100px] resize-none overflow-hidden"
-                        onInput={(e) => {
-                          const target = e.target as HTMLTextAreaElement;
-                          target.style.height = 'auto';
-                          target.style.height = `${target.scrollHeight}px`;
-                        }}
+                        onInput={handleTextAreaResize}
                       />
                     </FormControl>
                     <FormMessage />
