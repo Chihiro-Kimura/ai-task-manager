@@ -12,6 +12,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils/styles';
 import { Priority } from '@/types/common';
@@ -82,19 +85,12 @@ export function TaskActionBar({
             </DueDatePicker>
           )}
           {!priority && (
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                >
-                  <Flag className="mr-2 h-4 w-4" />
-                  優先度を設定
-                </DropdownMenuItem>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Flag className="mr-2 h-4 w-4" />
+                優先度を設定
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
                 <DropdownMenuItem
                   onClick={() => {
                     onPriorityChange('高');
@@ -122,8 +118,8 @@ export function TaskActionBar({
                   <Flag className="mr-2 h-4 w-4 text-emerald-400" />
                   低
                 </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
           )}
           {(!dueDate || !priority) && <DropdownMenuSeparator />}
           <DropdownMenuItem 

@@ -3,7 +3,7 @@
 import { type ReactElement, useState } from 'react';
 
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
+import { useTaskApi } from '@/hooks/use-task-api';
 import { TaskWithExtras } from '@/types/task';
 
 import { EditTaskForm } from '../forms/EditTaskForm';
@@ -23,37 +23,12 @@ export default function TaskItem({
 }: TaskItemProps): ReactElement {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAIOpen, setIsAIOpen] = useState(false);
-  const { toast } = useToast();
-
-  const handleMutation = async (): Promise<void> => {
-    try {
-      await onMutate();
-    } catch {
-      toast({
-        title: 'エラー',
-        description: '更新に失敗しました',
-        variant: 'destructive',
-      });
-    }
-  };
+  const { updateTask, deleteTask } = useTaskApi(task.id, {
+    onSuccess: () => void onMutate(),
+  });
 
   const handleDelete = async (): Promise<void> => {
-    try {
-      await fetch(`/api/tasks/${task.id}`, {
-        method: 'DELETE',
-      });
-      await handleMutation();
-      toast({
-        title: '削除しました',
-        description: 'タスクを削除しました',
-      });
-    } catch {
-      toast({
-        title: 'エラー',
-        description: '削除に失敗しました',
-        variant: 'destructive',
-      });
-    }
+    await deleteTask();
   };
 
   return (
@@ -61,12 +36,12 @@ export default function TaskItem({
       <div className="bg-slate-900 rounded-lg shadow hover:shadow-md transition-shadow">
         <TaskHeader
           task={task}
-          onMutate={handleMutation}
+          onMutate={onMutate}
           onEdit={() => setIsEditModalOpen(true)}
           onDelete={handleDelete}
           onAIClick={() => setIsAIOpen(true)}
         />
-        <TaskContent task={task} onMutate={handleMutation} />
+        <TaskContent task={task} onMutate={onMutate} />
       </div>
 
       {isEditModalOpen && (
@@ -74,28 +49,14 @@ export default function TaskItem({
           task={task}
           onClose={() => setIsEditModalOpen(false)}
           onSubmit={async (values) => {
-            try {
-              const { dueDate, ...rest } = values;
-              await fetch(`/api/tasks/${task.id}`, {
-                method: 'PATCH',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  ...rest,
-                  due_date: dueDate?.toISOString() ?? null,
-                }),
-              });
-              await handleMutation();
-              setIsEditModalOpen(false);
-            } catch (error) {
-              console.error('Failed to update task:', error);
-              toast({
-                title: 'エラー',
-                description: '更新に失敗しました',
-                variant: 'destructive',
-              });
-            }
+            const { dueDate, tags: selectedTags, ...rest } = values;
+            
+            await updateTask({
+              ...rest,
+              due_date: dueDate?.toISOString() ?? null,
+              tags: selectedTags.map(tag => ({ id: tag.id })),
+            });
+            setIsEditModalOpen(false);
           }}
         />
       )}
@@ -108,7 +69,7 @@ export default function TaskItem({
           </DialogDescription>
           <AITaskAnalysis
             task={task}
-            onMutate={handleMutation}
+            onMutate={onMutate}
             onClose={() => setIsAIOpen(false)}
           />
         </DialogContent>

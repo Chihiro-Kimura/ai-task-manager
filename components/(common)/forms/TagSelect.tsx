@@ -27,6 +27,7 @@ interface TagSelectProps {
   suggestedTags?: string[];
   className?: string;
   variant?: 'default' | 'icon';
+  noBorder?: boolean;
 }
 
 export default function TagSelect({
@@ -37,6 +38,7 @@ export default function TagSelect({
   suggestedTags = [],
   className,
   variant = 'default',
+  noBorder = false,
 }: TagSelectProps): ReactElement {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -239,8 +241,12 @@ export default function TagSelect({
             </Button>
           ) : (
             <Button
-              variant="outline"
-              className="w-full justify-start bg-zinc-900/50 border-zinc-800 text-zinc-100"
+              variant={noBorder ? "ghost" : "outline"}
+              className={cn(
+                "w-full justify-start hover:bg-zinc-800/50",
+                !noBorder && "bg-zinc-900/50 border-zinc-800",
+                "text-zinc-100"
+              )}
             >
               {currentSelectedTags.length > 0 ? (
                 <div className="flex gap-1 flex-wrap">

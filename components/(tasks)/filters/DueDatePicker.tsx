@@ -12,6 +12,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu';
+import { FormLabel } from '@/components/ui/form';
 import {
   Popover,
   PopoverContent,
@@ -20,11 +21,12 @@ import {
 import { cn } from '@/lib/utils/styles';
 
 interface DueDatePickerProps {
-  dueDate: Date | undefined;
+  dueDate?: Date;
   setDueDate: (date: Date | undefined) => void;
   variant?: 'icon' | 'full' | 'menuItem';
   className?: string;
   children?: ReactNode;
+  hideLabel?: boolean;
 }
 
 function CalendarContent({
@@ -46,9 +48,10 @@ function CalendarContent({
 export default function DueDatePicker({
   dueDate,
   setDueDate,
-  variant = 'full',
+  variant = 'icon',
   className = '',
   children,
+  hideLabel = false,
 }: DueDatePickerProps): ReactElement {
   const [isOpen, setIsOpen] = useState(false);
   const isIcon = variant === 'icon';
@@ -74,11 +77,9 @@ export default function DueDatePicker({
 
   return (
     <div className={className}>
-      {!isIcon && (
-        <label className="text-sm font-medium text-zinc-400 block mb-2">
-          締切日
-        </label>
-      )}
+      {variant === 'full' && (
+        <>
+          {!hideLabel && <FormLabel>締切日</FormLabel>}
       <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild>
           {isIcon ? (
@@ -126,6 +127,8 @@ export default function DueDatePicker({
           />
         </PopoverContent>
       </Popover>
+        </>
+      )}
     </div>
   );
 }
