@@ -7,8 +7,7 @@ import { type ReactElement, useCallback, useMemo, useState } from 'react';
 import { TaskColumnContent } from '@/components/(tasks)/column/TaskColumnContent';
 import { TaskColumnHeader } from '@/components/(tasks)/column/TaskColumnHeader';
 import { useToast } from '@/hooks/use-toast';
-import { TaskInput } from '@/lib/ai/types';
-import { TaskWithExtras } from '@/types/task';
+import { BaseTaskInput, TaskWithExtras } from '@/types/task';
 
 // 型定義
 interface TaskColumnProps {
@@ -22,7 +21,7 @@ interface TaskColumnProps {
   ) => void;
   sortMode: string;
   onReset: () => void;
-  onAddTask: (task: TaskInput & {
+  onAddTask: (task: BaseTaskInput & {
     status: string;
     task_order: number;
     category: string;
@@ -107,9 +106,7 @@ export default function TaskColumn({
     onReset();
   }, [onReset]);
 
-  const handleAddTask = async (
-    taskData: TaskInput
-  ): Promise<void> => {
+  const handleAddTask = async (taskData: BaseTaskInput): Promise<void> => {
     try {
       await onAddTask({
         ...taskData,

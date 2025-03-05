@@ -10,18 +10,13 @@ import { PrioritySelect } from '@/components/(tasks)/filters/PrioritySelect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { TaskInput } from '@/lib/ai/types';
 import { Priority, Tag } from '@/types/common';
+import { CreateTaskData } from '@/types/task';
 
 interface AddTaskFormProps {
-  onSubmit: (task: TaskInput & {
-    status: string;
-    task_order: number;
-    category?: string;
-    due_date: string | null;
-  }) => void;
+  onSubmit: (task: CreateTaskData) => void;
   onCancel: () => void;
-  category?: string;
+  category: string;
 }
 
 export default function AddTaskForm({
@@ -54,7 +49,7 @@ export default function AddTaskForm({
       status: 'todo',
       task_order: 0,
       category,
-      due_date: dueDate?.toISOString() || null,
+      due_date: dueDate,
     });
     resetForm();
   };

@@ -1,23 +1,11 @@
 'use client';
 
-import { DroppableProvided } from '@hello-pangea/dnd';
 import { type ReactElement, Suspense } from 'react';
 
 import { TaskItemSkeleton } from '@/components/(common)/loading/TaskItemSkeleton';
 import AddTaskForm from '@/components/(tasks)/forms/AddTaskForm';
 import DraggableTaskItem from '@/components/(tasks)/list/DraggableTaskItem';
-import { TaskInput } from '@/lib/ai/types';
-import { TaskWithExtras } from '@/types/task';
-
-interface TaskColumnContentProps {
-  isAddingTask: boolean;
-  tasks: TaskWithExtras[];
-  onAddTask: (taskData: TaskInput & { status: string; task_order: number; category?: string; due_date?: string | null }) => Promise<void>;
-  onCancelAdd: () => void;
-  onTasksChange: () => Promise<void>;
-  droppableId: string;
-  provided: DroppableProvided;
-}
+import { TaskColumnContentProps } from '@/types/task-column';
 
 export function TaskColumnContent({
   isAddingTask,
