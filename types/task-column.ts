@@ -13,6 +13,6 @@ export interface TaskColumnContentProps {
 }
 
 export interface TaskColumnErrorState {
-  hasError: boolean;
-  error: Error | null;
+  error: Error;
+  reset: () => void;
 }
