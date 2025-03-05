@@ -6,7 +6,7 @@ import { useState } from 'react';
 
 import TagSelect from '@/components/(common)/forms/TagSelect';
 import DueDatePicker from '@/components/(tasks)/filters/DueDatePicker';
-import PrioritySelect from '@/components/(tasks)/filters/PrioritySelect';
+import { PrioritySelect } from '@/components/(tasks)/filters/PrioritySelect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';

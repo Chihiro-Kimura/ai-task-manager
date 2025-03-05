@@ -1,102 +1,82 @@
 import { Flag } from 'lucide-react';
-import { type ReactElement, type ReactNode } from 'react';
+import { type ReactElement } from 'react';
 
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuPortal,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils/styles';
 import { Priority } from '@/types/common';
 
 interface PrioritySelectProps {
-  value: Priority | null;
-  onValueChange: (value: Priority) => void;
+  value?: Priority | null;
+  onValueChange: (value: Priority | null) => void;
+  allowClear?: boolean;
   className?: string;
-  variant?: 'icon' | 'menuItem';
-  children?: ReactNode;
 }
 
-function PriorityItems({
-  onValueChange,
-}: {
-  onValueChange: (value: Priority) => void;
-}): ReactElement {
-  return <>
-    <DropdownMenuItem
-      onClick={() => onValueChange('高')}
-      className="text-rose-400"
-    >
-      <Flag className="h-4 w-4" />
-      高
-    </DropdownMenuItem>
-    <DropdownMenuItem
-      onClick={() => onValueChange('中')}
-      className="text-amber-400"
-    >
-      <Flag className="h-4 w-4" />
-      中
-    </DropdownMenuItem>
-    <DropdownMenuItem
-      onClick={() => onValueChange('低')}
-      className="text-emerald-400"
-    >
-      <Flag className="h-4 w-4" />
-      低
-    </DropdownMenuItem>
-  </>
-}
-
-export default function PrioritySelect({
+export function PrioritySelect({
   value,
   onValueChange,
+  allowClear = false,
   className,
-  variant = 'icon',
-  children,
 }: PrioritySelectProps): ReactElement {
-  if (variant === 'menuItem') {
-    return (
-      <DropdownMenuSub>
-        <DropdownMenuSubTrigger className={className}>
-          {children}
-        </DropdownMenuSubTrigger>
-        <DropdownMenuPortal>
-          <DropdownMenuSubContent className="w-[140px]">
-            <PriorityItems onValueChange={onValueChange} />
-          </DropdownMenuSubContent>
-        </DropdownMenuPortal>
-      </DropdownMenuSub>
-    );
-  }
-
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          className={cn(
-            'flex h-7 w-7 items-center justify-center rounded-md hover:bg-accent',
-            className
+    <Select
+      value={value ?? undefined}
+      onValueChange={(v: string) => {
+        if (v === 'clear' || v === '') {
+          onValueChange(null);
+        } else {
+          onValueChange(v as Priority);
+        }
+      }}
+    >
+      <SelectTrigger className={cn("w-[180px]", className)}>
+        <SelectValue placeholder="優先度を選択">
+          {value && (
+            <div className="flex items-center gap-2">
+              <Flag
+                className={cn(
+                  'h-4 w-4',
+                  value === '高' && 'text-red-500',
+                  value === '中' && 'text-yellow-500',
+                  value === '低' && 'text-green-500',
+                )}
+              />
+              {value}
+            </div>
           )}
-        >
-          <Flag
-            className={cn(
-              'h-4 w-4',
-              !value && 'text-zinc-200',
-              value === '高' && 'text-rose-400',
-              value === '中' && 'text-amber-400',
-              value === '低' && 'text-emerald-400'
-            )}
-          />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[140px]">
-        <PriorityItems onValueChange={onValueChange} />
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {allowClear && (
+          <SelectItem value="clear">
+            優先度を解除
+          </SelectItem>
+        )}
+        <SelectItem value="高">
+          <div className="flex items-center gap-2">
+            <Flag className="h-4 w-4 text-red-500" />
+            高
+          </div>
+        </SelectItem>
+        <SelectItem value="中">
+          <div className="flex items-center gap-2">
+            <Flag className="h-4 w-4 text-yellow-500" />
+            中
+          </div>
+        </SelectItem>
+        <SelectItem value="低">
+          <div className="flex items-center gap-2">
+            <Flag className="h-4 w-4 text-green-500" />
+            低
+          </div>
+        </SelectItem>
+      </SelectContent>
+    </Select>
   );
 }

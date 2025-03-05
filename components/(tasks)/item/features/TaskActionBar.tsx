@@ -4,7 +4,6 @@ import { Calendar, Flag, MoreVertical, Pencil, Sparkles, Trash2 } from 'lucide-r
 import { type ReactElement, useState } from 'react';
 
 import DueDatePicker from '@/components/(tasks)/filters/DueDatePicker';
-import PrioritySelect from '@/components/(tasks)/filters/PrioritySelect';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -22,7 +21,7 @@ interface TaskActionBarProps {
   priority: Priority | null;
   dueDate: Date | null;
   onStatusChange: (checked: boolean) => Promise<void>;
-  onPriorityChange: (priority: Priority) => Promise<void>;
+  onPriorityChange: (priority: Priority | null) => Promise<void>;
   onDueDateChange: (date: Date | undefined) => Promise<void>;
   onEdit: () => void;
   onDelete: () => Promise<void>;
@@ -83,17 +82,48 @@ export function TaskActionBar({
             </DueDatePicker>
           )}
           {!priority && (
-            <PrioritySelect
-              value={null}
-              onValueChange={(value) => {
-                onPriorityChange(value);
-                setIsOpen(false);
-              }}
-              variant="menuItem"
-            >
-              <Flag className="mr-2 h-4 w-4" />
-              優先度を設定
-            </PrioritySelect>
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                >
+                  <Flag className="mr-2 h-4 w-4" />
+                  優先度を設定
+                </DropdownMenuItem>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem
+                  onClick={() => {
+                    onPriorityChange('高');
+                    setIsOpen(false);
+                  }}
+                >
+                  <Flag className="mr-2 h-4 w-4 text-rose-400" />
+                  高
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    onPriorityChange('中');
+                    setIsOpen(false);
+                  }}
+                >
+                  <Flag className="mr-2 h-4 w-4 text-amber-400" />
+                  中
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    onPriorityChange('低');
+                    setIsOpen(false);
+                  }}
+                >
+                  <Flag className="mr-2 h-4 w-4 text-emerald-400" />
+                  低
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           {(!dueDate || !priority) && <DropdownMenuSeparator />}
           <DropdownMenuItem 
