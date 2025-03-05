@@ -72,7 +72,10 @@ export interface AITaskSuggestion {
 }
 
 export interface AIProvider {
+  name: string;
+  description: string;
   isEnabled: boolean;
+  initialize: (apiKey: string) => void;
   analyzeTask: (input: AIRequestBase) => Promise<AITaskAnalysis>;
   suggestNextTask: (tasks: TaskOutput[]) => Promise<AITaskSuggestion>;
   generateTags: (input: AIRequestBase) => Promise<string[]>;

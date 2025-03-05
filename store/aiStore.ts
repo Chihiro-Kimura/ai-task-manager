@@ -1,40 +1,54 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import { geminiProvider } from '@/lib/ai/gemini';
+import { AIProviderManager } from '@/lib/ai/provider-manager';
 import { AIProvider } from '@/lib/ai/types';
-import { AISettings } from '@/types/common';
 
 interface AIState {
-  settings: AISettings;
-  updateSettings: (settings: Partial<AISettings>) => void;
+  isEnabled: boolean;
+  useAI: boolean;
+  model?: string;
+  temperature?: number;
+  maxOutputTokens?: number;
+  updateSettings: (settings: Partial<AIState>) => void;
   getActiveProvider: () => AIProvider;
 }
 
 export const useAIStore = create<AIState>()(
   persist(
     (set, get) => ({
-      settings: {
-        provider: 'gemini',
-        apiKey: undefined,
-        isEnabled: false,
-        useAI: true
-      },
+      isEnabled: false,
+      useAI: true,
+      model: undefined,
+      temperature: 0.3,
+      maxOutputTokens: 1024,
       updateSettings: (newSettings) => {
-        const currentSettings = get().settings;
-        set({ settings: { ...currentSettings, ...newSettings } });
+        set((state) => ({ ...state, ...newSettings }));
       },
       getActiveProvider: () => {
-        const { settings } = get();
-        if (!settings.apiKey || !settings.isEnabled) {
-          throw new Error('AI機能が利用できません');
+        const { isEnabled } = get();
+        if (!isEnabled) {
+          throw new Error('AI機能が無効になっています');
         }
-        return geminiProvider;
+
+        const providerManager = AIProviderManager.getInstance();
+        const currentProvider = providerManager.getActiveProvider();
+        if (!currentProvider.isEnabled) {
+          throw new Error('AIプロバイダーが設定されていません');
+        }
+
+        return currentProvider;
       },
     }),
     {
-      name: 'ai-settings',
-      skipHydration: true,
+      name: 'ai-storage',
+      partialize: (state) => ({
+        isEnabled: state.isEnabled,
+        useAI: state.useAI,
+        model: state.model,
+        temperature: state.temperature,
+        maxOutputTokens: state.maxOutputTokens,
+      }),
     }
   )
 );
