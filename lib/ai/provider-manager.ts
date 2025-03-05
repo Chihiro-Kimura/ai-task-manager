@@ -1,43 +1,16 @@
-import { GeminiProvider } from './gemini';
-import { OpenAIProvider } from './openai';
-import { AIProvider } from './types';
+import { GeminiClient } from './gemini/client';
+import { AIProvider } from './types/provider';
 
-export type AIProviderType = 'gemini' | 'openai';
+export type AIProviderType = 'gemini';
 
 export class AIProviderManager {
   private static instance: AIProviderManager;
   private providers: Map<AIProviderType, AIProvider>;
-  private activeProvider: AIProviderType = 'openai';
+  private activeProvider: AIProviderType = 'gemini';
 
   private constructor() {
     this.providers = new Map();
-    this.providers.set('gemini', new GeminiProvider());
-    this.providers.set('openai', new OpenAIProvider());
-
-    // 環境変数からAPIキーを取得して初期化を試みる
-    this.initializeFromEnv();
-  }
-
-  private initializeFromEnv(): void {
-    // Gemini
-    const geminiApiKey = process.env.GEMINI_API_KEY;
-    if (geminiApiKey) {
-      try {
-        this.initializeProvider('gemini', geminiApiKey);
-      } catch (error) {
-        console.warn('Failed to initialize Gemini with env API key:', error);
-      }
-    }
-
-    // OpenAI
-    const openaiApiKey = process.env.OPENAI_API_KEY;
-    if (openaiApiKey) {
-      try {
-        this.initializeProvider('openai', openaiApiKey);
-      } catch (error) {
-        console.warn('Failed to initialize OpenAI with env API key:', error);
-      }
-    }
+    this.providers.set('gemini', GeminiClient.getInstance());
   }
 
   static getInstance(): AIProviderManager {
@@ -47,48 +20,48 @@ export class AIProviderManager {
     return AIProviderManager.instance;
   }
 
+  async initializeProviders(): Promise<void> {
+    // Gemini
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    if (geminiApiKey) {
+      try {
+        this.initializeProvider('gemini', geminiApiKey);
+      } catch (error) {
+        console.warn('Failed to initialize Gemini with env API key:', error);
+      }
+    }
+  }
+
   initializeProvider(type: AIProviderType, apiKey: string): void {
     const provider = this.providers.get(type);
     if (provider) {
-      // 環境変数のAPIキーが存在する場合は、それを優先
-      const envApiKey = type === 'gemini' 
-        ? process.env.GEMINI_API_KEY 
-        : process.env.OPENAI_API_KEY;
-
-      if (envApiKey) {
-        provider.initialize(envApiKey);
-      } else {
-        provider.initialize(apiKey);
-      }
+      provider.initialize(apiKey);
       this.activeProvider = type;
     }
   }
 
-  getActiveProvider(): AIProvider {
-    const provider = this.providers.get(this.activeProvider);
-    if (!provider || !provider.isEnabled) {
-      throw new Error('有効なAIプロバイダーが設定されていません');
-    }
-    return provider;
+  getProvider(type: AIProviderType): AIProvider | undefined {
+    return this.providers.get(type);
   }
 
-  setActiveProvider(type: AIProviderType): void {
-    if (!this.providers.get(type)?.isEnabled) {
-      throw new Error('指定されたプロバイダーは初期化されていません');
-    }
-    this.activeProvider = type;
+  getActiveProvider(): AIProvider | undefined {
+    return this.providers.get(this.activeProvider);
   }
 
-  getProviderInfo(type: AIProviderType): { name: string; description: string } | null {
+  getProviderInfo(type: AIProviderType): { name: string; description: string } | undefined {
     const provider = this.providers.get(type);
-    if (!provider) return null;
-    return {
-      name: provider.name,
-      description: provider.description,
-    };
+    if (provider) {
+      return {
+        name: provider.name,
+        description: provider.description,
+      };
+    }
+    return undefined;
   }
 
-  isProviderEnabled(type: AIProviderType): boolean {
-    return this.providers.get(type)?.isEnabled ?? false;
+  getApiKey(type: AIProviderType): string | undefined {
+    return type === 'gemini'
+      ? process.env.GEMINI_API_KEY
+      : undefined;
   }
 } 

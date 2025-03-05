@@ -1,10 +1,13 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-import { AISettings } from '@/types/common';
+import { AITaskAnalysis } from '@/lib/ai/types/analysis';
+import { AIError } from '@/lib/ai/types/errors';
+import { AIProvider, AIRequestBase } from '@/lib/ai/types/provider';
+import { AISettings , Priority } from '@/types/common';
+import { BaseTaskOutput } from '@/types/task/base';
+import { AITaskSuggestion } from '@/types/task/suggestion';
 
-import { AIRequestBase, APIError, AITaskAnalysis } from '../types';
-
-export class GeminiClient {
+export class GeminiClient implements AIProvider {
   private static instance: GeminiClient;
   private client: GoogleGenerativeAI | null = null;
   private settings: AISettings = {
@@ -15,6 +18,10 @@ export class GeminiClient {
     temperature: 0.7,
     maxOutputTokens: 1024,
   };
+
+  name = 'Gemini';
+  description = 'Google提供の高性能なAIモデル';
+  isEnabled = false;
 
   private constructor() {
     if (typeof window !== 'undefined') {
@@ -48,8 +55,8 @@ export class GeminiClient {
       useAI: true,
       provider: 'gemini',
     };
+    this.isEnabled = true;
 
-    // 設定を永続化
     this.persistSettings();
     console.log('GeminiClient initialized with settings:', this.settings);
   }
@@ -91,7 +98,7 @@ export class GeminiClient {
     return this.settings.isEnabled && this.settings.useAI;
   }
 
-  async generateSummary(data: AIRequestBase): Promise<AITaskAnalysis> {
+  async analyzeTask(input: AIRequestBase): Promise<AITaskAnalysis> {
     if (!this.settings.apiKey) {
       throw new Error('APIキーが設定されていません');
     }
@@ -103,7 +110,7 @@ export class GeminiClient {
         'x-api-key': this.settings.apiKey,
       },
       body: JSON.stringify({
-        ...data,
+        ...input,
         engine: this.settings.provider,
       }),
     });
@@ -111,10 +118,34 @@ export class GeminiClient {
     const result = await response.json();
 
     if (!response.ok) {
-      const error = result as APIError;
-      throw new Error(error.details || error.error);
+      const error = result as AIError;
+      throw new Error(error.message);
     }
 
     return result;
+  }
+
+  async suggestNextTask(_tasks: BaseTaskOutput[]): Promise<AITaskSuggestion> {
+    throw new Error('Method not implemented.');
+  }
+
+  async generateTags(_input: AIRequestBase): Promise<string[]> {
+    throw new Error('Method not implemented.');
+  }
+
+  async classifyCategory(_input: AIRequestBase): Promise<string> {
+    throw new Error('Method not implemented.');
+  }
+
+  async getTagSuggestions(
+    _title: string,
+    _content: string,
+    _existingTags: { id: string; name: string }[]
+  ): Promise<string[]> {
+    throw new Error('Method not implemented.');
+  }
+
+  async analyzePriority(_title: string, _content: string): Promise<Priority> {
+    throw new Error('Method not implemented.');
   }
 } 

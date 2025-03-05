@@ -1,6 +1,8 @@
 import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
 
+import { AIError } from '@/lib/ai/types/errors';
+
 import { AIRequestValidation } from './types';
 
 const DEFAULT_CONFIG = {
@@ -17,18 +19,20 @@ export async function handleAIRequest<T, R>(
   try {
     const data = await request.json();
     if (!validation.validator(data)) {
-      return NextResponse.json(
-        { error: validation.errorMessage },
-        { status: 400 }
-      );
+      const error: AIError = {
+        type: 'INVALID_REQUEST',
+        message: validation.errorMessage
+      };
+      return NextResponse.json(error, { status: 400 });
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(
-        { error: 'APIキーが設定されていません' },
-        { status: 400 }
-      );
+      const error: AIError = {
+        type: 'API_KEY_NOT_SET',
+        message: 'APIキーが設定されていません'
+      };
+      return NextResponse.json(error, { status: 400 });
     }
 
     const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({
@@ -44,20 +48,21 @@ export async function handleAIRequest<T, R>(
       return NextResponse.json(result);
     } catch (error) {
       console.error('AI processing error:', error);
-      return NextResponse.json(
-        {
-          error: '処理に失敗しました',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        },
-        { status: 500 }
-      );
+      const aiError: AIError = {
+        type: 'UNKNOWN_ERROR',
+        message: '処理に失敗しました',
+        originalError: error instanceof Error ? error : undefined
+      };
+      return NextResponse.json(aiError, { status: 500 });
     }
   } catch (error) {
     console.error('Request handling error:', error);
-    return NextResponse.json(
-      { error: 'リクエストの処理に失敗しました' },
-      { status: 500 }
-    );
+    const aiError: AIError = {
+      type: 'INVALID_REQUEST',
+      message: 'リクエストの処理に失敗しました',
+      originalError: error instanceof Error ? error : undefined
+    };
+    return NextResponse.json(aiError, { status: 500 });
   }
 }
 
