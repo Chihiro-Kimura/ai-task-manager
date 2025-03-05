@@ -1,15 +1,13 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useSession } from 'next-auth/react';
 import { type ReactElement, useState } from 'react';
-import { useForm, type SubmitHandler } from 'react-hook-form';
-import { mutate } from 'swr';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import TagSelect from '@/components/(common)/forms/TagSelect';
 import DueDatePicker from '@/components/(tasks)/filters/DueDatePicker';
-import PrioritySelect from '@/components/(tasks)/filters/PrioritySelect';
+import { PrioritySelect } from '@/components/(tasks)/filters/PrioritySelect';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -23,103 +21,81 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useTaskStore } from '@/store/taskStore';
-import { TaskWithExtras } from '@/types/task';
-
-interface Tag {
-  id: string;
-  name: string;
-  color?: string;
-}
+import { type Tag } from '@/types/common';
+import { type TaskWithExtras } from '@/types/task';
 
 const formSchema = z.object({
-  title: z.string().min(1, 'タイトルは必須です'),
+  title: z.string().min(1, { message: 'タイトルを入力してください' }),
   description: z.string().optional(),
-  priority: z.string().optional(),
-  due_date: z.string().optional(),
+  priority: z.enum(['高', '中', '低']).nullable(),
+  dueDate: z.date().nullable(),
+  tags: z.array(z.string()),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 interface EditTaskFormProps {
   task: TaskWithExtras;
-  onSuccess: () => Promise<void>;
-  onCancel: () => void;
+  onClose: () => void;
+  onSubmit: (values: FormValues) => Promise<void>;
 }
 
-export default function EditTaskForm({
-  task,
-  onSuccess,
-  onCancel,
-}: EditTaskFormProps): ReactElement {
-  const { data: session } = useSession();
+export function EditTaskForm({ task, onClose, onSubmit }: EditTaskFormProps): ReactElement {
   const { setIsEditModalOpen } = useTaskStore();
-  const [selectedTags, setSelectedTags] = useState<Tag[]>(task.tags || []);
+  const [title, setTitle] = useState(task.title);
+  const [description, setDescription] = useState(task.description ?? '');
+  const [dueDate, setDueDate] = useState<Date | undefined>(
+    task.due_date ? new Date(task.due_date) : undefined
+  );
+  const [selectedTags, setSelectedTags] = useState<Tag[]>(
+    task.tags?.map((tag) => ({
+      id: tag.id,
+      name: tag.name,
+      color: tag.color,
+    })) ?? []
+  );
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: task.title,
-      description: task.description || '',
-      priority: task.priority || undefined,
-      due_date: task.due_date 
-        ? typeof task.due_date === 'string'
-          ? task.due_date
-          : task.due_date.toISOString()
-        : undefined,
+      description: task.description ?? '',
+      priority: task.priority,
+      dueDate: task.due_date ? new Date(task.due_date) : null,
+      tags: task.tags?.map((tag) => tag.name) ?? [],
     },
   });
 
   const handleClose = (): void => {
     setIsEditModalOpen(false);
-    onCancel();
+    onClose();
   };
 
-  const onSubmit: SubmitHandler<FormValues> = async (values) => {
-    if (!session?.user?.id) {
-      toast({
-        title: 'エラー',
-        description: '認証情報が見つかりません',
-        variant: 'destructive',
-      });
-      return;
-    }
-
+  const handleSubmit = async (values: FormValues): Promise<void> => {
     try {
-      setIsLoading(true);
-
-      const response = await fetch(`/api/tasks/${task.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': session.user.id,
-        },
-        body: JSON.stringify({
-          ...values,
-          due_date: values.due_date ? new Date(values.due_date) : null,
-          tags: selectedTags,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update task');
-      }
-
-      await onSuccess();
-      form.reset();
-      mutate('/api/tasks');
-      handleClose();
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : '不明なエラー';
+      console.log('Form values before submit:', values);
+      
+      const submitData = {
+        ...values,
+        priority: values.priority ?? null,
+        due_date: values.dueDate?.toISOString() ?? null,
+        tags: selectedTags.map(tag => tag.name)
+      };
+      
+      console.log('Submitting data:', submitData);
+      await onSubmit(submitData);
+      
       toast({
-        title: 'エラー',
-        description: errorMessage,
+        title: 'タスクを更新しました',
+      });
+      handleClose();
+    } catch (error) {
+      console.error('Error updating task:', error);
+      toast({
+        title: 'エラーが発生しました',
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -141,7 +117,7 @@ export default function EditTaskForm({
           タスクを編集
         </h2>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="title"
@@ -153,6 +129,11 @@ export default function EditTaskForm({
                       draggable="false"
                       placeholder="タイトル"
                       className="mb-3 bg-zinc-900/50 border-zinc-800 text-slate-100 placeholder:text-zinc-400 cursor-text"
+                      value={title}
+                      onChange={(e) => {
+                        field.onChange(e.target.value);
+                        setTitle(e.target.value);
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -170,55 +151,48 @@ export default function EditTaskForm({
                       draggable="false"
                       placeholder="詳細"
                       className="mb-4 bg-zinc-900/50 border-zinc-800 text-slate-100 placeholder:text-zinc-400 cursor-text"
+                      value={description}
+                      onChange={(e) => {
+                        field.onChange(e.target.value);
+                        setDescription(e.target.value);
+                      }}
                     />
                   </FormControl>
                 </FormItem>
               )}
             />
-            <div className="mb-4">
-              <div className="text-zinc-400 mb-2">優先度 : </div>
-              <FormField
-                control={form.control}
-                name="priority"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <PrioritySelect
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
+            <div className="flex flex-col gap-2">
+              <label>優先度</label>
+              <PrioritySelect
+                value={form.watch('priority')}
+                onValueChange={(value) => {
+                  console.log('Priority changed to:', value);
+                  form.setValue('priority', value);
+                }}
+                allowClear
               />
             </div>
-            <FormField
-              control={form.control}
-              name="due_date"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <DueDatePicker
-                      dueDate={field.value ? new Date(field.value) : undefined}
-                      setDueDate={(date) =>
-                        field.onChange(date?.toISOString() || '')
-                      }
-                      className="mb-4"
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+            <div className="flex items-center gap-2">
+              <DueDatePicker
+                dueDate={dueDate}
+                setDueDate={setDueDate}
+                variant="icon"
+                className="flex-none"
+              />
+            </div>
             <div className="space-y-2">
               <FormLabel>タグ</FormLabel>
               <TagSelect
                 selectedTags={selectedTags}
                 onTagsChange={setSelectedTags}
+                variant="icon"
+                className="flex-none"
               />
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex items-center justify-end gap-2">
               <Button
                 onClick={handleClose}
+                type="button"
                 variant="ghost"
                 size="sm"
                 className="hover:bg-red-900/20 hover:text-red-400 text-zinc-400"
@@ -227,12 +201,11 @@ export default function EditTaskForm({
               </Button>
               <Button
                 type="submit"
-                disabled={isLoading}
                 variant="ghost"
                 size="sm"
                 className="hover:bg-emerald-900/20 hover:text-emerald-400 text-zinc-400"
               >
-                {isLoading ? '更新中...' : '更新'}
+                更新
               </Button>
             </div>
           </form>

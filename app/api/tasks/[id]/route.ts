@@ -51,14 +51,23 @@ export async function PATCH(
     const { id } = await params;
     const { tags, ...data } = (await request.json()) as UpdateTaskRequest;
 
+    // データの整形
+    const updateData = {
+      ...(data.title && { title: data.title }),
+      ...(data.description !== undefined && { description: data.description }),
+      ...(data.priority !== undefined && { priority: data.priority }),
+      ...(data.status && { status: data.status }),
+      ...(data.due_date !== undefined && { due_date: data.due_date ? new Date(data.due_date) : null }),
+      updatedAt: new Date(),
+    };
+
     const task = await db.task.update({
       where: {
         id,
         userId: session.user.id,
       },
       data: {
-        ...data,
-        updatedAt: new Date(),
+        ...updateData,
         ...(tags && {
           tags: {
             set: tags.map((tag) => ({ id: tag.id })),

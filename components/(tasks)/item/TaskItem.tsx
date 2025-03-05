@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/compone
 import { useToast } from '@/hooks/use-toast';
 import { TaskWithExtras } from '@/types/task';
 
-import EditTaskForm from '../forms/EditTaskForm';
+import { EditTaskForm } from '../forms/EditTaskForm';
 
 import AITaskAnalysis from './features/ai/AITaskAnalysis';
 import { TaskContent } from './features/TaskContent';
@@ -69,19 +69,36 @@ export default function TaskItem({
         <TaskContent task={task} onMutate={handleMutation} />
       </div>
 
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent>
-          <DialogTitle>タスクの編集</DialogTitle>
-          <DialogDescription>
-            タスクの内容を編集できます。
-          </DialogDescription>
-          <EditTaskForm
-            task={task}
-            onSuccess={handleMutation}
-            onCancel={() => setIsEditModalOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      {isEditModalOpen && (
+        <EditTaskForm
+          task={task}
+          onClose={() => setIsEditModalOpen(false)}
+          onSubmit={async (values) => {
+            try {
+              const { dueDate, ...rest } = values;
+              await fetch(`/api/tasks/${task.id}`, {
+                method: 'PATCH',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  ...rest,
+                  due_date: dueDate?.toISOString() ?? null,
+                }),
+              });
+              await handleMutation();
+              setIsEditModalOpen(false);
+            } catch (error) {
+              console.error('Failed to update task:', error);
+              toast({
+                title: 'エラー',
+                description: '更新に失敗しました',
+                variant: 'destructive',
+              });
+            }
+          }}
+        />
+      )}
 
       <Dialog open={isAIOpen} onOpenChange={setIsAIOpen}>
         <DialogContent>
