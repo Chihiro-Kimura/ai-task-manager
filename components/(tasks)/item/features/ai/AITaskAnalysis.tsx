@@ -144,9 +144,29 @@ export default function AITaskAnalysis({
           />
         );
       case 'priority':
-        return result.priority ? (
-          <AIPriority task={task} priority={result.priority} onMutate={onMutate} />
-        ) : null;
+        // デバッグログを追加
+        console.log('Priority API response:', result);
+        console.log('Priority resultData:', result.priority);
+        
+        // APIレスポンスから優先度の値を取得
+        const priorityValue = typeof result.priority === 'object' 
+          ? result.priority.priority 
+          : result.priority;
+        
+        if (typeof priorityValue !== 'string' || !['高', '中', '低'].includes(priorityValue)) {
+          return null;
+        }
+        
+        return (
+          <AIPriority 
+            task={task} 
+            priority={priorityValue as '高' | '中' | '低'} 
+            onMutate={async () => {
+              await onMutate();
+              onClose();
+            }} 
+          />
+        );
       case 'classify':
         return result.classify ? (
           <AICategory category={result.classify} onMutate={handleApplyCategory} />

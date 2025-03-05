@@ -46,7 +46,9 @@ export interface AINextTaskProps extends AIFeatureProps {
 export interface AIAnalysisResult {
   summary?: { summary: string };
   tags?: string[];
-  priority?: '高' | '中' | '低';
+  priority?: {
+    priority: '高' | '中' | '低';
+  } | '高' | '中' | '低';
   classify?: {
     category: string;
     confidence: number;

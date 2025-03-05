@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { handleAIRequest, parseJSONResponse } from '@/lib/ai/gemini/request-handler';
-import { AIRequestBase, AITaskAnalysis } from '@/lib/ai/types';
+import { AIRequestBase } from '@/lib/ai/types';
 import { Priority } from '@/types/common';
 
 type PriorityRequest = AIRequestBase;
@@ -20,7 +20,7 @@ const validation = {
 };
 
 export async function POST(request: Request): Promise<NextResponse> {
-  return handleAIRequest<PriorityRequest, { suggestedPriority: Priority }>(
+  return handleAIRequest<PriorityRequest, { priority: Priority }>(
     request,
     validation,
     async (data, model) => {
@@ -35,23 +35,24 @@ export async function POST(request: Request): Promise<NextResponse> {
 - 緊急性（期限や時間的制約）
 - 重要性（影響範囲や結果の重大さ）
 - 依存関係（他のタスクとの関連性）
+- 工数（作業量、複雑さ）
 
 出力形式：
 {
-  "suggestedPriority": "高" または "中" または "低"
+  "priority": "高" または "中" または "低"
 }`;
 
       const result = await model.generateContent(prompt);
       const text = await result.response.text();
-      const jsonResponse = parseJSONResponse<AITaskAnalysis>(text);
+      const jsonResponse = parseJSONResponse<{ priority: Priority }>(text);
 
-      if (jsonResponse?.suggestedPriority && isPriority(jsonResponse.suggestedPriority)) {
-        return { suggestedPriority: jsonResponse.suggestedPriority };
+      if (jsonResponse?.priority && isPriority(jsonResponse.priority)) {
+        return { priority: jsonResponse.priority };
       }
 
       // JSON形式でない場合は、テキストから優先度を抽出
       const priority = extractPriority(text);
-      return { suggestedPriority: priority };
+      return { priority };
     }
   );
 }
