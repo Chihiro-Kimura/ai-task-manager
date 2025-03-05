@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { handleAIRequest, parseJSONResponse } from '@/lib/ai/gemini/request-handler';
-import { AIRequestBase } from '@/lib/ai/types';
+import { AIRequestBase } from '@/lib/ai/types/provider';
 import { Priority } from '@/types/common';
 
 type PriorityRequest = AIRequestBase;

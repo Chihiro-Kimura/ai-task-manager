@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 
 import { handleAIRequest, parseJSONResponse } from '@/lib/ai/gemini/request-handler';
-import { AIRequestBase, AITaskAnalysis } from '@/lib/ai/types';
+import { AITaskAnalysis } from '@/lib/ai/types/analysis';
+import { AIRequestBase } from '@/lib/ai/types/provider';
 
 type SummaryRequest = AIRequestBase;
 

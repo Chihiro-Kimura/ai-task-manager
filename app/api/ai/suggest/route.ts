@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 
 import { handleAIRequest, parseJSONResponse } from '@/lib/ai/gemini/request-handler';
-import { AITaskSuggestion, TaskOutput } from '@/lib/ai/types';
+import { BaseTaskOutput } from '@/types/task/base';
+import { TaskSuggestionResponse } from '@/types/task/suggestion';
 
 interface SuggestRequest {
-  tasks: TaskOutput[];
+  tasks: BaseTaskOutput[];
 }
 
 const validation = {
@@ -21,7 +22,7 @@ const validation = {
 };
 
 export async function POST(request: Request): Promise<NextResponse> {
-  return handleAIRequest<SuggestRequest, { nextTask: AITaskSuggestion }>(
+  return handleAIRequest<SuggestRequest, TaskSuggestionResponse>(
     request,
     validation,
     async (data, model) => {
@@ -63,7 +64,7 @@ ${tasksText}
 
       const result = await model.generateContent(prompt);
       const text = await result.response.text();
-      const jsonResponse = parseJSONResponse<{ nextTask: AITaskSuggestion }>(text);
+      const jsonResponse = parseJSONResponse<TaskSuggestionResponse>(text);
 
       if (jsonResponse?.nextTask) {
         return { nextTask: jsonResponse.nextTask };

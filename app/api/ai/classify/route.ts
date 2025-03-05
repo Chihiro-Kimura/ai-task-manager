@@ -1,18 +1,10 @@
 import { NextResponse } from 'next/server';
 
 import { handleAIRequest, parseJSONResponse } from '@/lib/ai/gemini/request-handler';
-import { AIRequestBase } from '@/lib/ai/types';
+import { AIRequestBase } from '@/lib/ai/types/provider';
+import { VALID_CATEGORIES, Category, CategoryClassification } from '@/types/task/category';
 
 type ClassifyRequest = AIRequestBase;
-
-const VALID_CATEGORIES = ['inbox', 'doing', 'todo'] as const;
-type Category = typeof VALID_CATEGORIES[number];
-
-interface ClassifyResponse {
-  category: Category;
-  confidence: number;
-  reason: string;
-}
 
 const validation = {
   validator: (data: unknown): data is ClassifyRequest => {
@@ -28,7 +20,7 @@ const validation = {
 };
 
 export async function POST(request: Request): Promise<NextResponse> {
-  return handleAIRequest<ClassifyRequest, ClassifyResponse>(
+  return handleAIRequest<ClassifyRequest, CategoryClassification>(
     request,
     validation,
     async (data, model) => {
@@ -57,7 +49,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
       const result = await model.generateContent(prompt);
       const text = await result.response.text();
-      const jsonResponse = parseJSONResponse<ClassifyResponse>(text);
+      const jsonResponse = parseJSONResponse<CategoryClassification>(text);
 
       if (jsonResponse?.category && isValidCategory(jsonResponse.category)) {
         return {

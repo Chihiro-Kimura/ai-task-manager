@@ -1,12 +1,22 @@
 import { NextResponse } from 'next/server';
 
 import { handleAIRequest, parseJSONResponse } from '@/lib/ai/gemini/request-handler';
-import { AIRequestBase, AITaskAnalysis } from '@/lib/ai/types';
-import { Tag } from '@/types/common';
+import { AITaskAnalysis } from '@/lib/ai/types/analysis';
+import { AIRequestBase } from '@/lib/ai/types/provider';
 
 type TagsRequest = AIRequestBase & {
   existingTags?: string[];
 };
+
+// AIが提案するタグの型（idなし）
+interface SuggestedTag {
+  name: string;
+  color: string;
+}
+
+interface TagsResponse {
+  suggestedTags: SuggestedTag[];
+}
 
 const validation = {
   validator: (data: unknown): data is TagsRequest => {
@@ -23,7 +33,7 @@ const validation = {
 };
 
 export async function POST(request: Request): Promise<NextResponse> {
-  return handleAIRequest<TagsRequest, { suggestedTags: Tag[] }>(
+  return handleAIRequest<TagsRequest, TagsResponse>(
     request,
     validation,
     async (data, model) => {
@@ -59,7 +69,17 @@ export async function POST(request: Request): Promise<NextResponse> {
       const jsonResponse = parseJSONResponse<AITaskAnalysis>(text);
 
       if (jsonResponse?.suggestedTags && Array.isArray(jsonResponse.suggestedTags)) {
-        return { suggestedTags: jsonResponse.suggestedTags };
+        // 文字列配列をSuggestedTag配列に変換
+        const tags: SuggestedTag[] = jsonResponse.suggestedTags.map(tag => {
+          if (typeof tag === 'string') {
+            return {
+              name: tag,
+              color: '#6366F1' // デフォルトカラー
+            };
+          }
+          return tag as SuggestedTag;
+        });
+        return { suggestedTags: tags };
       }
 
       return { suggestedTags: [] };
