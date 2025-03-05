@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type ReactElement, useState } from 'react';
+import { type ReactElement, useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -29,7 +29,11 @@ const formSchema = z.object({
   description: z.string().optional(),
   priority: z.enum(['高', '中', '低']).nullable(),
   dueDate: z.date().nullable(),
-  tags: z.array(z.string()),
+  tags: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    color: z.string().nullable().optional(),
+  })),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -44,16 +48,6 @@ export function EditTaskForm({ task, onClose, onSubmit }: EditTaskFormProps): Re
   const { setIsEditModalOpen } = useTaskStore();
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? '');
-  const [dueDate, setDueDate] = useState<Date | undefined>(
-    task.due_date ? new Date(task.due_date) : undefined
-  );
-  const [selectedTags, setSelectedTags] = useState<Tag[]>(
-    task.tags?.map((tag) => ({
-      id: tag.id,
-      name: tag.name,
-      color: tag.color,
-    })) ?? []
-  );
   const { toast } = useToast();
   
   const form = useForm<FormValues>({
@@ -63,7 +57,11 @@ export function EditTaskForm({ task, onClose, onSubmit }: EditTaskFormProps): Re
       description: task.description ?? '',
       priority: task.priority,
       dueDate: task.due_date ? new Date(task.due_date) : null,
-      tags: task.tags?.map((tag) => tag.name) ?? [],
+      tags: task.tags?.map((tag) => ({
+        id: tag.id,
+        name: tag.name,
+        color: tag.color,
+      })) ?? [],
     },
   });
 
@@ -79,8 +77,12 @@ export function EditTaskForm({ task, onClose, onSubmit }: EditTaskFormProps): Re
       const submitData = {
         ...values,
         priority: values.priority ?? null,
-        due_date: values.dueDate?.toISOString() ?? null,
-        tags: selectedTags.map(tag => tag.name)
+        dueDate: values.dueDate,
+        tags: values.tags.map(tag => ({
+          id: tag.id,
+          name: tag.name,
+          color: tag.color,
+        }))
       };
       
       console.log('Submitting data:', submitData);
@@ -110,7 +112,7 @@ export function EditTaskForm({ task, onClose, onSubmit }: EditTaskFormProps): Re
     >
       <div
         draggable="false"
-        className="bg-zinc-950 border border-zinc-800 p-6 rounded-lg shadow-lg w-96 z-50 pointer-events-auto select-none cursor-default"
+        className="bg-zinc-950 border border-zinc-800 p-6 rounded-lg shadow-lg w-[480px] z-50 pointer-events-auto select-none cursor-default"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-xl font-bold mb-4 text-zinc-100 select-none cursor-default">
@@ -118,75 +120,112 @@ export function EditTaskForm({ task, onClose, onSubmit }: EditTaskFormProps): Re
         </h2>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      draggable="false"
-                      placeholder="タイトル"
-                      className="mb-3 bg-zinc-900/50 border-zinc-800 text-slate-100 placeholder:text-zinc-400 cursor-text"
-                      value={title}
-                      onChange={(e) => {
-                        field.onChange(e.target.value);
-                        setTitle(e.target.value);
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Textarea
-                      {...field}
-                      draggable="false"
-                      placeholder="詳細"
-                      className="mb-4 bg-zinc-900/50 border-zinc-800 text-slate-100 placeholder:text-zinc-400 cursor-text"
-                      value={description}
-                      onChange={(e) => {
-                        field.onChange(e.target.value);
-                        setDescription(e.target.value);
-                      }}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-            <div className="flex flex-col gap-2">
-              <label>優先度</label>
-              <PrioritySelect
-                value={form.watch('priority')}
-                onValueChange={(value) => {
-                  console.log('Priority changed to:', value);
-                  form.setValue('priority', value);
-                }}
-                allowClear
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>タイトル</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        draggable="false"
+                        placeholder="タイトル"
+                        className="mb-3 bg-zinc-900/50 border-zinc-800 text-slate-100 placeholder:text-zinc-400 cursor-text"
+                        value={title}
+                        onChange={(e) => {
+                          field.onChange(e.target.value);
+                          setTitle(e.target.value);
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="flex items-center gap-2">
-              <DueDatePicker
-                dueDate={dueDate}
-                setDueDate={setDueDate}
-                variant="icon"
-                className="flex-none"
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>優先度</FormLabel>
+                      <FormControl>
+                        <PrioritySelect
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          allowClear
+                          className="w-full"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="dueDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>締切日</FormLabel>
+                      <FormControl>
+                        <DueDatePicker
+                          dueDate={field.value}
+                          setDueDate={field.onChange}
+                          variant="full"
+                          hideLabel
+                          className="w-full"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>説明</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        {...field}
+                        className="min-h-[100px] resize-none overflow-hidden"
+                        onInput={(e) => {
+                          const target = e.target as HTMLTextAreaElement;
+                          target.style.height = 'auto';
+                          target.style.height = `${target.scrollHeight}px`;
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="space-y-2">
-              <FormLabel>タグ</FormLabel>
-              <TagSelect
-                selectedTags={selectedTags}
-                onTagsChange={setSelectedTags}
-                variant="icon"
-                className="flex-none"
+
+              <FormField
+                control={form.control}
+                name="tags"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>タグ</FormLabel>
+                    <FormControl>
+                      <TagSelect
+                        selectedTags={field.value}
+                        onTagsChange={field.onChange}
+                        variant="default"
+                        noBorder
+                        className="w-full"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
             <div className="flex items-center justify-end gap-2">
