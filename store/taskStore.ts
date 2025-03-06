@@ -20,6 +20,8 @@ interface TaskState {
   ) => TaskWithExtras[];
   isEditModalOpen: boolean;
   setIsEditModalOpen: (isOpen: boolean) => void;
+  viewMode: 'list' | 'kanban';
+  setViewMode: (mode: 'list' | 'kanban') => void;
 }
 
 export const useTaskStore = create<TaskState>((set, get) => ({
@@ -84,4 +86,6 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   },
   isEditModalOpen: false,
   setIsEditModalOpen: (isOpen) => set({ isEditModalOpen: isOpen }),
+  viewMode: 'kanban',
+  setViewMode: (mode) => set({ viewMode: mode }),
 }));
