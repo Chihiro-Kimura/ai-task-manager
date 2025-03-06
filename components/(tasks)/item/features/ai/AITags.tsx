@@ -4,7 +4,7 @@ import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 
 import { ColoredTag } from '@/components/(common)/ColoredTag';
-import TagSelect from '@/components/(common)/forms/TagSelect';
+import TagSelect from '@/components/(common)/forms/tag-select';
 import { AILoading } from '@/components/(common)/loading/AILoading';
 import { useTagManagement } from '@/hooks/use-tag-management';
 import { useToast } from '@/hooks/use-toast';
