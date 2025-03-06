@@ -9,14 +9,11 @@ interface TagsRequest extends AIRequestBase {
   existingTags?: string[];
 }
 
-// AIが提案するタグの型（idなし）
-interface SuggestedTag {
-  name: string;
-  color: string;
-}
-
 interface TagsResponse {
-  suggestedTags: SuggestedTag[];
+  suggestedTags: Array<{
+    name: string;
+    color: string | null;
+  }>;
 }
 
 const validation = {
@@ -46,18 +43,21 @@ export async function POST(request: Request): Promise<NextResponse> {
 
       const result = await model.generateContent(prompt);
       const text = await result.response.text();
-      const jsonResponse = parseJSONResponse<AITaskAnalysis>(text);
+      console.log('[AI Tags Response]:', text);
 
+      const jsonResponse = parseJSONResponse<AITaskAnalysis>(text);
       if (jsonResponse?.suggestedTags && Array.isArray(jsonResponse.suggestedTags)) {
-        // 文字列配列をSuggestedTag配列に変換
-        const tags: SuggestedTag[] = jsonResponse.suggestedTags.map(tag => {
+        const tags = jsonResponse.suggestedTags.map(tag => {
           if (typeof tag === 'string') {
             return {
               name: tag,
-              color: '#6366F1' // デフォルトカラー
+              color: null
             };
           }
-          return tag as SuggestedTag;
+          return {
+            name: tag.name,
+            color: tag.color ? JSON.stringify(tag.color) : null
+          };
         });
         return { suggestedTags: tags };
       }
