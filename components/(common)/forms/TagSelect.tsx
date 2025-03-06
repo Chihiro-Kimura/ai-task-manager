@@ -13,10 +13,9 @@ import {
 } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { useTagManagement } from '@/hooks/use-tag-management';
 import { useToast } from '@/hooks/use-toast';
-import { TAG_MESSAGES } from '@/lib/constants/messages';
 import { cn } from '@/lib/utils/styles';
-import { createTag, fetchTags, updateTags } from '@/lib/utils/tag';
 import { Tag } from '@/types/common';
 
 interface TagSelectProps {
@@ -41,13 +40,23 @@ export default function TagSelect({
   noBorder = false,
 }: TagSelectProps): ReactElement {
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
-  const [tags, setTags] = useState<Tag[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [showNewTagInput, setShowNewTagInput] = useState(false);
+
+  const {
+    tags,
+    isLoading,
+    createNewTag,
+    loadTags,
+  } = useTagManagement({
+    id,
+    type,
+    initialTags: selectedTags,
+    onTagsChange,
+  });
 
   // 提案されたタグがある場合は自動的にポップオーバーを開く
   useEffect(() => {
@@ -56,79 +65,79 @@ export default function TagSelect({
     }
   }, [suggestedTags]);
 
-  const currentSelectedTags = selectedTags ?? [];
-
-  const loadTags = async (): Promise<void> => {
-    try {
-      setIsLoading(true);
-      const data = await fetchTags();
-      setTags(data);
-    } catch {
-      toast({
-        title: 'エラー',
-        description: TAG_MESSAGES.FETCH_ERROR,
-        variant: 'destructive',
-      });
-      setTags([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleUpdateTags = async (newTags: Tag[]): Promise<void> => {
-    try {
-      if (!id) {
-        onTagsChange(newTags);
-        return;
-      }
-
-      const updatedTags = await updateTags({
-        id,
-        type,
-        tags: newTags.map((tag) => tag.id),
-      });
-
-      onTagsChange(updatedTags);
-      void loadTags();
-    } catch {
-      toast({
-        title: 'エラー',
-        description: TAG_MESSAGES.UPDATE_ERROR,
-        variant: 'destructive',
-      });
-    }
-  };
+  useEffect(() => {
+    void loadTags();
+  }, [loadTags]);
 
   const handleCreateTag = async (): Promise<void> => {
     if (!newTagName.trim()) return;
 
     try {
       setIsCreating(true);
-      const newTag = await createTag(newTagName.trim());
-      setTags((prev) => [...prev, newTag]);
-      setNewTagName('');
-      setShowNewTagInput(false);
-      // 新規作成したタグを自動選択
-      void handleUpdateTags([...currentSelectedTags, newTag]);
-      toast({
-        title: TAG_MESSAGES.CREATE_SUCCESS,
-      });
-    } catch {
-      toast({
-        title: 'エラー',
-        description: TAG_MESSAGES.CREATE_ERROR,
-        variant: 'destructive',
-      });
+      const newTag = await createNewTag(newTagName.trim());
+      if (newTag) {
+        // 既存のタグと重複していない場合のみ追加
+        if (!selectedTags.some(tag => tag.id === newTag.id)) {
+          onTagsChange([...selectedTags, newTag]);
+        }
+        setNewTagName('');
+        setShowNewTagInput(false);
+      }
     } finally {
       setIsCreating(false);
     }
   };
 
-  useEffect(() => {
-    void loadTags();
-  }, []);
+  const handleSelect = async (tagId: string): Promise<void> => {
+    try {
+      if (tagId.startsWith('suggested-')) {
+        const tagName = tagId.replace('suggested-', '');
+        // 既存のタグを検索（大文字小文字を区別しない）
+        const existingTag = tags.find(
+          tag => tag.name.toLowerCase() === tagName.toLowerCase()
+        );
+
+        if (existingTag) {
+          // 既存のタグが見つかった場合、それを使用
+          if (!selectedTags.some(tag => tag.id === existingTag.id)) {
+            onTagsChange([...selectedTags, existingTag]);
+          }
+          return;
+        }
+
+        // 既存のタグが見つからない場合のみ新規作成
+        const newTag = await createNewTag(tagName);
+        if (newTag) {
+          if (!selectedTags.some(tag => tag.id === newTag.id)) {
+            onTagsChange([...selectedTags, newTag]);
+          }
+        }
+        return;
+      }
+
+      // 既存のタグの選択/解除
+      const selectedTag = tags.find((tag) => tag.id === tagId);
+      if (!selectedTag) return;
+
+      const isSelected = selectedTags.some((tag) => tag.id === tagId);
+      const updatedTags = isSelected
+        ? selectedTags.filter((tag) => tag.id !== tagId)
+        : [...selectedTags, selectedTag];
+      
+      onTagsChange(updatedTags);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'タグの作成に失敗しました';
+      toast({
+        title: 'エラー',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    }
+  };
 
   const filteredTags = useMemo(() => {
+    if (!tags) return [];
+    
     if (searchQuery) {
       return tags.filter((tag) =>
         tag.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -157,6 +166,8 @@ export default function TagSelect({
         id: `suggested-${name}`,
         name,
         color: null,
+        userId: '',
+        createdAt: new Date()
       } as Tag));
 
     // その他の既存のタグ
@@ -166,55 +177,6 @@ export default function TagSelect({
 
     return [...newSuggestedTags, ...existingSuggested, ...others];
   }, [tags, searchQuery, suggestedTags]);
-
-  const handleSelect = async (tagId: string): Promise<void> => {
-    try {
-      if (tagId.startsWith('suggested-')) {
-        const tagName = tagId.replace('suggested-', '');
-        const response = await fetch('/api/tags', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name: tagName,
-            color: '#3B82F6', // デフォルトの色を設定
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to create tag');
-        }
-
-        const newTag = await response.json();
-
-        // 新しく作成したタグをタグリストに追加
-        setTags((prev) => [...prev, newTag]);
-        
-        // 新しく作成したタグを選択状態に追加
-        const updatedTags = [...currentSelectedTags, newTag];
-        onTagsChange(updatedTags);
-        return;
-      }
-
-      // 既存のタグの選択/解除
-      const selectedTag = tags.find((tag) => tag.id === tagId);
-      if (!selectedTag) return;
-
-      const isSelected = currentSelectedTags.some((tag) => tag.id === tagId);
-      const updatedTags = isSelected
-        ? currentSelectedTags.filter((tag) => tag.id !== tagId)
-        : [...currentSelectedTags, selectedTag];
-      onTagsChange(updatedTags);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'タグの作成に失敗しました';
-      toast({
-        title: 'エラー',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-    }
-  };
 
   return (
     <div className={className}>
@@ -233,7 +195,7 @@ export default function TagSelect({
               <TagIcon
                 className={cn(
                   'h-4 w-4',
-                  currentSelectedTags.length > 0
+                  selectedTags.length > 0
                     ? 'text-blue-400/70 hover:text-blue-400'
                     : 'text-zinc-500 hover:text-blue-400'
                 )}
@@ -248,9 +210,9 @@ export default function TagSelect({
                 "text-zinc-100"
               )}
             >
-              {currentSelectedTags.length > 0 ? (
+              {selectedTags.length > 0 ? (
                 <div className="flex gap-1 flex-wrap">
-                  {currentSelectedTags.map((tag) => (
+                  {selectedTags.map((tag) => (
                     <ColoredTag
                       key={tag.id}
                       tag={tag}
@@ -344,11 +306,11 @@ export default function TagSelect({
                       onClick={() => handleSelect(tag.id)}
                       className={cn(
                         "w-full flex items-center justify-between px-2 py-1.5 text-sm rounded hover:bg-zinc-800",
-                        currentSelectedTags.some((selected) => selected.id === tag.id) && "bg-zinc-800"
+                        selectedTags.some((selected) => selected.id === tag.id) && "bg-zinc-800"
                       )}
                     >
                       <ColoredTag tag={tag} className="text-sm" />
-                      {currentSelectedTags.some(
+                      {selectedTags.some(
                         (selected) => selected.id === tag.id
                       ) && (
                         <span className="h-2 w-2 rounded-full bg-blue-500" />

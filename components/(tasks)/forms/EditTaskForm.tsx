@@ -1,10 +1,11 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { type ReactElement } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+
 
 import TagSelect from '@/components/(common)/forms/TagSelect';
 import DueDatePicker from '@/components/(tasks)/filters/DueDatePicker';
@@ -22,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useTaskStore } from '@/store/taskStore';
+import { type Tag } from '@/types/common';
 import { type TaskWithExtras } from '@/types/task';
 
 const formSchema = z.object({
@@ -38,12 +40,14 @@ const formSchema = z.object({
   }).nullable(),
   dueDate: z.date({
     errorMap: () => ({ message: '有効な日付を選択してください' })
-  }).nullable(),
+  }).nullable().transform(v => v === null ? undefined : v),
   tags: z.array(
     z.object({
       id: z.string(),
       name: z.string(),
-      color: z.string().nullable().optional(),
+      color: z.string().nullable(),
+      userId: z.string(),
+      createdAt: z.date()
     })
   ).default([]),
 });
@@ -60,19 +64,22 @@ export function EditTaskForm({ task, onClose, onSubmit }: EditTaskFormProps): Re
   const { setIsEditModalOpen } = useTaskStore();
   const { toast } = useToast();
   
+  const defaultValues = useMemo(() => {
+    return {
+      title: task?.title ?? '',
+      description: task?.description ?? '',
+      priority: task?.priority ?? '中',
+      dueDate: task?.due_date ? new Date(task?.due_date) : undefined,
+      tags: task?.tags?.map(tag => ({
+        ...tag,
+        createdAt: new Date(tag.createdAt)
+      })) ?? [],
+    };
+  }, [task]);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      title: task.title,
-      description: task.description ?? '',
-      priority: task.priority,
-      dueDate: task.due_date ? new Date(task.due_date) : null,
-      tags: task.tags?.map((tag) => ({
-        id: tag.id,
-        name: tag.name,
-        color: tag.color,
-      })) ?? [],
-    },
+    defaultValues: defaultValues,
   });
 
   const handleClose = (): void => {
@@ -103,6 +110,16 @@ export function EditTaskForm({ task, onClose, onSubmit }: EditTaskFormProps): Re
     target.style.height = 'auto';
     target.style.height = `${target.scrollHeight}px`;
   }, []);
+
+  const onTagsChange = (tags: Tag[]): void => {
+    form.setValue('tags', tags.map(tag => ({
+      id: tag.id,
+      name: tag.name,
+      color: tag.color,
+      userId: tag.userId,
+      createdAt: tag.createdAt
+    })));
+  };
 
   return (
     <div
@@ -210,8 +227,10 @@ export function EditTaskForm({ task, onClose, onSubmit }: EditTaskFormProps): Re
                     <FormLabel>タグ</FormLabel>
                     <FormControl>
                       <TagSelect
+                        id={task.id}
+                        type="task"
                         selectedTags={field.value}
-                        onTagsChange={field.onChange}
+                        onTagsChange={onTagsChange}
                         variant="default"
                         noBorder
                         className="w-full"

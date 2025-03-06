@@ -5,26 +5,9 @@ import { TaskWithExtras } from '@/types/task';
 
 interface TaskContentProps {
   task: TaskWithExtras;
-  onMutate: () => Promise<void>;
 }
 
-export function TaskContent({ task, onMutate }: TaskContentProps): ReactElement {
-  const handleTagsUpdate = async (tags: string[]): Promise<void> => {
-    const response = await fetch(`/api/tasks/${task.id}/${task.id}/tags`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ tags }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to update task tags');
-    }
-
-    await onMutate();
-  };
-
+export function TaskContent({ task }: TaskContentProps): ReactElement {
   return (
     <div className="px-4 pb-4">
       {/* 説明文 */}
