@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { handleAIRequest, parseJSONResponse } from '@/lib/ai/gemini/request-handler';
+import { AI_PROMPTS } from '@/lib/ai/prompts';
 import { AIRequestBase } from '@/lib/ai/types/provider';
 import { Priority } from '@/types/common';
 
@@ -24,23 +25,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     request,
     validation,
     async (data, model) => {
-      const prompt = `
-以下のタスクの内容から、優先度を判断してください。
-優先度は「高」「中」「低」の3段階で評価してください。
-
-タイトル: ${data.title}
-内容: ${data.content}
-
-以下の基準で判断してください：
-- 緊急性（期限や時間的制約）
-- 重要性（影響範囲や結果の重大さ）
-- 依存関係（他のタスクとの関連性）
-- 工数（作業量、複雑さ）
-
-出力形式：
-{
-  "priority": "高" または "中" または "低"
-}`;
+      const prompt = AI_PROMPTS.priority.prompt
+        .replace('{{title}}', data.title)
+        .replace('{{content}}', data.content);
 
       const result = await model.generateContent(prompt);
       const text = await result.response.text();
@@ -57,8 +44,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   );
 }
 
-function isPriority(value: unknown): value is Priority {
-  return typeof value === 'string' && ['高', '中', '低'].includes(value);
+function isPriority(value: string): value is Priority {
+  return ['高', '中', '低'].includes(value);
 }
 
 function extractPriority(text: string): Priority {

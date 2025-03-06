@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 
 import { handleAIRequest, parseJSONResponse } from '@/lib/ai/gemini/request-handler';
+import { AI_PROMPTS } from '@/lib/ai/prompts';
 import { AITaskAnalysis } from '@/lib/ai/types/analysis';
 import { AIRequestBase } from '@/lib/ai/types/provider';
 
-type TagsRequest = AIRequestBase & {
+interface TagsRequest extends AIRequestBase {
   existingTags?: string[];
-};
+}
 
 // AIが提案するタグの型（idなし）
 interface SuggestedTag {
@@ -38,31 +39,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     validation,
     async (data, model) => {
       const existingTagsText = data.existingTags?.join(', ') || '';
-      const prompt = `
-以下のタスクの内容から、適切なタグを提案してください。
-タグは1つ以上、5つ以下で提案してください。
-
-タイトル: ${data.title}
-内容: ${data.content}
-既存のタグ: ${existingTagsText}
-
-出力形式：
-{
-  "suggestedTags": [
-    {
-      "name": "タグ名",
-      "color": "カラーコード（例: #FF0000）"
-    },
-    ...
-  ]
-}
-
-注意：
-- タグは5つ以内にしてください
-- タグは短く、具体的にしてください
-- タグは日本語で出力してください
-- 既存のタグを優先的に使用してください
-- カラーコードは見やすい色を選んでください`;
+      const prompt = AI_PROMPTS.tags.prompt
+        .replace('{{title}}', data.title)
+        .replace('{{content}}', data.content)
+        .replace('{{existingTags}}', existingTagsText);
 
       const result = await model.generateContent(prompt);
       const text = await result.response.text();

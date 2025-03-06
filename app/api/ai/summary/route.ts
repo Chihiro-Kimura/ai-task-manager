@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { handleAIRequest, parseJSONResponse } from '@/lib/ai/gemini/request-handler';
+import { AI_PROMPTS } from '@/lib/ai/prompts';
 import { AITaskAnalysis } from '@/lib/ai/types/analysis';
 import { AIRequestBase } from '@/lib/ai/types/provider';
 
@@ -24,17 +25,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     request,
     validation,
     async (data, model) => {
-      const prompt = `
-以下のタスクの内容を3行程度で簡潔に要約してください。
-重要なポイントを漏らさず、具体的にまとめてください。
-
-タイトル：${data.title}
-内容：${data.content}
-
-出力形式：
-{
-  "summary": "要約文"
-}`;
+      const prompt = AI_PROMPTS.summary.prompt
+        .replace('{{title}}', data.title)
+        .replace('{{content}}', data.content);
 
       const result = await model.generateContent(prompt);
       const text = await result.response.text();

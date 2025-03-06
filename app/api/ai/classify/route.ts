@@ -1,10 +1,19 @@
 import { NextResponse } from 'next/server';
 
 import { handleAIRequest, parseJSONResponse } from '@/lib/ai/gemini/request-handler';
+import { AI_PROMPTS } from '@/lib/ai/prompts';
 import { AIRequestBase } from '@/lib/ai/types/provider';
-import { VALID_CATEGORIES, Category, CategoryClassification } from '@/types/task/category';
+import { Category } from '@/types/task/category';
 
 type ClassifyRequest = AIRequestBase;
+
+interface CategoryClassification {
+  category: Category;
+  confidence: number;
+  reason: string;
+}
+
+const VALID_CATEGORIES: Category[] = ['inbox', 'doing', 'todo'];
 
 const validation = {
   validator: (data: unknown): data is ClassifyRequest => {
@@ -24,28 +33,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     request,
     validation,
     async (data, model) => {
-      const prompt = `
-以下のタスクを最適なカテゴリーに分類してください。
-
-タイトル: ${data.title}
-内容: ${data.content}
-
-カテゴリーの説明:
-- inbox: 未整理のタスク。まだ優先度や実行時期が決まっていないもの
-- doing: 現在進行中または今すぐ着手すべきタスク
-- todo: 次に実行予定のタスク。優先度は決まっているが、今すぐには着手しないもの
-
-出力形式：
-{
-  "category": "inbox" または "doing" または "todo",
-  "confidence": 分類の確信度（0.0から1.0の数値）,
-  "reason": "このカテゴリーに分類した理由の説明"
-}
-
-注意：
-- タスクの緊急性、重要性、依存関係を考慮してください
-- 確信度は分類の確実性を表す数値で、1.0が最も確実です
-- 理由は具体的に説明してください`;
+      const prompt = AI_PROMPTS.classify.prompt
+        .replace('{{title}}', data.title)
+        .replace('{{content}}', data.content);
 
       const result = await model.generateContent(prompt);
       const text = await result.response.text();
@@ -70,8 +60,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   );
 }
 
-function isValidCategory(value: unknown): value is Category {
-  return typeof value === 'string' && VALID_CATEGORIES.includes(value as Category);
+function isValidCategory(category: string): category is Category {
+  return VALID_CATEGORIES.includes(category as Category);
 }
 
 function extractCategory(text: string): Category {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { handleAIRequest, parseJSONResponse } from '@/lib/ai/gemini/request-handler';
+import { AI_PROMPTS } from '@/lib/ai/prompts';
 import { BaseTaskOutput } from '@/types/task/base';
 import { TaskSuggestionResponse } from '@/types/task/suggestion';
 
@@ -38,29 +39,8 @@ export async function POST(request: Request): Promise<NextResponse> {
         )
         .join('\n');
 
-      const prompt = `
-以下の既存のタスクリストを分析し、次に取り組むべきタスクを提案してください。
-既存のタスクの内容や優先度、依存関係を考慮して提案してください。
-
-既存のタスク：
-${tasksText}
-
-出力形式：
-{
-  "nextTask": {
-    "title": "タスクのタイトル",
-    "description": "タスクの詳細な説明",
-    "priority": "高" または "中" または "低",
-    "estimatedDuration": "予想所要時間（例：30分、2時間）",
-    "dependencies": ["依存するタスクのタイトル"]
-  }
-}
-
-注意：
-- タスクは具体的で実行可能な内容にしてください
-- 優先度は既存のタスクとの関連性を考慮して設定してください
-- 予想所要時間は現実的な見積もりにしてください
-- 依存関係は既存のタスクの中から選んでください`;
+      const prompt = AI_PROMPTS.suggest.prompt
+        .replace('{{tasksText}}', tasksText);
 
       const result = await model.generateContent(prompt);
       const text = await result.response.text();
