@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 
-import TagSelect from '@/components/(common)/forms/TagSelect';
+import TagSelect from '@/components/(common)/forms/tag-select';
 import DueDatePicker from '@/components/(tasks)/filters/DueDatePicker';
 import { PrioritySelect } from '@/components/(tasks)/filters/PrioritySelect';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useTagManagement } from '@/hooks/use-tag-management';
 import { useToast } from '@/hooks/use-toast';
 import { useTaskStore } from '@/store/taskStore';
 import { type Tag } from '@/types/common';
@@ -64,6 +65,22 @@ export function EditTaskForm({ task, onClose, onSubmit }: EditTaskFormProps): Re
   const { setIsEditModalOpen } = useTaskStore();
   const { toast } = useToast();
   
+  const {
+    tags: availableTags,
+    isLoading: isTagsLoading,
+    loadTags,
+  } = useTagManagement({
+    id: task.id,
+    type: 'task',
+    initialTags: task?.tags || [],
+    onTagsChange: (tags) => {
+      form.setValue('tags', tags.map(tag => ({
+        ...tag,
+        createdAt: tag.createdAt instanceof Date ? tag.createdAt : new Date(tag.createdAt)
+      })));
+    }
+  });
+
   const defaultValues = useMemo(() => {
     return {
       title: task?.title ?? '',
@@ -234,6 +251,8 @@ export function EditTaskForm({ task, onClose, onSubmit }: EditTaskFormProps): Re
                         variant="default"
                         noBorder
                         className="w-full"
+                        initialTags={availableTags}
+                        isLoading={isTagsLoading}
                       />
                     </FormControl>
                     <FormMessage />
