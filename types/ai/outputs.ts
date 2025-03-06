@@ -3,14 +3,6 @@ import { Category } from '@/types/task/category';
 import { AITaskSuggestion } from '@/types/task/suggestion';
 
 /**
- * プロンプトテンプレートの基本型
- */
-export interface PromptTemplate<T = unknown> {
-  prompt: string;
-  outputFormat: T;
-}
-
-/**
  * AIの出力フォーマット型
  */
 export interface SummaryOutput {
@@ -36,17 +28,12 @@ export interface NextTaskOutput {
 }
 
 /**
- * プロンプトのキー型
- */
-export type AIPromptKey = 'summary' | 'tags' | 'classify' | 'priority' | 'suggest';
-
-/**
  * プロンプト出力型のマップ
  */
-export type AIPromptOutputMap = {
+export interface AIPromptOutputMap {
   summary: SummaryOutput;
   tags: TagsOutput;
   classify: ClassifyOutput;
   priority: PriorityOutput;
   suggest: NextTaskOutput;
-}; 
+} 
