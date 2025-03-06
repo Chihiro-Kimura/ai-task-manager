@@ -185,14 +185,56 @@ export async function deleteTag(tagId: string): Promise<void> {
 
 export async function fetchTags(): Promise<Tag[]> {
   try {
+    console.log('[fetchTags] Starting API request...');
     const response = await fetch('/api/tags');
     
+    console.log('[fetchTags] API response status:', response.status);
+    console.log('[fetchTags] API response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
+      console.error('[fetchTags] API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
       throw new TagError(TAG_MESSAGES.FETCH_ERROR);
     }
 
-    return response.json();
+    const responseText = await response.text();
+    console.log('[fetchTags] Raw response text:', responseText);
+
+    let tags;
+    try {
+      tags = JSON.parse(responseText);
+      console.log('[fetchTags] Parsed tags:', tags);
+    } catch (parseError) {
+      console.error('[fetchTags] JSON parse error:', parseError);
+      console.error('[fetchTags] Invalid JSON:', responseText);
+      throw new TagError(TAG_MESSAGES.FETCH_ERROR);
+    }
+
+    if (!Array.isArray(tags)) {
+      console.error('[fetchTags] Invalid tags format:', tags);
+      throw new TagError(TAG_MESSAGES.FETCH_ERROR);
+    }
+
+    // タグの形式を検証
+    const validatedTags = tags.map(tag => {
+      if (!tag.id || !tag.name) {
+        console.error('[fetchTags] Invalid tag format:', tag);
+        throw new TagError(TAG_MESSAGES.FETCH_ERROR);
+      }
+      return tag;
+    });
+
+    console.log('[fetchTags] Successfully validated tags:', validatedTags);
+    return validatedTags;
   } catch (error) {
+    console.error('[fetchTags] Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
     if (error instanceof TagError) {
       throw error;
     }
