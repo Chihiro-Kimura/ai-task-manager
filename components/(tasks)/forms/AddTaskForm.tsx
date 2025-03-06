@@ -212,6 +212,8 @@ export default function AddTaskForm({
           <PrioritySelect
             value={priority}
             onValueChange={setPriority}
+            variant="icon"
+            noBorder
             className="flex-none"
           />
           <DueDatePicker
@@ -226,7 +228,7 @@ export default function AddTaskForm({
             variant="icon"
             className="flex-none"
             initialTags={availableTags}
-            isLoading={isTagsLoading}
+            isLoading={false}
           />
         </div>
         <div className="flex items-center justify-end gap-2">
