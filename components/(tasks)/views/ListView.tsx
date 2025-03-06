@@ -1,6 +1,23 @@
 'use client';
 
-import { MoreHorizontal, Pencil, Trash2, Wand2 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  horizontalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { Check, MoreHorizontal, Pencil, Settings2, Trash2, Wand2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { type ReactElement, useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
@@ -61,10 +78,48 @@ const fetcher = async (url: string): Promise<TaskWithExtras[]> => {
   return response.json();
 };
 
+// SortableTableHeadコンポーネントを追加
+function SortableTableHead({ column, children, onSort }: {
+  column: ColumnConfig;
+  children: React.ReactNode;
+  onSort?: (columnId: string) => void;
+}): ReactElement {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: column.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <TableHead
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="cursor-move"
+      onClick={(e) => {
+        e.preventDefault();
+        if (column.sortable && onSort) {
+          onSort(column.id);
+        }
+      }}
+    >
+      {children}
+    </TableHead>
+  );
+}
+
 export default function ListView(): ReactElement {
   const { data: session } = useSession();
   const { tasks, setTasks } = useTaskStore();
-  const [columns, _setColumns] = useState<ColumnConfig[]>(defaultColumns);
+  const [columns, setColumns] = useState<ColumnConfig[]>(defaultColumns);
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: 'asc' | 'desc';
@@ -183,32 +238,99 @@ export default function ListView(): ReactElement {
     }
   };
 
+  const toggleColumnVisibility = (columnId: string): void => {
+    setColumns(columns.map(column => 
+      column.id === columnId 
+        ? { ...column, visible: !column.visible }
+        : column
+    ));
+  };
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent): void => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      setColumns((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over?.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState />;
 
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col">
+      <div className="flex items-center justify-between px-4 py-2">
+        <h2 className="text-sm font-medium text-zinc-400">タスク一覧</h2>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+            >
+              <Settings2 className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <div className="px-2 py-1.5">
+              <h3 className="text-xs font-medium text-zinc-400">表示する列</h3>
+            </div>
+            {columns.map(column => (
+              <DropdownMenuItem
+                key={column.id}
+                className="flex items-center justify-between cursor-pointer"
+                onClick={() => toggleColumnVisibility(column.id)}
+              >
+                <span className="text-sm">{column.label}</span>
+                {column.visible && <Check className="h-4 w-4" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       <ScrollArea className="flex-1">
         <div className="relative">
           <Table>
             <TableHeader>
               <TableRow>
-                {columns
-                  .filter((column) => column.visible)
-                  .map((column) => (
-                    <TableHead
-                      key={column.id}
-                      className="cursor-pointer"
-                      onClick={() => column.sortable && handleSort(column.id)}
-                    >
-                      {column.label}
-                      {sortConfig?.key === column.id && (
-                        <span className="ml-2">
-                          {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                        </span>
-                      )}
-                    </TableHead>
-                  ))}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={columns.filter((column) => column.visible).map((column) => column.id)}
+                    strategy={horizontalListSortingStrategy}
+                  >
+                    {columns
+                      .filter((column) => column.visible)
+                      .map((column) => (
+                        <SortableTableHead
+                          key={column.id}
+                          column={column}
+                          onSort={column.sortable ? handleSort : undefined}
+                        >
+                          {column.label}
+                          {sortConfig?.key === column.id && (
+                            <span className="ml-2">
+                              {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                            </span>
+                          )}
+                        </SortableTableHead>
+                      ))}
+                  </SortableContext>
+                </DndContext>
                 <TableHead className="w-[100px]">アクション</TableHead>
               </TableRow>
             </TableHeader>
@@ -285,7 +407,9 @@ export default function ListView(): ReactElement {
           <DialogContent>
             <AITaskAnalysis
               task={selectedTask}
-              onMutate={() => void mutateTasks()}
+              onMutate={async () => {
+                await mutateTasks();
+              }}
               onClose={() => setIsAIModalOpen(false)}
             />
           </DialogContent>
