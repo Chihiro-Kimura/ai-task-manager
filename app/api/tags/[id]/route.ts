@@ -20,7 +20,7 @@ export async function PATCH(
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const { id } = params;
+    const id = await params.id;
     const data = await req.json();
 
     const tag = await prisma.tag.update({
@@ -48,7 +48,7 @@ export async function DELETE(
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const { id } = params;
+    const id = await params.id;
     await prisma.tag.delete({
       where: {
         id,
