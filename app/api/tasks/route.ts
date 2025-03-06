@@ -58,37 +58,39 @@ export async function GET(_request: Request): Promise<NextResponse<TaskWithExtra
 // タスクの新規作成
 export async function POST(request: Request): Promise<NextResponse<TaskWithExtras | BaseResponse>> {
   try {
-    const userId = request.headers.get('X-User-Id');
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const data = await request.json() as CreateTaskData;
 
     const task = await prisma.task.create({
       data: {
         title: data.title,
         description: data.description || '',
-        status: data.status || '未完了',
+        status: data.status,
         category: data.category,
-        task_order: data.task_order || 0,
-        userId: userId as string,
-        ...(data.priority && { priority: data.priority }),
+        task_order: data.task_order,
+        priority: data.priority,
+        userId: session.user.id,
         ...(data.due_date !== undefined && {
           due_date: data.due_date ? new Date(data.due_date) : null,
         }),
-        ...(data.tags && {
-          tags: {
-            connect: data.tags.map((tag) => ({ id: tag.id })),
-          },
-        }),
+        tags: {
+          connect: data.tags.map(tag => ({ id: tag.id }))
+        }
       },
       include: {
-        tags: true,
-      },
+        tags: true
+      }
     });
 
     return NextResponse.json(convertToTaskWithExtras(task));
   } catch (error) {
     console.error('[TASK_CREATE]', error);
     return NextResponse.json(
-      { error: 'サーバーエラーが発生しました' },
+      { error: 'Internal Server Error' },
       { status: 500 }
     );
   }

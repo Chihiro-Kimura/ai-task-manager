@@ -1,5 +1,6 @@
 import { TagColor } from '@/lib/constants/colors';
 import { TaskWithExtras } from '@/types/task';
+import { AITaskSuggestion } from '@/types/task/suggestion';
 
 export interface AITaskAnalysisProps {
   task: TaskWithExtras;
@@ -43,11 +44,8 @@ export interface AICategoryProps {
 }
 
 export interface AINextTaskProps extends AIFeatureProps {
-  nextTask: {
-    title: string;
-    description: string;
-    priority: '高' | '中' | '低';
-  };
+  nextTask: AITaskSuggestion;
+  onRefresh: () => void;
 }
 
 export interface AIAnalysisResult {

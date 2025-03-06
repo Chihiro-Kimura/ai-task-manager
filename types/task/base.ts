@@ -25,3 +25,15 @@ export interface BaseTaskOutput extends BaseTaskInput {
   updatedAt: Date;
   userId: string;
 }
+
+export interface CreateTaskData {
+  title: string;
+  description?: string;
+  priority: Priority | null;
+  status: string;
+  category: string;
+  task_order: number;
+  tags: Tag[];
+  userId?: string;
+  due_date?: Date;
+}

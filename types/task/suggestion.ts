@@ -7,8 +7,8 @@ export interface AITaskSuggestion {
   title: string;
   description: string;
   priority: Priority;
-  estimatedDuration?: string;
-  dependencies?: string[];
+  estimatedDuration: string;
+  dependencies: string[];
 }
 
 /**

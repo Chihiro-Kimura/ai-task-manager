@@ -6,6 +6,7 @@ import { BaseTaskOutput } from '@/types/task/base';
 import { TaskSuggestionResponse } from '@/types/task/suggestion';
 
 interface SuggestRequest {
+  currentTask: BaseTaskOutput;
   tasks: BaseTaskOutput[];
 }
 
@@ -15,11 +16,13 @@ const validation = {
     return (
       typeof request === 'object' &&
       request !== null &&
+      typeof request.currentTask === 'object' &&
+      request.currentTask !== null &&
       Array.isArray(request.tasks) &&
       request.tasks.every((task) => typeof task === 'object' && task !== null)
     );
   },
-  errorMessage: 'タスクリストは必須です',
+  errorMessage: '現在のタスクとタスクリストは必須です',
 };
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -27,9 +30,21 @@ export async function POST(request: Request): Promise<NextResponse> {
     request,
     validation,
     async (data, model) => {
-      const tasksText = data.tasks
+      // 現在のタスクと他のタスクを分けて整形
+      const currentTaskText = `
+【対象タスク】
+タイトル: ${data.currentTask.title}
+説明: ${data.currentTask.description || '説明なし'}
+優先度: ${data.currentTask.priority || '未設定'}
+ステータス: ${data.currentTask.status}
+カテゴリー: ${data.currentTask.category}
+`;
+
+      const otherTasksText = data.tasks
+        .filter(task => task.id !== data.currentTask.id)
         .map(
           (task) => `
+【既存タスク】
 タイトル: ${task.title}
 説明: ${task.description || '説明なし'}
 優先度: ${task.priority || '未設定'}
@@ -39,11 +54,17 @@ export async function POST(request: Request): Promise<NextResponse> {
         )
         .join('\n');
 
+      const tasksText = `${currentTaskText}\n${otherTasksText}`;
+
       const prompt = AI_PROMPTS.suggest.prompt
+        .replace('{{title}}', data.currentTask.title)
+        .replace('{{content}}', data.currentTask.description || '')
         .replace('{{tasksText}}', tasksText);
 
       const result = await model.generateContent(prompt);
       const text = await result.response.text();
+      console.log('[AI Suggestion Response]:', text);
+      
       const jsonResponse = parseJSONResponse<TaskSuggestionResponse>(text);
 
       if (jsonResponse?.nextTask) {

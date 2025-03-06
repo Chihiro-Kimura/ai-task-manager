@@ -34,6 +34,44 @@ export default function AITaskAnalysis({
         content: task.description || ''
       });
 
+      if (featureId === 'suggest') {
+        const tasksResponse = await fetch('/api/tasks');
+        if (!tasksResponse.ok) {
+          throw new Error('タスクの取得に失敗しました');
+        }
+        const tasks = await tasksResponse.json();
+        console.log('Current tasks:', tasks);
+
+        const response = await fetch(`/api/ai/${featureId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            currentTask: task,
+            tasks
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('AI分析に失敗しました');
+        }
+
+        const data = await response.json();
+        console.log('AI Suggestion Response:', data);
+        
+        const resultData = data.data || data;
+        console.log('Setting result with:', resultData);
+        
+        setResult((prev) => {
+          const newResult = { ...prev, suggest: resultData };
+          console.log('New result state:', newResult);
+          return newResult;
+        });
+        setSelectedFeatureId(featureId);
+        return;
+      }
+
       const response = await fetch(`/api/ai/${featureId}`, {
         method: 'POST',
         headers: {
@@ -155,9 +193,23 @@ export default function AITaskAnalysis({
           <AICategory category={result.classify} onMutate={handleApplyCategory} />
         ) : null;
       case 'suggest':
-        return result.suggest ? (
-          <AINextTask task={task} nextTask={result.suggest} onMutate={onMutate} />
-        ) : null;
+        console.log('Rendering suggest with result:', result);
+        if (!result.suggest?.nextTask) {
+          console.log('No next task in result');
+          return (
+            <div className="text-sm text-zinc-400 p-4">
+              タスクの提案を生成できませんでした
+            </div>
+          );
+        }
+        return (
+          <AINextTask 
+            task={task} 
+            nextTask={result.suggest.nextTask} 
+            onMutate={onMutate}
+            onRefresh={() => void analyzeTask('suggest')}
+          />
+        );
       default:
         return (
           <div className="grid grid-cols-2 gap-4">
