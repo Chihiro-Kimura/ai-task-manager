@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/lib/auth/config';
 import { prisma } from '@/lib/db/client';
-import { getRandomColor } from '@/lib/utils/styles';
+import { updateAndConnectTags } from '@/lib/utils/tag';
 
 interface TagsUpdateRequest {
   tags: string[];
@@ -19,105 +19,50 @@ function isTagsUpdateRequest(data: unknown): data is TagsUpdateRequest {
   );
 }
 
-type Props = {
-  params: {
-    id: string;
-  };
-};
-
-export async function PUT(
+export async function PATCH(
   req: NextRequest,
-  { params }: Props
+  context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await context.params;
+
+    // タスクの存在確認
+    const task = await prisma.task.findUnique({
+      where: {
+        id,
+        userId: session.user.id,
+      },
+      include: {
+        tags: true
+      }
+    });
+
+    if (!task) {
+      return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
 
     const data = await req.json();
     if (!isTagsUpdateRequest(data)) {
-      return NextResponse.json(
-        { error: 'Invalid request body' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
-    const { tags } = data;
-    const { id: taskId } = await Promise.resolve(params);
+    const updatedTags = await updateAndConnectTags(
+      session.user.id,
+      id,
+      data.tags,
+      'task'
+    );
 
-    // タスクの所有者を確認
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-    });
-
-    if (!task || task.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: 'Task not found or unauthorized' },
-        { status: 404 }
-      );
-    }
-
-    // タグの作成と更新を1つのトランザクションで処理
-    const result = await prisma.$transaction(async (tx) => {
-      // 既存のタグをキャッシュとして保持
-      const existingTags = await tx.tag.findMany({
-        where: {
-          name: {
-            in: tags,
-            mode: 'insensitive', // 大文字小文字を区別しない
-          },
-          userId: session.user.id,
-        },
-      });
-
-      // 既存のタグ名をマップとして保持（大文字小文字を区別しない）
-      const existingTagsMap = new Map(
-        existingTags.map(tag => [tag.name.toLowerCase(), tag])
-      );
-
-      // 新しいタグを作成（存在しないものだけ）
-      const newTags = await Promise.all(
-        tags
-          .filter(tag => !existingTagsMap.has(tag.toLowerCase()))
-          .map(name =>
-            tx.tag.create({
-              data: {
-                name,
-                userId: session.user.id,
-                color: JSON.stringify(getRandomColor()),
-              },
-            })
-          )
-      );
-
-      // すべてのタグを結合（既存のタグと新規作成したタグ）
-      const allTags = [...existingTags, ...newTags];
-
-      // タスクのタグを更新
-      const updatedTask = await tx.task.update({
-        where: { id: taskId },
-        data: {
-          tags: {
-            set: allTags.map(tag => ({ id: tag.id })),
-          },
-        },
-        include: {
-          tags: true,
-        },
-      });
-
-      return updatedTask.tags;
-    });
-
-    return NextResponse.json(result);
+    return NextResponse.json(updatedTags);
   } catch (error) {
-    console.error('Error updating task tags:', error);
+    console.error('[TASK_TAGS_UPDATE]', error);
     return NextResponse.json(
-      { error: 'Failed to update task tags' },
+      { error: 'Internal Server Error' },
       { status: 500 }
     );
   }

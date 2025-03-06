@@ -1,7 +1,8 @@
 import { Tag } from '@prisma/client';
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
 
-import { auth } from '@/lib/auth/config';
+import { authOptions } from '@/lib/auth/config';
 import { prisma } from '@/lib/db/client';
 
 type Props = {
@@ -15,7 +16,7 @@ export async function PATCH(
   { params }: Props
 ): Promise<NextResponse<Tag>> {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session?.user) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
@@ -39,26 +40,39 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  req: Request,
-  { params }: Props
+  _request: Request,
+  { params }: { params: { id: string } }
 ): Promise<NextResponse> {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return new NextResponse('Unauthorized', { status: 401 });
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const id = await params.id;
-    await prisma.tag.delete({
+    // タグの存在確認
+    const tag = await prisma.tag.findUnique({
       where: {
-        id,
+        id: params.id,
         userId: session.user.id,
       },
     });
 
-    return new NextResponse(null, { status: 204 });
+    if (!tag) {
+      return NextResponse.json({ error: 'Tag not found' }, { status: 404 });
+    }
+
+    await prisma.tag.delete({
+      where: {
+        id: params.id,
+      },
+    });
+
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[TAGS_DELETE]', error);
-    return new NextResponse('Internal Error', { status: 500 });
+    console.error('[TAG_DELETE]', error);
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    );
   }
 } 
