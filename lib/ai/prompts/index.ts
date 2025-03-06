@@ -1,12 +1,7 @@
 import {
   PromptTemplate,
-  SummaryOutput,
-  TagsOutput,
-  ClassifyOutput,
-  PriorityOutput,
-  NextTaskOutput,
   AIPromptOutputMap
-} from './types';
+} from '@/types/ai';
 
 export const AI_PROMPTS: {
   [K in keyof AIPromptOutputMap]: PromptTemplate<AIPromptOutputMap[K]>;
@@ -23,7 +18,7 @@ export const AI_PROMPTS: {
 {
   "summary": "要約文"
 }`,
-    outputFormat: {} as SummaryOutput,
+    outputFormat: {} as AIPromptOutputMap['summary'],
   },
   
   tags: {
@@ -52,7 +47,7 @@ export const AI_PROMPTS: {
 - タグは日本語で出力してください
 - 既存のタグを優先的に使用してください
 - カラーコードは見やすい色を選んでください`,
-    outputFormat: {} as TagsOutput,
+    outputFormat: {} as AIPromptOutputMap['tags'],
   },
 
   classify: {
@@ -78,7 +73,7 @@ export const AI_PROMPTS: {
 - タスクの緊急性、重要性、依存関係を考慮してください
 - 確信度は分類の確実性を表す数値で、1.0が最も確実です
 - 理由は具体的に説明してください`,
-    outputFormat: {} as ClassifyOutput,
+    outputFormat: {} as AIPromptOutputMap['classify'],
   },
 
   priority: {
@@ -99,7 +94,7 @@ export const AI_PROMPTS: {
 {
   "priority": "高" または "中" または "低"
 }`,
-    outputFormat: {} as PriorityOutput,
+    outputFormat: {} as AIPromptOutputMap['priority'],
   },
 
   suggest: {
@@ -126,8 +121,6 @@ export const AI_PROMPTS: {
 - 優先度は既存のタスクとの関連性を考慮して設定してください
 - 予想所要時間は現実的な見積もりにしてください
 - 依存関係は既存のタスクの中から選んでください`,
-    outputFormat: {} as NextTaskOutput,
+    outputFormat: {} as AIPromptOutputMap['suggest'],
   }
-} as const;
-
-export * from './types'; 
+} as const; 
