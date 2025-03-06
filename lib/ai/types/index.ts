@@ -8,4 +8,4 @@ export * from './provider';
 export * from './analysis';
 
 // プロンプト関連の型
-export * from './prompts'; 
+export * from '@/types/ai'; 

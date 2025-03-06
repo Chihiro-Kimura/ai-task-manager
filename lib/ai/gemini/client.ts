@@ -1,14 +1,15 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+import { GeminiProvider } from '@/lib/ai/gemini';
 import { AITaskAnalysis } from '@/lib/ai/types/analysis';
-import { AIError } from '@/lib/ai/types/errors';
 import { AIProvider, AIRequestBase } from '@/lib/ai/types/provider';
-import { AISettings , Priority } from '@/types/common';
+import { AISettings, Priority } from '@/types/common';
 import { BaseTaskOutput } from '@/types/task/base';
 import { AITaskSuggestion } from '@/types/task/suggestion';
 
 export class GeminiClient implements AIProvider {
   private static instance: GeminiClient;
+  private provider: GeminiProvider;
   private client: GoogleGenerativeAI | null = null;
   private settings: AISettings = {
     provider: 'gemini',
@@ -24,6 +25,7 @@ export class GeminiClient implements AIProvider {
   isEnabled = false;
 
   private constructor() {
+    this.provider = new GeminiProvider();
     if (typeof window !== 'undefined') {
       try {
         const storedSettings = localStorage.getItem('ai-settings');
@@ -48,6 +50,7 @@ export class GeminiClient implements AIProvider {
 
   initialize(apiKey: string): void {
     this.client = new GoogleGenerativeAI(apiKey);
+    this.provider.initialize(apiKey);
     this.settings = {
       ...this.settings,
       apiKey,
@@ -99,53 +102,30 @@ export class GeminiClient implements AIProvider {
   }
 
   async analyzeTask(input: AIRequestBase): Promise<AITaskAnalysis> {
-    if (!this.settings.apiKey) {
-      throw new Error('APIキーが設定されていません');
-    }
-
-    const response = await fetch('/api/ai/summary', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': this.settings.apiKey,
-      },
-      body: JSON.stringify({
-        ...input,
-        engine: this.settings.provider,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      const error = result as AIError;
-      throw new Error(error.message);
-    }
-
-    return result;
+    return this.provider.analyzeTask(input);
   }
 
-  async suggestNextTask(_tasks: BaseTaskOutput[]): Promise<AITaskSuggestion> {
-    throw new Error('Method not implemented.');
+  async suggestNextTask(tasks: BaseTaskOutput[]): Promise<AITaskSuggestion> {
+    return this.provider.suggestNextTask(tasks);
   }
 
-  async generateTags(_input: AIRequestBase): Promise<string[]> {
-    throw new Error('Method not implemented.');
+  async generateTags(input: AIRequestBase): Promise<string[]> {
+    return this.provider.generateTags(input);
   }
 
-  async classifyCategory(_input: AIRequestBase): Promise<string> {
-    throw new Error('Method not implemented.');
+  async classifyCategory(input: AIRequestBase): Promise<string> {
+    return this.provider.classifyCategory(input);
   }
 
   async getTagSuggestions(
-    _title: string,
-    _content: string,
-    _existingTags: { id: string; name: string }[]
+    title: string,
+    content: string,
+    existingTags: { id: string; name: string }[]
   ): Promise<string[]> {
-    throw new Error('Method not implemented.');
+    return this.provider.getTagSuggestions(title, content, existingTags);
   }
 
-  async analyzePriority(_title: string, _content: string): Promise<Priority> {
-    throw new Error('Method not implemented.');
+  async analyzePriority(title: string, content: string): Promise<Priority> {
+    return this.provider.analyzePriority(title, content);
   }
 } 

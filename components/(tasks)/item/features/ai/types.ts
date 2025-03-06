@@ -1,3 +1,4 @@
+import { TagColor } from '@/lib/constants/colors';
 import { TaskWithExtras } from '@/types/task';
 
 export interface AITaskAnalysisProps {
@@ -15,11 +16,17 @@ export interface AISummaryProps extends AIFeatureProps {
   summary: string;
 }
 
+// AIによって提案されるタグの基本型
+export type AITag = {
+  name: string;
+  color: TagColor;
+};
+
+// タグ提案の結果型（すべてのタグがcolor情報を持つ）
+export type TagSuggestion = AITag;
+
 export interface AITagsProps extends AIFeatureProps {
-  suggestedTags: string[] | Array<{
-    name: string;
-    color: string;
-  }>;
+  suggestedTags: TagSuggestion[];
 }
 
 export interface AIPriorityProps extends AIFeatureProps {
@@ -45,10 +52,7 @@ export interface AINextTaskProps extends AIFeatureProps {
 
 export interface AIAnalysisResult {
   summary?: { summary: string };
-  tags?: string[];
-  priority?: {
-    priority: '高' | '中' | '低';
-  } | '高' | '中' | '低';
+  priority?: '高' | '中' | '低';
   classify?: {
     category: string;
     confidence: number;
@@ -59,8 +63,10 @@ export interface AIAnalysisResult {
     description: string;
     priority: '高' | '中' | '低';
   };
-  suggestedTags?: Array<{
-    name: string;
-    color: string;
-  }>;
+  tags?: {
+    suggestedTags: Array<{
+      name: string;
+      color: string | null;
+    }>;
+  };
 } 

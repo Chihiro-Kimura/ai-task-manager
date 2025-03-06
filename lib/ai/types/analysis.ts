@@ -1,3 +1,4 @@
+import { AITag } from '@/components/(tasks)/item/features/ai/types';
 import { Priority } from '@/types/common';
 import { Category } from '@/types/task/category';
 import { AITaskSuggestion } from '@/types/task/suggestion';
@@ -14,7 +15,7 @@ export interface AITaskAnalysis {
   };
   confidence?: number;
   suggestedPriority?: Priority;
-  suggestedTags?: string[];
+  suggestedTags?: (string | AITag)[];
 }
 
 export type { AITaskSuggestion }; 

@@ -1,4 +1,4 @@
-import { AIPromptKey } from './types';
+import { AIPromptKey } from '@/types/ai';
 
 import { AI_PROMPTS } from './index';
 
@@ -21,4 +21,8 @@ export function validatePromptOutput<T>(key: AIPromptKey, output: unknown): outp
   // outputFormatの型に基づいて検証
   const expectedFormat = AI_PROMPTS[key].outputFormat;
   return Object.keys(expectedFormat).every((key) => key in output);
+}
+
+export function validatePromptKey(key: string): key is AIPromptKey {
+  return key in AI_PROMPTS;
 } 
