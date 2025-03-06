@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactElement, useState, useEffect } from 'react';
+import { type ReactElement, useState } from 'react';
 
 import { AILoading } from '@/components/(common)/loading/AILoading';
 import { Button } from '@/components/ui/button';
@@ -23,18 +23,17 @@ export default function AITaskAnalysis({
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
   const [result, setResult] = useState<AIAnalysisResult>({});
   const { toast } = useToast();
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-    return () => setIsMounted(false);
-  }, []);
 
   const analyzeTask = async (featureId: string): Promise<void> => {
     setIsLoading(true);
     setError(null);
 
     try {
+      console.log(`Analyzing task for feature: ${featureId}`, {
+        title: task.title,
+        content: task.description || ''
+      });
+
       const response = await fetch(`/api/ai/${featureId}`, {
         method: 'POST',
         headers: {
@@ -51,17 +50,13 @@ export default function AITaskAnalysis({
       }
 
       const data = await response.json();
+      console.log(`AI Response for ${featureId}:`, data);
+      
       const resultData = data.data || data;
-      
-      // タグ提案の場合、レスポンスの詳細をログに出力
-      if (featureId === 'tags') {
-        console.log('Tags API response:', data);
-        console.log('Tags resultData:', resultData);
-      }
-      
       setResult((prev) => ({ ...prev, [featureId]: resultData }));
       setSelectedFeatureId(featureId);
     } catch (err) {
+      console.error(`Error analyzing task for ${featureId}:`, err);
       setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました');
       toast({
         title: 'エラー',
@@ -97,7 +92,6 @@ export default function AITaskAnalysis({
         description: 'タスクのカテゴリを更新しました',
       });
     } catch (err) {
-      console.error('Category update error:', err);
       toast({
         title: 'エラー',
         description: err instanceof Error ? err.message : '予期せぬエラーが発生しました',
@@ -131,36 +125,25 @@ export default function AITaskAnalysis({
           <AISummary task={task} summary={result.summary.summary} onMutate={onMutate} />
         ) : null;
       case 'tags':
-        // タグ提案の結果をログに出力
-        console.log('Tags API response:', result);
-        console.log('Tags resultData:', result);
-        
-        // 修正: suggestedTagsが直接配列として渡されるようにする
+        console.log('Rendering AITags with result:', result);
+        const suggestedTags = result.tags?.suggestedTags || [];
+        console.log('Suggested tags to render:', suggestedTags);
         return (
           <AITags 
             task={task} 
-            suggestedTags={result.suggestedTags || result.tags || []} 
+            suggestedTags={suggestedTags}
             onMutate={onMutate} 
           />
         );
       case 'priority':
-        // デバッグログを追加
-        console.log('Priority API response:', result);
-        console.log('Priority resultData:', result.priority);
-        
-        // APIレスポンスから優先度の値を取得
-        const priorityValue = typeof result.priority === 'object' 
-          ? result.priority.priority 
-          : result.priority;
-        
-        if (typeof priorityValue !== 'string' || !['高', '中', '低'].includes(priorityValue)) {
+        if (!result.priority || !['高', '中', '低'].includes(result.priority)) {
           return null;
         }
         
         return (
           <AIPriority 
             task={task} 
-            priority={priorityValue as '高' | '中' | '低'} 
+            priority={result.priority} 
             onMutate={async () => {
               await onMutate();
               onClose();
@@ -234,7 +217,7 @@ export default function AITaskAnalysis({
           閉じる
         </Button>
       )}
-      {isMounted && renderContent()}
+      {renderContent()}
     </div>
   );
 } 

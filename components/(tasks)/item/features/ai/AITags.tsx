@@ -1,59 +1,77 @@
 'use client';
 
-import { Tag } from '@prisma/client';
 import { useSession } from 'next-auth/react';
-import { type ReactElement, useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { ColoredTag } from '@/components/(common)/ColoredTag';
 import TagSelect from '@/components/(common)/forms/TagSelect';
 import { AILoading } from '@/components/(common)/loading/AILoading';
+import { useTagManagement } from '@/hooks/use-tag-management';
 import { useToast } from '@/hooks/use-toast';
-import { TAG_MESSAGES } from '@/lib/constants/messages';
-import { useTaskStore } from '@/store/taskStore';
-import { TaskWithExtras } from '@/types/task';
+import type { TaskWithExtras } from '@/types';
+import type { Tag } from '@/types/common';
 
-import { AITagsProps } from './types';
+import type { ReactElement } from 'react';
+
+interface AITagsProps {
+  task: TaskWithExtras;
+  suggestedTags: Array<{
+    name: string;
+    color: string | null;
+  }>;
+  onMutate: () => Promise<void>;
+}
 
 export function AITags({
   task,
   suggestedTags,
   onMutate,
 }: AITagsProps): ReactElement {
-  const { data: session } = useSession();
+  console.log('AITags: Initial suggestedTags:', suggestedTags);
+  
+  const { data: _session } = useSession();
   const { toast } = useToast();
   const [localTask, setLocalTask] = useState<TaskWithExtras>(task);
   const [isApplying, setIsApplying] = useState(false);
   const [pendingTags, setPendingTags] = useState<{ [key: string]: boolean }>({});
   const [processingUpdate, setProcessingUpdate] = useState(false);
-  const { tasks, setTasks } = useTaskStore();
 
-  // デバッグ用のログを追加
+  const {
+    tags,
+    createNewTag,
+    updateTagSelection,
+    error: tagError
+  } = useTagManagement({
+    id: task.id,
+    type: 'task',
+    initialTags: task.tags?.map(tag => ({
+      ...tag,
+      color: tag.color || null
+    })) || [],
+    onTagsChange: (tags) => {
+      setLocalTask(prev => ({
+        ...prev,
+        tags
+      }));
+    }
+  });
+
+  // エラー監視
   useEffect(() => {
-    console.log('AITags: Received suggestedTags:', suggestedTags);
+    if (tagError) {
+      toast({
+        title: 'エラー',
+        description: tagError.message,
+        variant: 'destructive',
+      });
+    }
+  }, [tagError, toast]);
+
+  // suggestedTagsの変更を監視
+  useEffect(() => {
+    console.log('[AITags] Received tags:', suggestedTags);
   }, [suggestedTags]);
 
-  // suggestedTagsがオブジェクトの場合は中身の配列を取り出す
-  let tagsToProcess = suggestedTags;
-  if (suggestedTags && typeof suggestedTags === 'object' && 'suggestedTags' in suggestedTags) {
-    tagsToProcess = suggestedTags.suggestedTags as typeof suggestedTags;
-  }
-
-  // 配列でない場合は空配列を使用
-  const validSuggestedTags = Array.isArray(tagsToProcess) 
-    ? tagsToProcess.map(tag => {
-        if (typeof tag === 'string') return tag;
-        if (typeof tag === 'object' && tag !== null && 'name' in tag) {
-          return tag.name;
-        }
-        return String(tag);
-      })
-    : [];
-
-  // デバッグ用のログを追加
-  useEffect(() => {
-    console.log('AITags: Processed tags:', validSuggestedTags);
-  }, [validSuggestedTags]);
-  
   const handleSuggestedTagClick = async (tagName: string): Promise<void> => {
     if (pendingTags[tagName] || processingUpdate) return;
 
@@ -61,63 +79,25 @@ export function AITags({
       setPendingTags((prev) => ({ ...prev, [tagName]: true }));
       setProcessingUpdate(true);
 
-      // オプティミスティックな更新
-      const optimisticTag = {
-        id: `suggested-${tagName}`,
-        name: tagName,
-        color: null,
-        userId: session?.user?.id,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as Tag;
+      // タグを作成または取得（既存のタグがある場合はそれを返す）
+      const tag = await createNewTag(tagName);
+      if (!tag) return;
 
-      const optimisticTags = [...(localTask.tags || [])];
-      if (!optimisticTags.some(tag => tag.name.toLowerCase() === tagName.toLowerCase())) {
-        optimisticTags.push(optimisticTag);
+      // 現在のタグリストに含まれていない場合のみ追加
+      if (!localTask.tags?.some(t => t.id === tag.id)) {
+        const updatedTags = [...(localTask.tags || []), tag];
+        await updateTagSelection(updatedTags);
+        await onMutate();
         setLocalTask(prev => ({
           ...prev,
-          tags: optimisticTags,
+          tags: updatedTags
         }));
       }
-
-      // タグの更新を実行
-      const response = await fetch(`/api/tasks/${task.id}/${task.id}/tags`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          tags: [...(localTask.tags?.map(tag => tag.name) || []), tagName],
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(TAG_MESSAGES.UPDATE_ERROR);
-      }
-
-      const updatedTags = await response.json();
-
-      // サーバーからの応答で状態を更新
-      const updatedTask = {
-        ...task,
-        tags: updatedTags,
-      };
-      setLocalTask(updatedTask);
-      setTasks(tasks.map(t => t.id === task.id ? updatedTask : t));
-
-      // 親コンポーネントの状態を更新
-      await onMutate();
-
-      toast({
-        title: TAG_MESSAGES.UPDATE_SUCCESS,
-        description: TAG_MESSAGES.APPLY_SUCCESS,
-      });
     } catch (error) {
-      // エラー時は元の状態に戻す
-      setLocalTask(task);
+      console.error('[AITags] Error:', error);
       toast({
         title: 'エラー',
-        description: error instanceof Error ? error.message : TAG_MESSAGES.CREATE_ERROR,
+        description: 'タグの作成に失敗しました',
         variant: 'destructive',
       });
     } finally {
@@ -133,55 +113,60 @@ export function AITags({
       setProcessingUpdate(true);
       setIsApplying(true);
 
-      // タグの更新を実行
-      const response = await fetch(`/api/tasks/${task.id}/${task.id}/tags`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': session?.user?.id || '',
-        },
-        body: JSON.stringify({
-          tags: selectedTags.map(tag => tag.name),
-        }),
-      });
+      // 重複を除去して更新（名前とIDの両方でチェック）
+      const uniqueTags = selectedTags.reduce<Tag[]>((acc, current) => {
+        // suggested-で始まるIDのタグは無視
+        if (current.id.startsWith('suggested-')) {
+          // 代わりに既存のタグを探す
+          const existingTag = tags.find(
+            tag => tag.name.toLowerCase() === current.name.toLowerCase()
+          );
+          if (existingTag && !acc.some(tag => tag.id === existingTag.id)) {
+            acc.push(existingTag);
+          }
+          return acc;
+        }
 
-      if (!response.ok) {
-        throw new Error(TAG_MESSAGES.UPDATE_ERROR);
-      }
+        const isDuplicate = acc.some(
+          tag => tag.id === current.id || tag.name.toLowerCase() === current.name.toLowerCase()
+        );
+        if (!isDuplicate) {
+          acc.push({
+            ...current,
+            color: current.color || null,
+            createdAt: new Date(current.createdAt)
+          });
+        }
+        return acc;
+      }, []);
 
-      const updatedTags = await response.json();
-
-      // ローカルタスクの状態を更新
-      const updatedTask = {
-        ...task,
-        tags: updatedTags,
-      };
-      setLocalTask(updatedTask);
-
-      // タスクストアの状態を更新
-      setTasks(tasks.map(t => 
-        t.id === task.id ? updatedTask : t
-      ));
-
-      // 親コンポーネントの状態を更新
+      console.log('[AITags] Updating task with tags:', uniqueTags);
+      await updateTagSelection(uniqueTags);
+      
+      // onMutateを待ってから状態を更新
       await onMutate();
 
-      toast({
-        title: TAG_MESSAGES.UPDATE_SUCCESS,
-        description: TAG_MESSAGES.APPLY_SUCCESS,
-      });
-    } catch (error) {
-      console.error('Failed to update tags:', error);
-      toast({
-        title: 'エラー',
-        description: error instanceof Error ? error.message : TAG_MESSAGES.UPDATE_ERROR,
-        variant: 'destructive',
-      });
+      // ローカルの状態を更新
+      setLocalTask(prev => ({
+        ...prev,
+        tags: uniqueTags
+      }));
+
     } finally {
       setIsApplying(false);
       setProcessingUpdate(false);
     }
   };
+
+  // suggestedTagsが空の場合は早期リターン
+  if (!suggestedTags || suggestedTags.length === 0) {
+    console.log('AITags: No suggested tags available');
+    return (
+      <div className="text-sm text-zinc-400 p-4">
+        タグの提案はありません
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -192,25 +177,27 @@ export function AITags({
 
       {/* 提案されたタグを横一列で表示 */}
       <div className="flex flex-wrap gap-2">
-        {validSuggestedTags.map((tagName) => {
+        {suggestedTags.map((tag) => {
           const isSelected = localTask.tags?.some(
-            (tag) => tag.name.toLowerCase() === tagName.toLowerCase()
+            (existingTag) => existingTag.name.toLowerCase() === tag.name.toLowerCase()
           );
-          const isPending = pendingTags[tagName];
+          const isPending = pendingTags[tag.name];
 
           return (
             <button
-              key={tagName}
-              onClick={() => void handleSuggestedTagClick(tagName)}
+              key={tag.name}
+              onClick={() => void handleSuggestedTagClick(tag.name)}
               disabled={isSelected || isPending}
               className="group relative"
             >
               <ColoredTag
                 tag={{
-                  id: `suggested-${tagName}`,
-                  name: tagName,
+                  id: `suggested-${tag.name}`,
+                  name: tag.name,
                   color: null,
-                } as Tag}
+                  userId: '',
+                  createdAt: new Date()
+                }}
                 className={`text-sm transition-opacity ${
                   isSelected ? 'opacity-50' : 'hover:opacity-80'
                 }`}
@@ -231,7 +218,7 @@ export function AITags({
           id={task.id}
           type="task"
           selectedTags={localTask.tags || []}
-          onTagsChange={(tags) => void updateTaskWithTags(tags as Tag[])}
+          onTagsChange={(tags) => void updateTaskWithTags(tags)}
           className="w-full"
           variant="default"
         />
