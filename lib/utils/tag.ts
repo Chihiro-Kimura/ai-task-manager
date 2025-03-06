@@ -76,44 +76,37 @@ export async function updateOrCreateTags(
 export async function updateAndConnectTags(
   userId: string,
   itemId: string,
-  tags: (string | TagInput)[],
+  tagIds: string[],
   type: 'task' | 'note'
 ): Promise<Tag[]> {
-  const allTags = await updateOrCreateTags(userId, tags);
+  // タグIDから既存のタグを検索
+  const existingTags = await prisma.tag.findMany({
+    where: {
+      id: {
+        in: tagIds
+      },
+      userId
+    }
+  });
 
-  if (type === 'task') {
-    const task = await prisma.task.update({
-      where: {
-        id: itemId,
-        userId
-      },
-      data: {
-        tags: {
-          connect: allTags.map(tag => ({ id: tag.id }))
-        }
-      },
-      include: {
-        tags: true
+  // タスクまたはノートを更新
+  const model = type === 'task' ? prisma.task : prisma.note;
+  const updated = await model.update({
+    where: {
+      id: itemId,
+      userId
+    },
+    data: {
+      tags: {
+        set: existingTags.map(tag => ({ id: tag.id }))
       }
-    });
-    return task.tags;
-  } else {
-    const note = await prisma.note.update({
-      where: {
-        id: itemId,
-        userId
-      },
-      data: {
-        tags: {
-          connect: allTags.map(tag => ({ id: tag.id }))
-        }
-      },
-      include: {
-        tags: true
-      }
-    });
-    return note.tags;
-  }
+    },
+    include: {
+      tags: true
+    }
+  });
+
+  return updated.tags;
 }
 
 export async function createTag(name: string): Promise<Tag> {
@@ -147,14 +140,17 @@ export async function updateTags({ id, type = 'task', tags }: TagUpdateParams): 
       throw new TagError(TAG_MESSAGES.UPDATE_ERROR);
     }
 
+    // suggested-プレフィックス付きのIDを除外
+    const normalizedTags = tags.filter(tagId => !tagId.startsWith('suggested-'));
+
     const endpoint = type === 'task' 
       ? `/api/tasks/${id}/tags`
       : `/api/notes/${id}/tags`;
 
     const response = await fetch(endpoint, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tags }),
+      body: JSON.stringify({ tags: normalizedTags }),
     });
 
     if (!response.ok) {

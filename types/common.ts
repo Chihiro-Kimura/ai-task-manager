@@ -1,14 +1,13 @@
+import { Tag as PrismaTag } from '@prisma/client';
+
 export type Priority = '高' | '中' | '低';
 
 // タグの基本型定義
-export interface Tag {
-  id: string;
-  name: string;
-  color?: string | null;
-  userId?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
+export interface Tag extends Omit<PrismaTag, 'color'> {
+  color: string | null;
 }
+
+export type TagInput = Pick<Tag, 'name' | 'color'>;
 
 // AI設定の型定義
 export interface AISettings {
