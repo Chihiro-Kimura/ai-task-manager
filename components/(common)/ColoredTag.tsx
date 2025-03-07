@@ -14,7 +14,7 @@ export function ColoredTag({ tag, className }: ColoredTagProps): ReactElement {
   let tagColor: TagColor | null = null;
   try {
     if (tag.color) {
-      tagColor = JSON.parse(tag.color) as TagColor;
+      tagColor = typeof tag.color === 'string' ? JSON.parse(tag.color) : tag.color;
     }
   } catch (e) {
     console.error('Failed to parse tag color:', e);

@@ -17,6 +17,7 @@ interface TagSelectProps {
   className?: string;
   initialTags?: Tag[];
   isLoading?: boolean;
+  placeholder?: string;
 }
 
 export default function TagSelect({
@@ -29,43 +30,11 @@ export default function TagSelect({
   className,
   initialTags = [],
   isLoading = false,
+  placeholder = 'タグを選択...',
 }: TagSelectProps): ReactElement {
-  // コンポーネントのマウント時の状態をログ
-  useEffect(() => {
-    console.log('[TagSelect] Component mounted:', {
-      id,
-      type,
-      selectedTags,
-      initialTags,
-      isLoading
-    });
-  }, []);
-
-  // propsの変更を監視
-  useEffect(() => {
-    console.log('[TagSelect] Props updated:', {
-      id,
-      type,
-      selectedTagsCount: selectedTags.length,
-      initialTagsCount: initialTags.length,
-      selectedTags,
-      initialTags,
-      isLoading
-    });
-  }, [id, type, selectedTags, initialTags, isLoading]);
-
   if (isLoading) {
-    console.log('[TagSelect] Rendering skeleton');
     return <TagSelectSkeleton />;
   }
-
-  console.log('[TagSelect] Rendering client component with:', {
-    id,
-    type,
-    selectedTags,
-    initialTags,
-    isLoading
-  });
 
   return (
     <TagSelectClient
@@ -77,6 +46,7 @@ export default function TagSelect({
       variant={variant}
       noBorder={noBorder}
       className={className}
+      placeholder={placeholder}
     />
   );
 } 

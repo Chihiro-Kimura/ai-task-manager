@@ -3,7 +3,7 @@ import { Tag } from '@prisma/client';
 import { getRandomTagColor } from '@/lib/constants/colors';
 import { TAG_MESSAGES } from '@/lib/constants/messages';
 import { prisma } from '@/lib/db/client';
-import { getRandomColor } from '@/lib/utils/styles';
+import { TagColor } from '@/types/common';
 
 export interface TagUpdateParams {
   id?: string;
@@ -13,7 +13,7 @@ export interface TagUpdateParams {
 
 export interface TagInput {
   name: string;
-  color?: string | null;
+  color?: TagColor | null;
 }
 
 export class TagError extends Error {
@@ -89,29 +89,44 @@ export async function updateAndConnectTags(
     }
   });
 
-  // タスクまたはノートを更新
-  const model = type === 'task' ? prisma.task : prisma.note;
-  const updated = await model.update({
-    where: {
-      id: itemId,
-      userId
-    },
-    data: {
-      tags: {
-        set: existingTags.map(tag => ({ id: tag.id }))
+  if (type === 'task') {
+    const updated = await prisma.task.update({
+      where: {
+        id: itemId,
+        userId
+      },
+      data: {
+        tags: {
+          set: existingTags.map(tag => ({ id: tag.id }))
+        }
+      },
+      include: {
+        tags: true
       }
-    },
-    include: {
-      tags: true
-    }
-  });
-
-  return updated.tags;
+    });
+    return updated.tags;
+  } else {
+    const updated = await prisma.note.update({
+      where: {
+        id: itemId,
+        userId
+      },
+      data: {
+        tags: {
+          set: existingTags.map(tag => ({ id: tag.id }))
+        }
+      },
+      include: {
+        tags: true
+      }
+    });
+    return updated.tags;
+  }
 }
 
 export async function createTag(name: string): Promise<Tag> {
   try {
-    const randomColor = getRandomColor();
+    const randomColor = getRandomTagColor();
     const response = await fetch('/api/tags', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -184,60 +199,13 @@ export async function deleteTag(tagId: string): Promise<void> {
 }
 
 export async function fetchTags(): Promise<Tag[]> {
-  try {
-    console.log('[fetchTags] Starting API request...');
-    const response = await fetch('/api/tags');
-    
-    console.log('[fetchTags] API response status:', response.status);
-    console.log('[fetchTags] API response headers:', Object.fromEntries(response.headers.entries()));
-
-    if (!response.ok) {
-      console.error('[fetchTags] API error:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-      throw new TagError(TAG_MESSAGES.FETCH_ERROR);
-    }
-
-    const responseText = await response.text();
-    console.log('[fetchTags] Raw response text:', responseText);
-
-    let tags;
-    try {
-      tags = JSON.parse(responseText);
-      console.log('[fetchTags] Parsed tags:', tags);
-    } catch (parseError) {
-      console.error('[fetchTags] JSON parse error:', parseError);
-      console.error('[fetchTags] Invalid JSON:', responseText);
-      throw new TagError(TAG_MESSAGES.FETCH_ERROR);
-    }
-
-    if (!Array.isArray(tags)) {
-      console.error('[fetchTags] Invalid tags format:', tags);
-      throw new TagError(TAG_MESSAGES.FETCH_ERROR);
-    }
-
-    // タグの形式を検証
-    const validatedTags = tags.map(tag => {
-      if (!tag.id || !tag.name) {
-        console.error('[fetchTags] Invalid tag format:', tag);
-        throw new TagError(TAG_MESSAGES.FETCH_ERROR);
-      }
-      return tag;
-    });
-
-    console.log('[fetchTags] Successfully validated tags:', validatedTags);
-    return validatedTags;
-  } catch (error) {
-    console.error('[fetchTags] Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
-    if (error instanceof TagError) {
-      throw error;
-    }
-    throw new TagError(TAG_MESSAGES.FETCH_ERROR);
+  const response = await fetch('/api/tags');
+  if (!response.ok) {
+    throw new Error('Failed to fetch tags');
   }
+  const tags = await response.json();
+  return tags.map((tag: Tag) => ({
+    ...tag,
+    color: tag.color ? JSON.parse(tag.color) : null,
+  }));
 } 

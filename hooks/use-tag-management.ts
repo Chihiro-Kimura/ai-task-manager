@@ -1,9 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 
 import { useToast } from '@/hooks/use-toast';
-import { TAG_MESSAGES } from '@/lib/constants/messages';
 import { createTag, updateTags, fetchTags } from '@/lib/utils/tag';
-import type { Tag } from '@/types/common';
+import type { Tag, TagColor } from '@/types/common';
 
 interface UseTagManagementProps {
   id?: string;
@@ -39,7 +38,7 @@ export function useTagManagement({
   const [isInitialized, setIsInitialized] = useState(false);
 
   const loadTags = useCallback(async () => {
-    if (tags.length > 0) {
+    if (isInitialized) {
       return tags;
     }
 
@@ -48,15 +47,24 @@ export function useTagManagement({
 
     try {
       const loadedTags = await fetchTags();
-      setTags(loadedTags);
-      return loadedTags;
+      const normalizedTags = loadedTags.map(tag => ({
+        ...tag,
+        color: tag.color ? (typeof tag.color === 'string' ? JSON.parse(tag.color) : tag.color) : null,
+        createdAt: new Date(tag.createdAt)
+      }));
+      setTags(normalizedTags);
+      setIsInitialized(true);
+      return normalizedTags;
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to load tags'));
+      setError({
+        code: 'API_ERROR',
+        message: 'Failed to load tags'
+      });
       return [];
     } finally {
       setIsLoading(false);
     }
-  }, [id, type, tags]);
+  }, [isInitialized, tags]);
 
   // 初期ロード時にタグを取得
   useEffect(() => {
@@ -87,34 +95,19 @@ export function useTagManagement({
         return existingLocalTag;
       }
 
-      // リモートで確認
-      const existingTags = await fetchTags();
-      const existingRemoteTag = existingTags.find(
-        tag => tag.name.toLowerCase() === normalizedName
-      );
-
-      if (existingRemoteTag) {
-        const normalizedTag = {
-          ...existingRemoteTag,
-          color: existingRemoteTag.color || null,
-          createdAt: new Date(existingRemoteTag.createdAt)
-        };
-        setTags(prev => [...prev, normalizedTag]);
-        return normalizedTag;
-      }
-
       // 新しいタグを作成
       const newTag = await createTag(name.trim());
       const normalizedTag = {
         ...newTag,
-        color: newTag.color || null,
+        color: newTag.color ? (typeof newTag.color === 'string' ? JSON.parse(newTag.color) : newTag.color) : null,
         createdAt: new Date(newTag.createdAt)
-      };
-
+      } as Tag;
+      
       // ローカルの状態を更新
       setTags(prev => [...prev, normalizedTag]);
       return normalizedTag;
     } catch (error) {
+      console.error('タグの作成に失敗しました:', error);
       setError({
         code: 'API_ERROR',
         message: 'Failed to create tag'

@@ -49,7 +49,6 @@ export function TagSelectClient({
 
   // 初期タグの更新を監視
   useEffect(() => {
-    console.log('[TagSelectClient] Updating available tags:', initialTags);
     if (initialTags.length > 0) {
       setAvailableTags(prevTags => {
         // 既存のタグと新しいタグをマージ
@@ -67,8 +66,6 @@ export function TagSelectClient({
 
   // メモ化された検索結果
   const filteredTags = useMemo(() => {
-    console.log('[TagSelectClient] Filtering tags with query:', searchQuery);
-    console.log('[TagSelectClient] Available tags:', availableTags);
     if (!searchQuery) return availableTags;
     return availableTags.filter((tag) =>
       tag.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -81,7 +78,6 @@ export function TagSelectClient({
 
     try {
       setIsCreating(true);
-      console.log('[TagSelectClient] Creating new tag:', newTagName);
       
       // 既存のタグをチェック
       const existingTag = availableTags.find(
@@ -109,7 +105,6 @@ export function TagSelectClient({
 
       // 選択済みタグに追加
       const updatedTags = [...selectedTags, newTag];
-      console.log('[TagSelectClient] Updated tags after creation:', updatedTags);
       
       // 利用可能なタグにも追加
       setAvailableTags(prev => [...prev, newTag]);
@@ -120,7 +115,6 @@ export function TagSelectClient({
       setNewTagName('');
       setShowNewTagInput(false);
     } catch (error) {
-      console.error('[TagSelectClient] Error creating tag:', error);
       toast({
         title: 'エラー',
         description: 'タグの作成に失敗しました',
