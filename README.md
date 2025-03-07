@@ -5,6 +5,23 @@
 AI Task Managerにメモ機能を追加し、タスク管理との連携を実現するプロジェクトです。
 Notionライクなデータベース機能を持ち、タグによる効率的な情報管理を実現します。
 
+### 開発状況
+
+- 現在の開発ブランチ: `feature`
+- 開発環境: Node.js 20.x
+- データベース: PostgreSQL (Supabase)
+- 認証: NextAuth.js (Google OAuth)
+
+### 重要な注意点
+
+- 環境変数は`.env.local`に設定が必要
+  - `DATABASE_URL`: PostgreSQL接続文字列
+  - `DIRECT_URL`: Supabase直接接続用URL
+  - `NEXTAUTH_URL`: 認証用URL
+  - `GOOGLE_CLIENT_ID`: Google OAuth用
+  - `GOOGLE_CLIENT_SECRET`: Google OAuth用
+  - 各AIプロバイダーのAPIキー（今後実装）
+
 ## 開発フェーズ
 
 ### Phase 1: 基本的なメモ機能の実装
@@ -140,13 +157,24 @@ interface Note {
 - [ ] AIモデル選択機能
   - 有料モデル
     - OpenAI GPT-4 ($0.03/1K tokens)
+      - 高度な推論と複雑なタスクの処理
+      - 長文の分析や高品質な提案
     - Google Gemini 1.5 Pro ($0.0025/1K tokens)
+      - マルチモーダル処理
+      - 長いコンテキスト処理
   - 無料/低コストモデル
     - OpenAI GPT-3.5 ($0.0005/1K tokens)
+      - 基本的な分析や提案
+      - 高速なレスポンス
     - Google Gemini 1.5 Flash ($0.0005/1K tokens)
-  - モデルごとの特性を活かした使い分け
-  - コストパフォーマンスの最適化
-  - APIキーの管理機能
+      - 効率的な処理
+      - コストパフォーマンスに優れた基本機能
+  - 実装予定の機能
+    - モデル切り替えUI
+    - APIキーの安全な管理（環境変数）
+    - 使用量とコストの監視
+    - モデルごとのレスポンスキャッシュ
+    - エラーハンドリングとフォールバック
 
 ## ライセンス
 
