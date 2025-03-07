@@ -1,15 +1,15 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
-import { type ReactElement, useEffect, useState } from 'react';
+import { Loader2, Sparkles } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { useEffect, useState, type ReactElement, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import useSWR from 'swr';
 import * as z from 'zod';
 
-import { AddButton } from '@/components/ui/action-button';
-import { Badge } from '@/components/ui/badge';
+import TagSelect from '@/components/(common)/forms/tag-select';
+import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
@@ -19,176 +19,225 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { TAG_MESSAGES } from '@/lib/constants/messages';
-import { createTag } from '@/lib/utils/tag';
+import { useTagManagement } from '@/hooks/use-tag-management';
+import { analyzeNoteContent } from '@/lib/ai/analyzers/note-analyzer';
 import { useAIStore } from '@/store/aiStore';
-import { NoteWithTags } from '@/types/note';
+import { Priority, Tag } from '@/types/common';
+import { CreateNoteData, Note, NoteWithTags } from '@/types/note';
 
 const formSchema = z.object({
   title: z.string().min(1, '必須項目です'),
   content: z.string().min(1, '必須項目です'),
-  tags: z.array(z.string()),
   priority: z.enum(['高', '中', '低']).optional(),
+  tags: z.array(z.string()),
+  category: z.enum(['general', 'diary', 'idea', 'reference', 'task_note']).default('general'),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 interface AddNoteFormProps {
   note?: NoteWithTags;
-  onSuccess?: () => void;
+  onSuccess?: () => Promise<void>;
 }
 
-export function AddNoteForm({
-  note,
-  onSuccess,
-}: AddNoteFormProps): ReactElement {
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSuggestingTags, setIsSuggestingTags] = useState(false);
-  const [isAnalyzingPriority, setIsAnalyzingPriority] = useState(false);
-  const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
-  const [pendingTags, setPendingTags] = useState<{ [key: string]: boolean }>(
-    {}
-  );
-  const [localTags, setLocalTags] = useState<{ id: string; name: string }[]>(
-    []
-  );
+export function AddNoteForm({ note, onSuccess }: AddNoteFormProps): ReactElement {
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { getActiveProvider } = useAIStore();
-
-  const { data: tags, mutate: mutateTags } =
-    useSWR<{ id: string; name: string }[]>('/api/tags');
+  const { data: session, status } = useSession();
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: note?.title || '',
-      content: note?.content || '',
-      tags: note?.tags?.map((tag) => tag.id) || [],
+      title: note?.title ?? '',
+      content: note?.content ?? '',
+      priority: note?.priority ?? undefined,
+      tags: note?.tags.map((tag) => tag.id) ?? [],
+      category: note?.type ?? 'general',
     },
   });
+
+  const {
+    tags: availableTags,
+    isLoading: isTagsLoading,
+    loadTags,
+    createNewTag,
+    updateTagSelection,
+    error: tagError
+  } = useTagManagement({
+    id: note?.id,
+    type: 'note',
+    initialTags: note?.tags ?? [],
+  });
+
+  useEffect(() => {
+    console.log('[AddNoteForm] Loading tags...');
+    void loadTags();
+  }, [loadTags]);
+
+  useEffect(() => {
+    console.log('[AddNoteForm] Session status:', status);
+    console.log('[AddNoteForm] Session data:', session);
+  }, [session, status]);
 
   const { watch } = form;
   const title = watch('title');
   const content = watch('content');
-  const selectedTags = watch('tags');
 
-  useEffect(() => {
-    if (tags) {
-      setLocalTags(tags);
-    }
-  }, [tags]);
-
-  useEffect(() => {
-    const debounceTimer = setTimeout(async () => {
-      if (title && content) {
-        setIsSuggestingTags(true);
-        try {
-          const provider = getActiveProvider();
-          if (!provider.isEnabled) {
-            console.warn('AI provider is not enabled');
-            return;
-          }
-
-          const suggestions = await provider.getTagSuggestions(
-            title,
-            content,
-            localTags
-          );
-          setSuggestedTags(suggestions);
-        } catch (error) {
-          console.error('Failed to get tag suggestions:', error);
-          toast.error('タグの提案に失敗しました');
-        } finally {
-          setIsSuggestingTags(false);
-        }
-      }
-    }, 1000);
-
-    return () => clearTimeout(debounceTimer);
-  }, [title, content, localTags, getActiveProvider]);
-
-  useEffect(() => {
-    const debounceTimer = setTimeout(async () => {
-      if (title && content) {
-        setIsAnalyzingPriority(true);
-        try {
-          const provider = getActiveProvider();
-          if (!provider.isEnabled) {
-            console.warn('AI provider is not enabled');
-            return;
-          }
-
-          const priority = await provider.analyzePriority(title, content);
-          form.setValue('priority', priority);
-        } catch (error) {
-          console.error('Failed to analyze priority:', error);
-          toast.error('優先度の分析に失敗しました');
-        } finally {
-          setIsAnalyzingPriority(false);
-        }
-      }
-    }, 1500);
-
-    return () => clearTimeout(debounceTimer);
-  }, [title, content, getActiveProvider, form]);
-
-  const toggleTag = (tagId: string): void => {
-    const newTags = selectedTags.includes(tagId)
-      ? selectedTags.filter((id) => id !== tagId)
-      : [...selectedTags, tagId];
-    form.setValue('tags', newTags, { shouldDirty: true });
-  };
-
-  const handleSuggestedTagClick = async (tagName: string): Promise<void> => {
-    const existingTag = localTags?.find(
-      (t) => t.name.toLowerCase() === tagName.toLowerCase()
-    );
-
-    if (existingTag) {
-      toggleTag(existingTag.id);
+  const handleAnalyze = async () => {
+    if (!title || !content) {
+      toast.error('タイトルと内容を入力してください');
       return;
     }
 
-    if (pendingTags[tagName]) return;
-
     try {
-      setPendingTags((prev) => ({ ...prev, [tagName]: true }));
-      const newTag = await createTag(tagName);
-      toggleTag(newTag.id);
-      // タグリストの更新は非同期で行う
-      void mutateTags();
-    } catch {
-      toast.error(TAG_MESSAGES.CREATE_ERROR);
+      setIsAnalyzing(true);
+      const provider = getActiveProvider();
+      if (!provider.isEnabled) {
+        toast.error('AI機能が無効です');
+        return;
+      }
+
+      const analysis = await analyzeNoteContent(title, content, provider);
+
+      // 分析結果を反映
+      form.setValue('priority', analysis.priority);
+      form.setValue('category', analysis.category);
+
+      // タグの提案
+      if (analysis.suggestedTags.length > 0) {
+        toast.success(
+          <div className="space-y-2">
+            <p>以下のタグを提案します：</p>
+            <div className="flex flex-wrap gap-1">
+              {analysis.suggestedTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded bg-zinc-800 px-2 py-1 text-xs"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+      }
+
+      // 関連タスクの提案
+      if (analysis.relatedTasks.length > 0) {
+        toast.info(
+          <div className="space-y-2">
+            <p>以下のタスクを提案します：</p>
+            <ul className="list-disc pl-4 text-sm">
+              {analysis.relatedTasks.map((task) => (
+                <li key={task}>{task}</li>
+              ))}
+            </ul>
+          </div>
+        );
+      }
+    } catch (error) {
+      console.error('Failed to analyze note:', error);
+      toast.error('メモの分析に失敗しました');
     } finally {
-      setPendingTags((prev) => ({ ...prev, [tagName]: false }));
+      setIsAnalyzing(false);
     }
   };
 
-  const onSubmit = async (values: FormValues): Promise<void> => {
-    setIsLoading(true);
+  const handleTagsChange = useCallback(async (tags: Tag[]): Promise<void> => {
+    console.log('[AddNoteForm] handleTagsChange called with:', tags);
     try {
-      const response = await fetch(
-        note ? `/api/notes/${note.id}` : '/api/notes',
-        {
-          method: note ? 'PUT' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(values),
-        }
+      // 新しいタグの作成が必要な場合
+      const processedTags = await Promise.all(
+        tags.map(async (tag) => {
+          if (tag.id.startsWith('new-')) {
+            console.log('[AddNoteForm] Creating new tag:', tag.name);
+            const newTag = await createNewTag(tag.name);
+            console.log('[AddNoteForm] Created new tag:', newTag);
+            return newTag || tag;
+          }
+          return tag;
+        })
       );
 
-      if (!response.ok) {
-        throw new Error('Failed to save note');
+      console.log('[AddNoteForm] Processed tags:', processedTags);
+
+      // タグの選択状態を更新
+      await updateTagSelection(processedTags);
+      
+      // ローカルの状態を更新
+      const normalizedTags = processedTags.map(tag => ({
+        ...tag,
+        createdAt: tag.createdAt instanceof Date ? tag.createdAt : new Date(tag.createdAt)
+      }));
+      console.log('[AddNoteForm] Setting normalized tags:', normalizedTags);
+      setSelectedTags(normalizedTags);
+    } catch (error) {
+      console.error('[AddNoteForm] Error handling tags:', error);
+      toast({
+        title: 'エラー',
+        description: 'タグの処理に失敗しました',
+        variant: 'destructive',
+      });
+    }
+  }, [createNewTag, updateTagSelection, toast]);
+
+  const onSubmit = async (values: FormValues): Promise<void> => {
+    try {
+      const noteData: CreateNoteData = {
+        title: values.title,
+        content: values.content,
+        priority: values.priority,
+        tags: selectedTags.map(tag => tag.id),
+        type: values.category,
+      };
+
+      if (note?.id) {
+        console.log('[AddNoteForm] Updating note:', note.id, noteData);
+        const response = await fetch(`/api/notes/${note.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(noteData),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'メモの更新に失敗しました');
+        }
+
+        toast.success('メモを更新しました');
+      } else {
+        console.log('[AddNoteForm] Creating new note:', noteData);
+        const response = await fetch('/api/notes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(noteData),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'メモの作成に失敗しました');
+        }
+
+        toast.success('メモを作成しました');
+        form.reset();
+        setSelectedTags([]);
       }
 
-      toast.success(note ? 'メモを更新しました' : 'メモを作成しました');
-      onSuccess?.();
+      await onSuccess?.();
     } catch (error) {
       console.error('Failed to save note:', error);
       toast.error(
-        note ? 'メモの更新に失敗しました' : 'メモの作成に失敗しました'
+        error instanceof Error ? error.message : 'メモの保存に失敗しました'
       );
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -202,7 +251,7 @@ export function AddNoteForm({
             <FormItem>
               <FormLabel>タイトル</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <Input placeholder="タイトルを入力..." {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -216,186 +265,125 @@ export function AddNoteForm({
             <FormItem>
               <FormLabel>内容</FormLabel>
               <FormControl>
-                <Textarea {...field} rows={5} />
+                <Textarea
+                  placeholder="メモの内容を入力..."
+                  className="min-h-[200px]"
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        <div className="space-y-4 rounded-lg border border-zinc-800 p-4">
-          <div>
-            <FormLabel className="text-base">タグ管理</FormLabel>
-            <p className="text-sm text-muted-foreground mt-1">
-              タグを選択するか、AIが提案したタグを使用できます
-            </p>
-          </div>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="category"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>カテゴリ</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="カテゴリを選択" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="general">一般</SelectItem>
+                    <SelectItem value="diary">日記</SelectItem>
+                    <SelectItem value="idea">アイデア</SelectItem>
+                    <SelectItem value="reference">参考資料</SelectItem>
+                    <SelectItem value="task_note">タスクメモ</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm font-medium mb-2">既存のタグ</p>
-              <div className="flex flex-wrap gap-2 min-h-[2.5rem] p-2 rounded-md bg-zinc-900/50">
-                {localTags?.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    タグがありません
-                  </p>
-                ) : (
-                  localTags?.map((tag) => (
-                    <Badge
-                      key={tag.id}
-                      variant={
-                        selectedTags.includes(tag.id) ? 'default' : 'outline'
-                      }
-                      className={`cursor-pointer transition-all hover:opacity-80 ${
-                        selectedTags.includes(tag.id)
-                          ? 'bg-blue-500 hover:bg-blue-600'
-                          : 'bg-zinc-800 hover:bg-zinc-700'
-                      }`}
-                      onClick={() => toggleTag(tag.id)}
-                    >
-                      {tag.name}
-                      <span className="ml-1 text-xs opacity-70">
-                        {selectedTags.includes(tag.id) ? '✓' : '+'}
-                      </span>
-                    </Badge>
-                  ))
-                )}
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <p className="text-sm font-medium">AIによるタグ提案</p>
-                {isSuggestingTags && (
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>提案中...</span>
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2 min-h-[2.5rem] p-2 rounded-md bg-zinc-900/50">
-                {suggestedTags.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {title && content
-                      ? 'タグを提案できませんでした'
-                      : 'タイトルと内容を入力するとタグを提案します'}
-                  </p>
-                ) : (
-                  suggestedTags.map((tagName, index) => {
-                    const existingTag = localTags?.find(
-                      (t) => t.name.toLowerCase() === tagName.toLowerCase()
-                    );
-                    const isPending = pendingTags[tagName];
-                    const isSelected =
-                      existingTag && selectedTags.includes(existingTag.id);
-
-                    return (
-                      <Badge
-                        key={index}
-                        variant={isSelected ? 'default' : 'outline'}
-                        className={`cursor-pointer transition-all hover:opacity-80 ${
-                          isPending
-                            ? 'opacity-50'
-                            : isSelected
-                              ? 'bg-emerald-500 hover:bg-emerald-600'
-                              : 'bg-zinc-800 hover:bg-zinc-700'
-                        }`}
-                        onClick={() => handleSuggestedTagClick(tagName)}
-                      >
-                        {isPending ? (
-                          <div className="flex items-center gap-1">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            {tagName}
-                          </div>
-                        ) : (
-                          <>
-                            {tagName}
-                            <span className="ml-1 text-xs opacity-70">
-                              {isSelected ? '✓' : '+'}
-                            </span>
-                          </>
-                        )}
-                      </Badge>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2 mb-4">
-          {suggestedTags.map((tag) => (
-            <Badge
-              key={tag}
-              variant="secondary"
-              className="cursor-pointer bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
-              onClick={() => handleSuggestedTagClick(tag)}
-            >
-              {tag}
-            </Badge>
-          ))}
+          <FormField
+            control={form.control}
+            name="priority"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>優先度</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="優先度を選択" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="高">高</SelectItem>
+                    <SelectItem value="中">中</SelectItem>
+                    <SelectItem value="低">低</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
         <FormField
           control={form.control}
-          name="priority"
-          render={({ field }) => (
+          name="tags"
+          render={({ field: { onChange, ...field } }) => (
             <FormItem>
-              <FormLabel>優先度</FormLabel>
+              <FormLabel className="flex items-center justify-between">
+                <span>タグ</span>
+                {availableTags.length === 0 && !isTagsLoading && (
+                  <span className="text-xs text-muted-foreground">
+                    「＋」ボタンをクリックして新しいタグを作成できます
+                  </span>
+                )}
+              </FormLabel>
               <FormControl>
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant={field.value === '高' ? 'default' : 'outline'}
-                    className={`cursor-pointer ${
-                      field.value === '高'
-                        ? 'bg-rose-500 hover:bg-rose-600'
-                        : 'bg-zinc-800 hover:bg-zinc-700'
-                    }`}
-                    onClick={() => field.onChange('高')}
-                  >
-                    高
-                  </Badge>
-                  <Badge
-                    variant={field.value === '中' ? 'default' : 'outline'}
-                    className={`cursor-pointer ${
-                      field.value === '中'
-                        ? 'bg-amber-500 hover:bg-amber-600'
-                        : 'bg-zinc-800 hover:bg-zinc-700'
-                    }`}
-                    onClick={() => field.onChange('中')}
-                  >
-                    中
-                  </Badge>
-                  <Badge
-                    variant={field.value === '低' ? 'default' : 'outline'}
-                    className={`cursor-pointer ${
-                      field.value === '低'
-                        ? 'bg-emerald-500 hover:bg-emerald-600'
-                        : 'bg-zinc-800 hover:bg-zinc-700'
-                    }`}
-                    onClick={() => field.onChange('低')}
-                  >
-                    低
-                  </Badge>
-                  {isAnalyzingPriority && (
-                    <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
-                  )}
-                </div>
+                <TagSelect
+                  type="note"
+                  selectedTags={selectedTags}
+                  onTagsChange={handleTagsChange}
+                  initialTags={availableTags}
+                  isLoading={isTagsLoading}
+                  placeholder="タグを作成または選択..."
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        <AddButton
-          type="submit"
-          disabled={isLoading || Object.values(pendingTags).some(Boolean)}
-          className="flex items-center justify-center gap-2"
-        >
-          {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-          {note ? 'メモを更新' : 'メモを作成'}
-        </AddButton>
+        <div className="flex justify-end gap-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleAnalyze}
+            disabled={isAnalyzing || !title || !content}
+          >
+            {isAnalyzing ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="mr-2 h-4 w-4" />
+            )}
+            AI分析
+          </Button>
+          <Button
+            type="submit"
+            disabled={form.formState.isSubmitting || isAnalyzing}
+          >
+            {form.formState.isSubmitting && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
+            {note ? '更新' : '作成'}
+          </Button>
+        </div>
       </form>
     </Form>
   );

@@ -15,11 +15,11 @@ import { NoteWithTags } from '@/types/note';
 interface NoteFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => Promise<void>;
+  onSuccess?: () => Promise<void>;
   note?: NoteWithTags;
 }
 
-export default function NoteFormModal({
+export function NoteFormModal({
   isOpen,
   onClose,
   onSuccess,
@@ -46,7 +46,7 @@ export default function NoteFormModal({
         <AddNoteForm
           note={note}
           onSuccess={async () => {
-            await onSuccess();
+            await onSuccess?.();
             onClose();
           }}
         />
