@@ -1,24 +1,61 @@
+import { Prisma } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/lib/auth/config';
 import { prisma } from '@/lib/db/client';
-import { CreateNoteData } from '@/types/note';
+import { CreateNoteData, NoteSortKey } from '@/types/note';
 
-export async function GET(_request: NextRequest): Promise<NextResponse> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get('search');
+    const priority = searchParams.get('priority')?.split(',');
+    const sort = searchParams.get('sort') as NoteSortKey | null;
 
-    // メモとタグを取得
-    const userNotes = await prisma.note.findMany({
-      where: {
-        userId,
-      },
+    const where: Prisma.NoteWhereInput = {
+      userId: session.user.id,
+      ...(search
+        ? {
+            OR: [
+              {
+                title: {
+                  contains: search,
+                  mode: Prisma.QueryMode.insensitive,
+                },
+              },
+              {
+                content: {
+                  contains: search,
+                  mode: Prisma.QueryMode.insensitive,
+                },
+              },
+            ],
+          }
+        : {}),
+      ...(priority?.length ? { priority: { in: priority } } : {}),
+    };
+
+    const orderBy = (() => {
+      switch (sort) {
+        case 'title':
+          return { title: 'asc' } as const;
+        case 'createdAt':
+          return { createdAt: 'asc' } as const;
+        case '-createdAt':
+          return { createdAt: 'desc' } as const;
+        default:
+          return { updatedAt: 'desc' } as const;
+      }
+    })();
+
+    const notes = await prisma.note.findMany({
+      where,
       include: {
         tags: {
           select: {
@@ -28,12 +65,10 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy,
     });
 
-    return NextResponse.json(userNotes);
+    return NextResponse.json(notes);
   } catch (error) {
     console.error('Failed to fetch notes:', error);
     return NextResponse.json(
@@ -53,6 +88,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const data = (await request.json()) as CreateNoteData;
     const userId = session.user.id;
 
+    // タグの存在確認
+    const tags = data.tags?.length
+      ? await prisma.tag.findMany({
+          where: {
+            id: { in: data.tags },
+            userId: session.user.id,
+          },
+        })
+      : [];
+
     // メモを作成（タグの関連付けも同時に行う）
     const newNote = await prisma.note.create({
       data: {
@@ -61,7 +106,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         priority: data.priority,
         userId,
         tags: {
-          connect: data.tags?.map((tagId) => ({ id: tagId })) ?? [],
+          connect: tags.map((tag) => ({ id: tag.id })),
         },
       },
       include: {

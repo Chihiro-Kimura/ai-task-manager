@@ -2,6 +2,7 @@ import { Tag } from '@prisma/client';
 import { NextResponse } from 'next/server';
 
 import { auth } from '@/lib/auth/config';
+import { getRandomTagColor } from '@/lib/constants/colors';
 import { prisma } from '@/lib/db/client';
 
 // タグの作成・更新用のデータ型
@@ -63,14 +64,19 @@ export async function POST(req: Request): Promise<NextResponse<Tag>> {
 
     // 既存のタグがある場合はそれを返す
     if (existingTag) {
-      return NextResponse.json(existingTag);
+      const responseTag = {
+        ...existingTag,
+        color: existingTag.color ? JSON.parse(existingTag.color) : null,
+      };
+      return NextResponse.json(responseTag);
     }
 
     // 新しいタグを作成
+    const randomColor = getRandomTagColor();
     const tag = await prisma.tag.create({
       data: {
         name: data.name,
-        color: data.color,
+        color: JSON.stringify(randomColor),
         userId: session.user.id,
       },
       include: {
@@ -83,7 +89,13 @@ export async function POST(req: Request): Promise<NextResponse<Tag>> {
       },
     });
 
-    return NextResponse.json(tag);
+    // レスポンスを返す前に色情報をパースする
+    const responseTag = {
+      ...tag,
+      color: tag.color ? JSON.parse(tag.color) : null,
+    };
+
+    return NextResponse.json(responseTag);
   } catch (error) {
     console.error('[TAGS_CREATE]', error);
     return new NextResponse('Internal Error', { status: 500 });

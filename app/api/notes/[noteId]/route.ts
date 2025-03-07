@@ -21,13 +21,11 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = session.user.id;
-    const { noteId } = params;
-
+    const noteId = params.noteId;
     const note = await prisma.note.findFirst({
       where: {
         id: noteId,
-        userId,
+        userId: session.user.id,
       },
       include: {
         tags: {
@@ -64,15 +62,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = session.user.id;
-    const { noteId } = params;
+    const noteId = params.noteId;
     const data = (await request.json()) as UpdateNoteData;
 
-    // メモの所有者を確認
+    // ノートの存在確認
     const existingNote = await prisma.note.findFirst({
       where: {
         id: noteId,
-        userId,
+        userId: session.user.id,
       },
     });
 
@@ -80,19 +77,39 @@ export async function PATCH(
       return NextResponse.json({ error: 'Note not found' }, { status: 404 });
     }
 
-    // メモを更新
+    // タグの存在確認（指定されている場合）
+    if (data.tags) {
+      const tags = await prisma.tag.findMany({
+        where: {
+          id: { in: data.tags },
+          userId: session.user.id,
+        },
+      });
+
+      if (tags.length !== data.tags.length) {
+        return NextResponse.json(
+          { error: 'Some tags were not found' },
+          { status: 400 }
+        );
+      }
+    }
+
+    const updateData = {
+      title: data.title,
+      content: data.content,
+      priority: data.priority,
+      tags: {
+        set: data.tags ? data.tags.map(tagId => ({ id: tagId })) : [],
+      },
+    };
+
+    console.log('Update data:', updateData);
+
     const updatedNote = await prisma.note.update({
       where: {
         id: noteId,
       },
-      data: {
-        title: data.title,
-        content: data.content,
-        priority: data.priority,
-        tags: {
-          set: data.tags?.map((tagId) => ({ id: tagId })) ?? [],
-        },
-      },
+      data: updateData,
       include: {
         tags: {
           select: {
@@ -114,8 +131,6 @@ export async function PATCH(
   }
 }
 
-export { PATCH as PUT };
-
 export async function DELETE(
   _request: NextRequest,
   { params }: RouteParams
@@ -126,22 +141,18 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = session.user.id;
-    const { noteId } = params;
-
-    // メモの所有者を確認
-    const existingNote = await prisma.note.findFirst({
+    const noteId = params.noteId;
+    const note = await prisma.note.findFirst({
       where: {
         id: noteId,
-        userId,
+        userId: session.user.id,
       },
     });
 
-    if (!existingNote) {
+    if (!note) {
       return NextResponse.json({ error: 'Note not found' }, { status: 404 });
     }
 
-    // メモを削除（関連するタグの関係も自動的に削除される）
     await prisma.note.delete({
       where: {
         id: noteId,
@@ -156,4 +167,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-}
+} 
