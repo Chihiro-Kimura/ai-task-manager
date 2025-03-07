@@ -19,7 +19,10 @@ export default function NoteList(): ReactElement {
   const { toast } = useToast();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
-  const [filter, setFilter] = useState<NoteFilter>({});
+  const [filter, setFilter] = useState<NoteFilter>({
+    page: 1,
+    limit: 12,
+  });
 
   const handleCreateNote = async () => {
     if (!session?.user) {
@@ -31,6 +34,10 @@ export default function NoteList(): ReactElement {
       return;
     }
     setIsCreateModalOpen(true);
+  };
+
+  const handlePageChange = (page: number) => {
+    setFilter(prev => ({ ...prev, page }));
   };
 
   return (
@@ -46,12 +53,18 @@ export default function NoteList(): ReactElement {
         </div>
       </div>
 
-      <NoteFilterBar filter={filter} onFilterChange={setFilter} />
+      <NoteFilterBar 
+        filter={filter} 
+        onFilterChange={(newFilter) => {
+          // フィルターが変更されたら、ページを1に戻す
+          setFilter({ ...newFilter, page: 1 });
+        }} 
+      />
 
       {viewMode === 'grid' ? (
-        <NoteGrid filter={filter} />
+        <NoteGrid filter={{ ...filter, onPageChange: handlePageChange }} />
       ) : (
-        <NoteTable filter={filter} />
+        <NoteTable filter={{ ...filter, onPageChange: handlePageChange }} />
       )}
 
       <NoteFormModal

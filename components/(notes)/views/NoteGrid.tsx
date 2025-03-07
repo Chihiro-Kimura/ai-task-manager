@@ -3,6 +3,7 @@
 import { type ReactElement } from 'react';
 
 import { NoteCard } from '@/components/(notes)/card/NoteCard';
+import { Button } from '@/components/ui/button';
 import { useNotes } from '@/hooks/use-notes';
 import { NoteFilter } from '@/types/note';
 
@@ -11,7 +12,11 @@ interface NoteGridProps {
 }
 
 export function NoteGrid({ filter }: NoteGridProps): ReactElement {
-  const { notes, isLoading, mutate } = useNotes(filter);
+  const { notes, isLoading, mutate, pagination } = useNotes({
+    ...filter,
+    page: filter.page ?? 1,
+    limit: filter.limit ?? 12,
+  });
 
   if (isLoading) {
     return (
@@ -35,15 +40,41 @@ export function NoteGrid({ filter }: NoteGridProps): ReactElement {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {notes.map((note) => (
-        <NoteCard
-          key={note.id}
-          note={note}
-          onDelete={mutate}
-          onUpdate={mutate}
-        />
-      ))}
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {notes.map((note) => (
+          <NoteCard
+            key={note.id}
+            note={note}
+            onDelete={mutate}
+            onUpdate={mutate}
+          />
+        ))}
+      </div>
+
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => filter.onPageChange?.(pagination.page - 1)}
+            disabled={pagination.page === 1}
+          >
+            前のページ
+          </Button>
+          <span className="text-sm text-zinc-400">
+            {pagination.page} / {pagination.totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => filter.onPageChange?.(pagination.page + 1)}
+            disabled={pagination.page === pagination.totalPages}
+          >
+            次のページ
+          </Button>
+        </div>
+      )}
     </div>
   );
 } 

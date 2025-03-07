@@ -6,6 +6,8 @@ import { authOptions } from '@/lib/auth/config';
 import { prisma } from '@/lib/db/client';
 import { CreateNoteData, NoteSortKey } from '@/types/note';
 
+const ITEMS_PER_PAGE = 12;
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions);
@@ -17,6 +19,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const search = searchParams.get('search');
     const priority = searchParams.get('priority')?.split(',');
     const sort = searchParams.get('sort') as NoteSortKey | null;
+    const page = parseInt(searchParams.get('page') ?? '1');
+    const limit = parseInt(searchParams.get('limit') ?? String(ITEMS_PER_PAGE));
 
     const where: Prisma.NoteWhereInput = {
       userId: session.user.id,
@@ -54,9 +58,19 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }
     })();
 
+    // 総件数を取得
+    const total = await prisma.note.count({ where });
+
+    // ページネーションを適用してデータを取得
     const notes = await prisma.note.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        priority: true,
+        createdAt: true,
+        updatedAt: true,
         tags: {
           select: {
             id: true,
@@ -66,9 +80,26 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         },
       },
       orderBy,
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return NextResponse.json(notes);
+    // Cache-Control ヘッダーを設定
+    const headers = new Headers();
+    headers.set('Cache-Control', 's-maxage=1, stale-while-revalidate');
+
+    return NextResponse.json(
+      {
+        notes,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+      { headers }
+    );
   } catch (error) {
     console.error('Failed to fetch notes:', error);
     return NextResponse.json(

@@ -41,4 +41,10 @@ export interface NoteFilter {
   priority?: Priority[];
   type?: NoteType[];
   sort?: NoteSortKey;
+  page?: number;
+  limit?: number;
+  onPageChange?: (page: number) => void;
+  tags?: string[];
+  isArchived?: boolean;
+  parentNoteId?: string | null;
 }

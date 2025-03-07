@@ -43,7 +43,11 @@ interface NoteTableProps {
 
 export function NoteTable({ filter }: NoteTableProps): ReactElement {
   const router = useRouter();
-  const { notes, isLoading, mutate } = useNotes(filter);
+  const { notes, isLoading, mutate, pagination } = useNotes({
+    ...filter,
+    page: filter.page ?? 1,
+    limit: filter.limit ?? 12,
+  });
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -92,15 +96,14 @@ export function NoteTable({ filter }: NoteTableProps): ReactElement {
   }
 
   return (
-    <>
+    <div className="space-y-4">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>タイトル</TableHead>
-            <TableHead>優先度</TableHead>
             <TableHead>タグ</TableHead>
+            <TableHead>優先度</TableHead>
             <TableHead>作成日時</TableHead>
-            <TableHead>更新日時</TableHead>
             <TableHead className="w-[70px]"></TableHead>
           </TableRow>
         </TableHeader>
@@ -108,25 +111,10 @@ export function NoteTable({ filter }: NoteTableProps): ReactElement {
           {notes.map((note) => (
             <TableRow
               key={note.id}
-              className="cursor-pointer hover:bg-zinc-900"
-              onClick={() => router.push(`/notes/${note.id}`)}
+              className="cursor-pointer"
+              onClick={() => setEditingNoteId(note.id)}
             >
               <TableCell className="font-medium">{note.title}</TableCell>
-              <TableCell>
-                {note.priority && (
-                  <span
-                    className={`inline-block rounded px-2 py-1 text-xs font-medium ${
-                      note.priority === '高'
-                        ? 'bg-rose-500/20 text-rose-500'
-                        : note.priority === '中'
-                          ? 'bg-amber-500/20 text-amber-500'
-                          : 'bg-emerald-500/20 text-emerald-500'
-                    }`}
-                  >
-                    {note.priority}
-                  </span>
-                )}
-              </TableCell>
               <TableCell>
                 <div className="flex flex-wrap gap-1">
                   {note.tags.map((tag) => (
@@ -134,12 +122,8 @@ export function NoteTable({ filter }: NoteTableProps): ReactElement {
                   ))}
                 </div>
               </TableCell>
-              <TableCell className="text-sm text-muted-foreground">
-                {formatDate(new Date(note.createdAt))}
-              </TableCell>
-              <TableCell className="text-sm text-muted-foreground">
-                {formatDate(new Date(note.updatedAt))}
-              </TableCell>
+              <TableCell>{note.priority}</TableCell>
+              <TableCell>{formatDate(note.createdAt)}</TableCell>
               <TableCell onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -166,6 +150,30 @@ export function NoteTable({ filter }: NoteTableProps): ReactElement {
         </TableBody>
       </Table>
 
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => filter.onPageChange?.(pagination.page - 1)}
+            disabled={pagination.page === 1}
+          >
+            前のページ
+          </Button>
+          <span className="text-sm text-zinc-400">
+            {pagination.page} / {pagination.totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => filter.onPageChange?.(pagination.page + 1)}
+            disabled={pagination.page === pagination.totalPages}
+          >
+            次のページ
+          </Button>
+        </div>
+      )}
+
       {editingNoteId && (
         <NoteFormModal
           isOpen={true}
@@ -178,31 +186,29 @@ export function NoteTable({ filter }: NoteTableProps): ReactElement {
         />
       )}
 
-      <AlertDialog
-        open={!!deletingNoteId}
-        onOpenChange={(isOpen) => !isOpen && setDeletingNoteId(null)}
-      >
+      <AlertDialog open={!!deletingNoteId} onOpenChange={() => setDeletingNoteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>メモを削除しますか？</AlertDialogTitle>
+            <AlertDialogTitle>メモの削除</AlertDialogTitle>
             <AlertDialogDescription>
-              この操作は取り消すことができません。
+              このメモを削除してもよろしいですか？この操作は取り消せません。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>
-              キャンセル
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>キャンセル</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deletingNoteId && handleDelete(deletingNoteId)}
               disabled={isDeleting}
-              className="bg-red-500 hover:bg-red-600"
+              onClick={async () => {
+                if (deletingNoteId) {
+                  await handleDelete(deletingNoteId);
+                }
+              }}
             >
-              {isDeleting ? '削除中...' : '削除する'}
+              削除
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 }
