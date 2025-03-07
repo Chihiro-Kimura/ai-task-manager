@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/compone
 import { useTaskApi } from '@/hooks/use-task-api';
 import { TaskWithExtras } from '@/types/task';
 
-import { EditTaskForm } from '../forms/EditTaskForm';
+import { TaskEditDialog } from '../forms/TaskEditDialog';
 
 import AITaskAnalysis from './features/ai/AITaskAnalysis';
 import { TaskContent } from './features/TaskContent';
@@ -41,25 +41,23 @@ export default function TaskItem({
           onDelete={handleDelete}
           onAIClick={() => setIsAIOpen(true)}
         />
-        <TaskContent task={task} onMutate={onMutate} />
+        <TaskContent task={task} />
       </div>
 
-      {isEditModalOpen && (
-        <EditTaskForm
-          task={task}
-          onClose={() => setIsEditModalOpen(false)}
-          onSubmit={async (values) => {
-            const { dueDate, tags: selectedTags, ...rest } = values;
-            
-            await updateTask({
-              ...rest,
-              due_date: dueDate?.toISOString() ?? null,
-              tags: selectedTags.map(tag => ({ id: tag.id })),
-            });
-            setIsEditModalOpen(false);
-          }}
-        />
-      )}
+      <TaskEditDialog
+        task={task}
+        isOpen={isEditModalOpen}
+        onOpenChange={setIsEditModalOpen}
+        onSubmit={async (values) => {
+          const { dueDate, tags: selectedTags, ...rest } = values;
+          await updateTask({
+            ...rest,
+            due_date: dueDate?.toISOString() ?? null,
+            tags: selectedTags.map(tag => ({ id: tag.id })),
+          });
+          setIsEditModalOpen(false);
+        }}
+      />
 
       <Dialog open={isAIOpen} onOpenChange={setIsAIOpen}>
         <DialogContent>

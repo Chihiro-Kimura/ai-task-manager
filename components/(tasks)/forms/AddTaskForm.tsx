@@ -6,6 +6,7 @@ import { type ReactElement, useCallback, useEffect, useState } from 'react';
 import TagSelect from '@/components/(common)/forms/tag-select';
 import DueDatePicker from '@/components/(tasks)/filters/DueDatePicker';
 import { PrioritySelect } from '@/components/(tasks)/filters/PrioritySelect';
+import { StatusSelect } from '@/components/(tasks)/filters/StatusSelect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,6 +14,7 @@ import { useTagManagement } from '@/hooks/use-tag-management';
 import { useToast } from '@/hooks/use-toast';
 import { Priority, Tag } from '@/types/common';
 import { CreateTaskData } from '@/types/task';
+import { TASK_STATUS, type TaskStatus } from '@/types/task/status';
 
 interface AddTaskFormProps {
   onSubmit: (task: CreateTaskData) => void;
@@ -31,6 +33,7 @@ export default function AddTaskForm({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<Priority | null>(null);
+  const [status, setStatus] = useState<TaskStatus>(TASK_STATUS.TODO);
   const [dueDate, setDueDate] = useState<Date>();
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
 
@@ -56,7 +59,7 @@ export default function AddTaskForm({
 
   // 初期ロード時にタグを取得
   useEffect(() => {
-    const initializeTags = async () => {
+    const initializeTags = async (): Promise<void> => {
       console.log('[AddTaskForm] Initializing tags...');
       try {
         const tags = await loadTags();
@@ -95,6 +98,7 @@ export default function AddTaskForm({
     setTitle('');
     setDescription('');
     setPriority(null);
+    setStatus(TASK_STATUS.TODO);
     setDueDate(undefined);
     setSelectedTags([]);
   }, []);
@@ -107,6 +111,7 @@ export default function AddTaskForm({
         title,
         description,
         priority,
+        status,
         tags: selectedTags,
         category,
         dueDate
@@ -116,8 +121,8 @@ export default function AddTaskForm({
         title,
         description,
         priority,
+        status,
         tags: selectedTags,
-        status: 'todo',
         task_order: 0,
         category,
         due_date: dueDate,
@@ -127,11 +132,11 @@ export default function AddTaskForm({
       console.error('[AddTaskForm] Submit error:', error);
       toast({
         title: 'エラー',
-        description: error instanceof Error ? error.message : 'タスクの作成に失敗しました',
+        description: 'タスクの作成に失敗しました',
         variant: 'destructive',
       });
     }
-  }, [title, description, priority, selectedTags, category, dueDate, onSubmit, resetForm, toast]);
+  }, [title, description, priority, status, selectedTags, category, dueDate, onSubmit, resetForm, toast]);
 
   const handleCancel = useCallback((): void => {
     console.log('[AddTaskForm] Cancelling form');
@@ -171,7 +176,7 @@ export default function AddTaskForm({
       console.error('[AddTaskForm] Error handling tags:', error);
       toast({
         title: 'エラー',
-        description: error instanceof Error ? error.message : 'タグの更新に失敗しました',
+        description: 'タグの処理に失敗しました',
         variant: 'destructive',
       });
     }
@@ -209,6 +214,13 @@ export default function AddTaskForm({
           className="min-h-[100px]"
         />
         <div className="flex items-center gap-2">
+          <StatusSelect
+            value={status}
+            onValueChange={setStatus}
+            variant="icon"
+            noBorder
+            className="flex-none"
+          />
           <PrioritySelect
             value={priority}
             onValueChange={setPriority}

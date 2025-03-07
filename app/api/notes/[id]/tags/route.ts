@@ -2,7 +2,7 @@ import { Tag } from '@prisma/client';
 import { NextResponse } from 'next/server';
 
 import { auth } from '@/lib/auth/config';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db/client';
 
 export async function PATCH(
   req: Request,

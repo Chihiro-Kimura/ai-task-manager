@@ -123,7 +123,7 @@ export function TagSelectClient({
       console.error('[TagSelectClient] Error creating tag:', error);
       toast({
         title: 'エラー',
-        description: error instanceof Error ? error.message : 'タグの作成に失敗しました',
+        description: 'タグの作成に失敗しました',
         variant: 'destructive',
       });
     } finally {
@@ -146,7 +146,7 @@ export function TagSelectClient({
       console.error('[TagSelectClient] Error selecting tag:', error);
       toast({
         title: 'エラー',
-        description: error instanceof Error ? error.message : 'タグの更新に失敗しました',
+        description: 'タグの選択に失敗しました',
         variant: 'destructive',
       });
     }

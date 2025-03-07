@@ -3,7 +3,6 @@ import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/lib/auth/config';
 import { prisma } from '@/lib/db/client';
-import { getTagSuggestions } from '@/lib/gemini';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
