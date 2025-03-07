@@ -17,7 +17,9 @@ export default function DashboardLayout({
         <div className="flex-1 overflow-y-auto">
           <Header />
           <main className="min-h-[calc(100vh-4rem)]">
-            <div className="container mx-auto">{children}</div>
+            <div className="mx-auto max-w-[1400px]">
+              {children}
+            </div>
           </main>
         </div>
       </div>
