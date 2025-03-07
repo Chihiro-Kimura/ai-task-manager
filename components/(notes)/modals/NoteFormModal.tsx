@@ -33,8 +33,27 @@ export function NoteFormModal({
   }, [isOpen]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
+    <Dialog 
+      open={isOpen} 
+      onOpenChange={(open) => {
+        // ヘルプパネルがクリックされた場合は閉じない
+        const helpPanel = document.querySelector('[data-help-panel]');
+        const activeElement = document.activeElement;
+        if (helpPanel?.contains(activeElement)) {
+          return;
+        }
+        onClose();
+      }}
+    >
+      <DialogContent 
+        className="sm:max-w-[600px]"
+        onPointerDownOutside={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('[role="dialog"]')) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{note ? 'メモを編集' : '新規メモ'}</DialogTitle>
           <DialogDescription>
