@@ -34,120 +34,37 @@ export function useTagManagement({
 }: UseTagManagementProps): TagManagement {
   const { toast } = useToast();
   const [tags, setTags] = useState<Tag[]>(initialTags);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<TagError | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // 初期値のログ
-  useEffect(() => {
-    console.log('[useTagManagement] Initial mount:', {
-      id,
-      type,
-      initialTags,
-      isLoading,
-      isInitialized,
-      currentTags: tags
-    });
-  }, []);
-
-  // タグの状態変更を監視
-  useEffect(() => {
-    console.log('[useTagManagement] Tags state updated:', {
-      currentTags: tags,
-      isLoading,
-      isInitialized,
-      error
-    });
-  }, [tags, isLoading, isInitialized, error]);
-
-  // タグの読み込み
   const loadTags = useCallback(async () => {
-    console.log('[useTagManagement] loadTags called:', {
-      isInitialized,
-      currentTags: tags,
-      initialTags
-    });
-
-    if (isInitialized) {
-      console.log('[useTagManagement] Tags already loaded, returning current tags:', tags);
+    if (tags.length > 0) {
       return tags;
     }
 
+    setIsLoading(true);
+    setError(null);
+
     try {
-      console.log('[useTagManagement] Starting to fetch tags...');
-      setIsLoading(true);
-      setError(null);
-      
       const loadedTags = await fetchTags();
-      console.log('[useTagManagement] Raw loaded tags:', loadedTags);
-      
-      if (!Array.isArray(loadedTags)) {
-        console.error('[useTagManagement] Loaded tags is not an array:', loadedTags);
-        throw new Error('Invalid tags data received');
-      }
-
-      // タグのデータを正規化
-      const normalizedTags = loadedTags.map(tag => {
-        const normalized = {
-          ...tag,
-          color: tag.color || null,
-          createdAt: new Date(tag.createdAt)
-        };
-        console.log('[useTagManagement] Normalized tag:', normalized);
-        return normalized;
-      });
-
-      console.log('[useTagManagement] All normalized tags:', normalizedTags);
-
-      // 初期タグと結合
-      const mergedTags = [...normalizedTags];
-      initialTags.forEach(tag => {
-        if (!mergedTags.some(t => t.id === tag.id)) {
-          console.log('[useTagManagement] Adding initial tag:', tag);
-          mergedTags.push(tag);
-        }
-      });
-
-      console.log('[useTagManagement] Final merged tags:', mergedTags);
-      setTags(mergedTags);
-      setIsInitialized(true);
-      return mergedTags;
-    } catch (error) {
-      console.error('[useTagManagement] Error in loadTags:', error);
-      const errorMsg = TAG_MESSAGES.FETCH_ERROR;
-      setError({
-        code: 'API_ERROR',
-        message: errorMsg
-      });
-      toast({
-        title: 'エラー',
-        description: errorMsg,
-        variant: 'destructive',
-      });
-      return initialTags;
+      setTags(loadedTags);
+      return loadedTags;
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to load tags'));
+      return [];
     } finally {
       setIsLoading(false);
     }
-  }, [toast, tags, initialTags, isInitialized]);
+  }, [id, type, tags]);
 
   // 初期ロード時にタグを取得
   useEffect(() => {
-    console.log('[useTagManagement] Initial load effect triggered');
     void loadTags();
   }, [loadTags]);
 
-  // loadTagsの依存配列の変更を監視
-  useEffect(() => {
-    console.log('[useTagManagement] loadTags dependencies changed:', {
-      tagsLength: tags.length,
-      initialTagsLength: initialTags.length,
-      isInitialized
-    });
-  }, [tags, initialTags, isInitialized]);
-
   // タグの作成
   const createNewTag = useCallback(async (name: string) => {
-    console.log('[useTagManagement] Creating new tag:', name);
     if (!name.trim()) {
       setError({
         code: 'INVALID_NAME',
@@ -167,7 +84,6 @@ export function useTagManagement({
       );
 
       if (existingLocalTag) {
-        console.log('[useTagManagement] Found existing local tag:', existingLocalTag);
         return existingLocalTag;
       }
 
@@ -178,7 +94,6 @@ export function useTagManagement({
       );
 
       if (existingRemoteTag) {
-        console.log('[useTagManagement] Found existing remote tag:', existingRemoteTag);
         const normalizedTag = {
           ...existingRemoteTag,
           color: existingRemoteTag.color || null,
@@ -189,46 +104,35 @@ export function useTagManagement({
       }
 
       // 新しいタグを作成
-      console.log('[useTagManagement] Creating new tag:', name);
       const newTag = await createTag(name.trim());
       const normalizedTag = {
         ...newTag,
         color: newTag.color || null,
         createdAt: new Date(newTag.createdAt)
       };
-      console.log('[useTagManagement] Created new tag:', normalizedTag);
 
       // ローカルの状態を更新
       setTags(prev => [...prev, normalizedTag]);
       return normalizedTag;
     } catch (error) {
-      console.error('[useTagManagement] Error creating tag:', error);
-      const errorMsg = TAG_MESSAGES.CREATE_ERROR;
       setError({
         code: 'API_ERROR',
-        message: errorMsg
-      });
-      toast({
-        title: 'エラー',
-        description: errorMsg,
-        variant: 'destructive',
+        message: 'Failed to create tag'
       });
       return null;
     } finally {
       setIsLoading(false);
     }
-  }, [toast, tags]);
+  }, [tags]);
 
   // タグの更新
   const updateTagSelection = useCallback(async (selectedTags: Tag[]) => {
-    console.log('[useTagManagement] Updating tag selection:', selectedTags);
     try {
       setIsLoading(true);
       setError(null);
 
       // IDが存在する場合のみ、APIを通じてタグを更新
       if (id) {
-        console.log('[useTagManagement] Updating tags via API:', selectedTags.map(t => t.name));
         await updateTags({
           id,
           type,
@@ -252,21 +156,14 @@ export function useTagManagement({
         onTagsChange(selectedTags);
       }
     } catch (error) {
-      console.error('[useTagManagement] Error updating tags:', error);
-      const errorMsg = TAG_MESSAGES.UPDATE_ERROR;
       setError({
         code: 'API_ERROR',
-        message: errorMsg
-      });
-      toast({
-        title: 'エラー',
-        description: errorMsg,
-        variant: 'destructive',
+        message: 'Failed to update tags'
       });
     } finally {
       setIsLoading(false);
     }
-  }, [id, type, onTagsChange, toast]);
+  }, [id, type, onTagsChange]);
 
   return {
     tags,

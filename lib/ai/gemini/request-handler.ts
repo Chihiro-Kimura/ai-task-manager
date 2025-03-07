@@ -48,21 +48,11 @@ export async function handleAIRequest<T, R>(
       return NextResponse.json(result);
     } catch (error) {
       console.error('AI processing error:', error);
-      const aiError: AIError = {
-        type: 'UNKNOWN_ERROR',
-        message: '処理に失敗しました',
-        originalError: error instanceof Error ? error : undefined
-      };
-      return NextResponse.json(aiError, { status: 500 });
+      throw error;
     }
   } catch (error) {
     console.error('Request handling error:', error);
-    const aiError: AIError = {
-      type: 'INVALID_REQUEST',
-      message: 'リクエストの処理に失敗しました',
-      originalError: error instanceof Error ? error : undefined
-    };
-    return NextResponse.json(aiError, { status: 500 });
+    throw error;
   }
 }
 
