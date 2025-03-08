@@ -1,0 +1,66 @@
+{
+  "common": {
+    "save": "保存",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "edit": "編集",
+    "create": "作成",
+    "loading": "読み込み中..."
+  },
+  "settings": {
+    "title": "設定",
+    "description": "アプリケーションの設定を管理します。",
+    "theme": {
+      "title": "表示設定",
+      "description": "アプリケーションの表示に関する設定を管理します。",
+      "darkMode": {
+        "label": "ダークモード",
+        "description": "ダークモードを有効にすると、画面の明るさが抑えられます。"
+      },
+      "fontSize": {
+        "label": "フォントサイズ",
+        "description": "アプリケーション全体のフォントサイズを調整します。",
+        "small": "小",
+        "medium": "中",
+        "large": "大"
+      },
+      "language": {
+        "label": "表示言語",
+        "description": "アプリケーションの表示言語を選択します。",
+        "ja": "日本語",
+        "en": "英語"
+      },
+      "timeZone": {
+        "label": "タイムゾーン",
+        "description": "日時の表示に使用するタイムゾーンを設定します。",
+        "tokyo": "東京 (UTC+9)",
+        "utc": "UTC",
+        "la": "ロサンゼルス (UTC-8)"
+      }
+    },
+    "notifications": {
+      "title": "通知設定",
+      "description": "通知に関する設定を管理します。",
+      "enableAll": "すべてオン",
+      "disableAll": "すべてオフ",
+      "types": {
+        "taskDue": {
+          "label": "タスクの期限通知",
+          "description": "タスクの期限が近づいた時に通知します。"
+        },
+        "mentions": {
+          "label": "メンション通知",
+          "description": "タスクやメモでメンションされた時に通知します。"
+        },
+        "system": {
+          "label": "システム通知",
+          "description": "重要なシステムの更新や変更を通知します。"
+        },
+        "email": {
+          "label": "メール通知",
+          "description": "重要な通知をメールでも受け取ります。"
+        }
+      }
+    }
+  }
+}

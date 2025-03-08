@@ -1,0 +1,66 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "loading": "Loading..."
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Manage application settings.",
+    "theme": {
+      "title": "Display Settings",
+      "description": "Manage application display settings.",
+      "darkMode": {
+        "label": "Dark Mode",
+        "description": "Enable dark mode to reduce screen brightness."
+      },
+      "fontSize": {
+        "label": "Font Size",
+        "description": "Adjust the font size for the entire application.",
+        "small": "Small",
+        "medium": "Medium",
+        "large": "Large"
+      },
+      "language": {
+        "label": "Display Language",
+        "description": "Select the application display language.",
+        "ja": "Japanese",
+        "en": "English"
+      },
+      "timeZone": {
+        "label": "Time Zone",
+        "description": "Set the time zone for displaying dates and times.",
+        "tokyo": "Tokyo (UTC+9)",
+        "utc": "UTC",
+        "la": "Los Angeles (UTC-8)"
+      }
+    },
+    "notifications": {
+      "title": "Notification Settings",
+      "description": "Manage notification settings.",
+      "enableAll": "Enable All",
+      "disableAll": "Disable All",
+      "types": {
+        "taskDue": {
+          "label": "Task Due Notifications",
+          "description": "Receive notifications when tasks are due."
+        },
+        "mentions": {
+          "label": "Mention Notifications",
+          "description": "Receive notifications when mentioned in tasks or notes."
+        },
+        "system": {
+          "label": "System Notifications",
+          "description": "Receive notifications about important system updates and changes."
+        },
+        "email": {
+          "label": "Email Notifications",
+          "description": "Receive important notifications via email."
+        }
+      }
+    }
+  }
+}
