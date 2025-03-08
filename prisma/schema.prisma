@@ -113,5 +113,12 @@ model Tag {
   tasks     Task[]   @relation("TaskToTag")
   createdAt DateTime @default(now())
 
+  parentId  String?
+  parent    Tag?     @relation("TagHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Tag[]    @relation("TagHierarchy")
+  path      String?  @db.VarChar(255)
+  level     Int      @default(0)
+
   @@index([userId])
+  @@index([parentId])
 }

@@ -1,9 +1,10 @@
-import { Tag } from '@prisma/client';
+import { type Tag as PrismaTag } from '@prisma/client';
+
 
 import { getRandomTagColor } from '@/lib/constants/colors';
 import { TAG_MESSAGES } from '@/lib/constants/messages';
 import { prisma } from '@/lib/db/client';
-import { TagColor } from '@/types/common';
+import { type TagColor } from '@/types/common';
 
 export interface TagUpdateParams {
   id?: string;
@@ -16,11 +17,32 @@ export interface TagInput {
   color?: TagColor | null;
 }
 
+export interface TagWithHierarchy extends Omit<PrismaTag, 'parentId'> {
+  parentId?: string | null;
+  children: TagWithHierarchy[];
+  level: number;
+  path?: string;
+  _count?: {
+    notes: number;
+    tasks: number;
+  };
+}
+
 export class TagError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'TagError';
   }
+}
+
+interface Tag {
+  id: string;
+  name: string;
+  color?: string;
+  parentId?: string;
+  children: Tag[];
+  level: number;
+  path?: string;
 }
 
 // 共通のタグ更新ロジック
@@ -208,4 +230,85 @@ export async function fetchTags(): Promise<Tag[]> {
     ...tag,
     color: tag.color ? JSON.parse(tag.color) : null,
   }));
+}
+
+/**
+ * タグの階層構造が有効かどうかを検証します
+ */
+export function validateTagHierarchy(
+  tags: TagWithHierarchy[], 
+  targetId: string, 
+  newParentId?: string
+): { 
+  isValid: boolean; 
+  error?: string;
+} {
+  // 自分自身を親にはできない
+  if (targetId === newParentId) {
+    return {
+      isValid: false,
+      error: '自分自身を親タグにすることはできません',
+    };
+  }
+
+  // 循環参照のチェック
+  if (newParentId) {
+    const visited = new Set<string>();
+    let currentId = newParentId;
+
+    while (currentId) {
+      if (visited.has(currentId)) {
+        return {
+          isValid: false,
+          error: '循環参照が検出されました',
+        };
+      }
+      visited.add(currentId);
+
+      const parentTag = tags.find(t => t.id === currentId);
+      currentId = parentTag?.parentId || '';
+    }
+  }
+
+  // 最大深度のチェック（例: 5階層まで）
+  const MAX_DEPTH = 5;
+  if (newParentId) {
+    let depth = 1;
+    let currentId = newParentId;
+
+    while (currentId) {
+      depth++;
+      if (depth > MAX_DEPTH) {
+        return {
+          isValid: false,
+          error: `タグの階層は最大${MAX_DEPTH}階層までです`,
+        };
+      }
+
+      const parentTag = tags.find(t => t.id === currentId);
+      currentId = parentTag?.parentId || '';
+    }
+  }
+
+  return { isValid: true };
+}
+
+/**
+ * タグのパスを更新します
+ */
+export function updateTagPath(tags: TagWithHierarchy[], tagId: string): string {
+  const tag = tags.find(t => t.id === tagId);
+  if (!tag) return '';
+
+  const path: string[] = [tag.name];
+  let currentId = tag.parentId;
+
+  while (currentId) {
+    const parentTag = tags.find(t => t.id === currentId);
+    if (!parentTag) break;
+    path.unshift(parentTag.name);
+    currentId = parentTag.parentId;
+  }
+
+  return path.join(' / ');
 } 
