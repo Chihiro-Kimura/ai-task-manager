@@ -32,8 +32,8 @@ const navItems: NavItem[] = [
     icon: <Tag className="h-4 w-4" />,
   },
   {
-    title: 'AI設定',
-    href: '/settings',
+    title: '設定',
+    href: '/settings/general',
     icon: <Settings className="h-4 w-4" />,
   },
 ];

@@ -41,7 +41,7 @@ const formSchema = z.object({
   category: z.enum(['inbox', 'doing', 'todo']).default('inbox'),
   dueDate: z.date({
     errorMap: () => ({ message: '有効な日付を選択してください' })
-  }).nullable().transform(v => v === null ? undefined : v),
+  }).nullable().optional(),
   tags: z.array(
     z.object({
       id: z.string(),
@@ -220,6 +220,7 @@ export function EditTaskForm({ task, onClose, onSubmit }: EditTaskFormProps): Re
         <DueDatePicker
           dueDate={form.watch('dueDate')}
           setDueDate={(date) => form.setValue('dueDate', date, { shouldValidate: true })}
+          variant="full"
         />
         <TagSelect
           id={task.id}

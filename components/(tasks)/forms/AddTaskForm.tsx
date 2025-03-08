@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Loader2 } from 'lucide-react';
 import { type ReactElement, useCallback, useEffect, useState } from 'react';
 
 import TagSelect from '@/components/(common)/forms/tag-select';
@@ -36,6 +36,7 @@ export default function AddTaskForm({
   const [status, setStatus] = useState<TaskStatus>(TASK_STATUS.TODO);
   const [dueDate, setDueDate] = useState<Date>();
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
     tags: availableTags,
@@ -104,9 +105,10 @@ export default function AddTaskForm({
   }, []);
 
   const handleSubmit = useCallback(async (): Promise<void> => {
-    if (!title) return;
+    if (!title || isSubmitting) return;
 
     try {
+      setIsSubmitting(true);
       console.log('[AddTaskForm] Submitting form:', {
         title,
         description,
@@ -135,8 +137,10 @@ export default function AddTaskForm({
         description: 'タスクの作成に失敗しました',
         variant: 'destructive',
       });
+    } finally {
+      setIsSubmitting(false);
     }
-  }, [title, description, priority, status, selectedTags, category, dueDate, onSubmit, resetForm, toast]);
+  }, [title, description, priority, status, selectedTags, category, dueDate, onSubmit, resetForm, toast, isSubmitting]);
 
   const handleCancel = useCallback((): void => {
     console.log('[AddTaskForm] Cancelling form');
@@ -244,12 +248,28 @@ export default function AddTaskForm({
           />
         </div>
         <div className="flex items-center justify-end gap-2">
-          <Button variant="ghost" onClick={handleCancel}>
+          <Button 
+            variant="ghost" 
+            onClick={handleCancel}
+            disabled={isSubmitting}
+          >
             キャンセル
           </Button>
-          <Button onClick={() => void handleSubmit()}>
-            <Plus className="mr-2 h-4 w-4" />
-            追加
+          <Button 
+            onClick={() => void handleSubmit()}
+            disabled={isSubmitting || !title}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                追加中...
+              </>
+            ) : (
+              <>
+                <Plus className="mr-2 h-4 w-4" />
+                追加
+              </>
+            )}
           </Button>
         </div>
       </div>

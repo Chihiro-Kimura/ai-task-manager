@@ -12,7 +12,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu';
-import { FormLabel } from '@/components/ui/form';
+import { Label } from '@/components/ui/label';
 import {
   Popover,
   PopoverContent,
@@ -21,7 +21,7 @@ import {
 import { cn } from '@/lib/utils/styles';
 
 interface DueDatePickerProps {
-  dueDate?: Date;
+  dueDate?: Date | null;
   setDueDate: (date: Date | undefined) => void;
   variant?: 'icon' | 'full' | 'menuItem';
   className?: string;
@@ -33,22 +33,24 @@ function CalendarContent({
   dueDate,
   setDueDate,
 }: {
-  dueDate: Date | undefined;
+  dueDate: Date | undefined | null;
   setDueDate: (date: Date | undefined) => void;
 }): ReactElement {
-  return <Calendar
-    mode="single"
-    selected={dueDate}
-    onSelect={setDueDate}
-    className="rounded-md border border-zinc-800 bg-zinc-950 text-zinc-400"
-    locale={ja}
-  />
+  return (
+    <Calendar
+      mode="single"
+      selected={dueDate || undefined}
+      onSelect={setDueDate}
+      className="rounded-md border border-zinc-800 bg-zinc-950 text-zinc-400"
+      locale={ja}
+    />
+  );
 }
 
 export default function DueDatePicker({
   dueDate,
   setDueDate,
-  variant = 'icon',
+  variant = 'full',
   className = '',
   children,
   hideLabel = false,
@@ -76,10 +78,10 @@ export default function DueDatePicker({
   }
 
   return (
-    <div className={className}>
-      {variant === 'full' && (
-        <>
-          {!hideLabel && <FormLabel>締切日</FormLabel>}
+    <div className={cn("flex flex-col gap-2", className)}>
+      {variant === 'full' && !hideLabel && (
+        <Label>締切日</Label>
+      )}
       <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild>
           {isIcon ? (
@@ -96,16 +98,18 @@ export default function DueDatePicker({
                   'h-4 w-4',
                   dueDate
                     ? 'text-violet-400/70 hover:text-violet-400'
-                    : className || 'text-zinc-500 hover:text-violet-400'
+                    : 'text-zinc-500 hover:text-violet-400'
                 )}
               />
             </Button>
           ) : (
             <Button
               variant="outline"
-              className={`w-full justify-start text-left font-normal bg-zinc-950 border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700 ${
-                !dueDate && 'text-slate-400'
-              }`}
+              className={cn(
+                "w-full justify-start text-left font-normal",
+                "bg-zinc-950 border-zinc-800 hover:bg-zinc-900 hover:border-zinc-700",
+                !dueDate && "text-slate-400"
+              )}
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
               {dueDate
@@ -127,8 +131,6 @@ export default function DueDatePicker({
           />
         </PopoverContent>
       </Popover>
-        </>
-      )}
     </div>
   );
 }
